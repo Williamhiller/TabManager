@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# build outputs
+output/
+.wxt/
+
+# local env
+.DS_Store
+.env
+.env.*
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
