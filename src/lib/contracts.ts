@@ -1,7 +1,7 @@
 export type LaunchSurface = 'sidepanel' | 'dashboard';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type LocaleMode = 'system' | 'en' | 'zh-CN';
-export type AutoGroupRuleField = 'hostname' | 'url';
+export type AutoGroupRuleField = 'hostname' | 'url' | 'title';
 export type AutoGroupRuleOperator = 'contains' | 'equals';
 export type TabGroupColor =
   | 'grey'
@@ -19,6 +19,16 @@ export interface AutoGroupRule {
   field: AutoGroupRuleField;
   operator: AutoGroupRuleOperator;
   value: string;
+}
+
+export interface AutoGroupConfig {
+  id: string;
+  presetId?: string;
+  title: string;
+  color: TabGroupColor;
+  enabled: boolean;
+  websites: string[];
+  rules: AutoGroupRule[];
 }
 
 export interface TabGroupUpdatePatch {
@@ -42,7 +52,9 @@ export interface ManagerSettings {
   launchSurface: LaunchSurface;
   autoRefreshSeconds: number;
   autoGroupEnabled: boolean;
+  redirectTrackingEnabled: boolean;
   autoGroupPresetIds: string[];
+  autoGroupConfigs: AutoGroupConfig[];
   theme: ThemeMode;
   locale: LocaleMode;
 }
@@ -69,6 +81,8 @@ export type TabHistoryEventKind =
   | 'created'
   | 'closed'
   | 'navigated'
+  | 'redirected'
+  | 'history-state'
   | 'retitled'
   | 'activated'
   | 'pinned'
@@ -158,6 +172,10 @@ export interface TabMutationResult {
   affectedCount: number;
 }
 
+export interface RedirectTrackingPermissionState {
+  granted: boolean;
+}
+
 export type OverviewChangeReason =
   | 'created'
   | 'updated'
@@ -174,6 +192,7 @@ export interface OverviewInvalidatedMessage {
 export type ExtensionRequest =
   | { type: 'tab-manager/get-overview' }
   | { type: 'tab-manager/get-tab-detail'; tabId: number }
+  | { type: 'tab-manager/get-redirect-tracking-permission' }
   | { type: 'tab-manager/open-dashboard' }
   | { type: 'tab-manager/close-tabs'; tabIds: number[] }
   | { type: 'tab-manager/pin-tabs'; tabIds: number[]; pinned: boolean }

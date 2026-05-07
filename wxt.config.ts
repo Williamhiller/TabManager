@@ -6,11 +6,20 @@ export default defineConfig({
   outDir: 'output',
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    name: 'Tab Manager',
+    name: 'Auto Tab Groups - Tab Manager',
     description:
-      'A focused tab workspace with search, smart grouping, batch actions, and history in popup, side panel, and dashboard.',
+      'Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.',
     minimum_chrome_version: '114',
-    permissions: ['favicon', 'sidePanel', 'storage', 'system.memory', 'tabGroups', 'tabs'],
+    permissions: [
+      'favicon',
+      'sidePanel',
+      'storage',
+      'system.memory',
+      'tabGroups',
+      'tabs'
+    ],
+    optional_permissions: ['webNavigation', 'webRequest'],
+    optional_host_permissions: ['http://*/*', 'https://*/*'],
     icons: {
       '16': 'icons/icon-16.png',
       '32': 'icons/icon-32.png',
@@ -18,7 +27,7 @@ export default defineConfig({
       '128': 'icons/icon-128.png'
     },
     action: {
-      default_title: 'Tab Manager',
+      default_title: 'Auto Tab Groups - Tab Manager',
       default_icon: {
         '16': 'icons/icon-16.png',
         '32': 'icons/icon-32.png',

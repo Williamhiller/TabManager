@@ -1,83 +1,120 @@
-# Tab Manager - App Store Listing Kit
+# Auto Tab Groups - Chrome Web Store Listing Kit
 
 ## 1) Basic Info
 
-- Product name: `Tab Manager`
+- Product name (recommended): `Auto Tab Groups - Tab Manager`
+- Alternative names:
+  - `Auto Group Tabs - Tab Manager`
+  - `Tab Manager: Auto Groups`
+  - `Smart Tab Groups - Tab Organizer`
 - Category (recommended): `Productivity`
 - Language support: `English`, `简体中文`
 - Minimum Chrome version: `114`
+
+Primary keyword focus:
+
+- `auto group tabs`
+- `auto tab groups`
+- `tab groups`
+- `tab manager`
+- `organize tabs`
+- `smart tab grouping`
+
+Recommended Chrome Web Store field updates:
+
+- Name: `Auto Tab Groups - Tab Manager`
+- Short description: `Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.`
+- First screenshot headline: `Auto-group messy Chrome tabs instantly`
+- Second screenshot headline: `Customize groups, websites, and rules`
+- Small promo tile message: `Auto-group Chrome tabs by website, topic, and custom rules`
 
 ## 2) Short Description
 
 Use this in the Chrome Web Store short description field (132 chars max).
 
 ### Chinese
-在侧边栏、弹窗和独立工作区集中管理标签页：秒级搜索、智能分组、批量操作、历史回溯。
+按网站类型、域名和自定义规则自动分组 Chrome 标签页，并支持搜索、清理和批量管理。
 
 ### English
-Manage tabs in one workspace across popup, side panel, and dashboard with instant search, smart grouping, batch actions, history.
+Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.
 
 ## 3) Detailed Description
 
 ### Chinese
-Tab Manager 是一个面向高频浏览用户的标签工作台，帮你把“找标签、分标签、整理标签”三件事合到一个界面里。
+标签页太多、分组太麻烦？Auto Tab Groups - Tab Manager 可以自动帮你分组 Chrome 标签页。
 
-你可以在侧边栏、弹窗或独立页面中管理当前窗口和全局标签：
+它可以按网站类型、主题、域名、自定义网站列表和规则自动分组，让工作、购物、社交、AI、开发、学习等标签自动归类。你也可以创建自己的分组，配置每个分组的网站列表、匹配规则和优先级，让标签页按照你的工作方式整理。
 
+核心功能：
+
+- 自动分组：按网站类型和主题自动归类，例如 Shopping、Social、Media、Office、AI、Development、News、Finance、Travel、Learning
+- 自定义分组：创建自己的 group，设置名称、颜色、启用状态和匹配优先级
+- 网站列表：把 `github.com`、`openai.com`、`notion.so` 等网站直接加入指定分组
+- 自定义规则：按域名、URL 或标题匹配，支持 contains / equals 条件
+- 手动整理：支持按域名或网站类型一键智能分组
 - 全局搜索：按标题、网址、域名、分组名快速检索
 - 智能视图：快速筛选未分组、已分组、休眠、有声音、固定、长期未访问标签
 - 批量操作：一键关闭、固定、静音、休眠、分组、取消分组
-- 智能分组：支持按域名、网站类型自动归类
 - 拖拽编排：支持标签排序、跨分组移动、分组内外重排
 - 标签详情与历史：查看活跃时长、最近活动、历史轨迹，并支持重开历史标签
-- 工作区偏好：支持主题、语言、默认打开方式、自动刷新频率设置
+- 多入口工作区：支持侧边栏、弹窗和独立 dashboard
 
 适合以下场景：
 
 - 日常并行处理多个任务
+- 同时打开很多 AI、开发、资料、购物、社交网站
 - 研究/学习中频繁切换资料
-- 需要定期清理杂乱标签
+- 希望标签页自动归类，而不是手动拖来拖去
+- 需要定期搜索、清理和批量管理杂乱标签
 - 想保留标签历史并快速恢复
 
 ### English
-Tab Manager is a focused workspace for people who handle many tabs every day. It combines searching, grouping, and cleanup into one consistent interface.
+Too many Chrome tabs open? Auto Tab Groups - Tab Manager groups them automatically.
 
-Use it from the popup, side panel, or standalone dashboard to organize tabs across your browser session:
+It automatically groups tabs by website, topic, domain, custom website lists, and matching rules, so work, shopping, social, AI, development, learning, and research tabs stay separated. You can also create custom groups, edit each group's websites and rules, and set match priority for your own workflow.
 
+Key features:
+
+- Auto grouping by common website types and topics, including Shopping, Social, Media, Office, AI, Development, News, Finance, Travel, and Learning
+- Custom groups with name, color, enabled state, and priority
+- Website lists for routing domains like `github.com`, `openai.com`, or `notion.so` into a specific group
+- Custom rules that match by domain, URL, or title with contains / equals conditions
+- One-click smart grouping by domain or site type
 - Fast search across title, URL, hostname, and group title
 - Smart views for ungrouped, grouped, sleeping, audible, pinned, and stale tabs
 - Batch actions for close, pin, mute, sleep, group, and ungroup
-- Smart grouping by domain or site type
 - Drag-and-drop ordering across and within groups
 - Tab detail and history with activity timeline and reopen support
-- Workspace preferences for theme, language, launch surface, and auto refresh
+- Side panel, popup, and standalone dashboard workspaces
 
-Built for users who want a cleaner tab workflow, faster switching, and less tab clutter.
+Built for users who want tabs to organize themselves, while still keeping fast search, cleanup, batch actions, and history close at hand.
 
 ## 4) Permission Justification
 
 - `tabs`: Read, focus, reorder, group, sleep, and close tabs.
 - `tabGroups`: Read and update Chrome tab groups.
 - `sidePanel`: Open and control the side panel workspace.
-- `storage`: Save local settings (theme, language, launch mode, refresh rate).
+- `storage`: Save settings, custom auto-group configurations, website lists, rules, theme, language, launch mode, refresh rate, and local tab history.
 - `system.memory`: Show memory snapshot info inside the workspace.
 - `favicon`: Display each tab's favicon for faster visual recognition.
+- Optional `webNavigation`: Track page URL changes and navigation events when the user enables Redirect trace.
+- Optional `webRequest` + optional host permissions for `http://*/*` and `https://*/*`: Detect main-frame redirect chains locally only after the user enables Redirect trace and grants permission.
 
 ## 5) Single Purpose Statement
 
 ### Chinese
-Tab Manager 的唯一目的，是帮助用户在 Chrome 中高效搜索、分组、整理与回溯标签页，降低多标签工作场景下的切换成本和管理负担。
+Auto Tab Groups - Tab Manager 的唯一目的，是帮助用户在 Chrome 中自动分组、搜索、整理与回溯标签页，降低多标签工作场景下的切换成本和管理负担。
 
 ### English
-Tab Manager has one purpose: helping users efficiently search, group, organize, and revisit browser tabs in Chrome.
+Auto Tab Groups - Tab Manager has one purpose: helping users automatically group, search, organize, and revisit browser tabs in Chrome.
 
 ## 6) Privacy Statement (For Listing Form)
 
 ### Chinese
-Tab Manager 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签与分组信息，配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
+Auto Tab Groups - Tab Manager 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签、分组、自定义网站列表和规则信息。只有当用户主动开启 Redirect trace 并授权后，插件才会在本地记录导航/重定向历史。配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
 
 ### English
-Tab Manager does not send your tab data to external servers. Tab and group data are processed locally, and settings/history are stored in browser storage (`chrome.storage`) to provide core features.
+Auto Tab Groups - Tab Manager does not send your tab data to external servers. Tab data, group data, custom website lists, and rules are processed locally. Navigation/redirect history is recorded locally only after the user enables Redirect trace and grants permission. Settings/history are stored in browser storage (`chrome.storage`) to provide core features.
 
 ## 7) Privacy Policy URL (GitHub Pages)
 
@@ -91,26 +128,32 @@ If your repository name is different, replace `TabManager` with your actual repo
 
 - Icon: `128x128` (already available)
 - Screenshots (recommended 5):
-  - Smart search and filter view
-  - Batch action toolbar
-  - Group management with drag-and-drop
-  - Tab detail timeline/history
-  - Options page (language/theme/launch settings)
+  - Auto-group messy tabs instantly
+  - Customize groups, websites, and rules
+  - Add websites to any group
+  - Search and clean up grouped tabs
+  - Track tab history and reopen work
+- Small promo tile: `440x280`
+  - Message: `Auto-group Chrome tabs by website, topic, and custom rules`
+- Marquee promo tile (optional): `1400x560`
+  - Message: `Tabs organize themselves`
 
 ## 9) One-Line Promo Variants
 
 ### Chinese
-- 把标签管理从“救火”变成“工作流”。
-- 用一个工作区，收住所有标签混乱。
+- 让 Chrome 标签页自动归类。
+- 不再手动拖标签，规则会帮你分组。
+- 自动分组、快速搜索、批量清理，一站完成。
 
 ### English
-- Turn tab chaos into a focused workflow.
-- One workspace to control all your tabs.
+- Let Chrome tabs organize themselves.
+- Stop dragging tabs manually. Let rules group them.
+- Auto group, search, and clean up tabs in one workspace.
 
 ## 10) Release Notes Template (v0.1.0)
 
 ### Chinese
-首个可用版本上线：支持标签搜索与筛选、批量操作、智能分组、拖拽排序、历史标签回溯，以及侧边栏/弹窗/独立页三种工作区入口。
+首个可用版本上线：支持按网站、主题、域名、自定义网站列表和规则自动分组，并提供标签搜索与筛选、批量操作、拖拽排序、历史标签回溯，以及侧边栏/弹窗/独立页三种工作区入口。
 
 ### English
-First public release: includes tab search and filtering, batch actions, smart grouping, drag-and-drop ordering, tab history, and three work surfaces (popup, side panel, dashboard).
+First public release: includes auto grouping by website, topic, domain, custom website lists, and rules, plus tab search and filtering, batch actions, drag-and-drop ordering, tab history, and three work surfaces (popup, side panel, dashboard).

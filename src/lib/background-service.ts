@@ -1,13 +1,14 @@
 import type {
+  AutoGroupConfig,
   AutoGroupRule,
   AutoGroupRuleField,
   ExtensionRequest,
   ExtensionResult,
   GroupTabsOptions,
-  HistoryTabSnapshot,
   OverviewChangeReason,
   OverviewInvalidatedMessage,
   OverviewSnapshot,
+  RedirectTrackingPermissionState,
   RuntimeTabTelemetry,
   SmartGroupStrategy,
   SystemMemorySnapshot,
@@ -21,6 +22,7 @@ import type {
   TabSnapshot
 } from './contracts';
 import {
+  defaultAutoGroupPresets,
   getDefaultAutoGroupPresetTitle,
   matchesDefaultAutoGroupPresetById,
   matchDefaultAutoGroupPreset
@@ -89,11 +91,19 @@ interface PersistedGroupMetadataState {
   groups: Record<string, GroupMetadataRecord>;
 }
 
+interface PendingRedirectEvent {
+  fromUrl: string;
+  toUrl: string;
+  at: number;
+  statusCode: number;
+}
+
 const runtimeTabs = new Map<number, RuntimeTabState>();
 const activeWindowSessions = new Map<number, ActiveWindowSession>();
 const tabHistoryRecords = new Map<number, TabHistoryRecord>();
 const recentClosedTabHistory: ClosedTabHistoryRecord[] = [];
 const groupMetadataRecords = new Map<number, GroupMetadataRecord>();
+const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
 const groupColors: TabGroupColor[] = [
   'grey',
   'blue',
@@ -117,6 +127,7 @@ let persistTabHistoryTimer: ReturnType<typeof setTimeout> | null = null;
 let persistGroupMetadataTimer: ReturnType<typeof setTimeout> | null = null;
 let overviewInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOverviewInvalidationReason: OverviewChangeReason = 'updated';
+let redirectTrackingEnabled = false;
 
 function ensureRuntimeTab(tabId: number, observedAt = Date.now()): RuntimeTabState {
   const existing = runtimeTabs.get(tabId);
@@ -219,29 +230,41 @@ async function ensureTabHistoryLoaded(): Promise<void> {
   return tabHistoryLoadPromise;
 }
 
+function hydrateGroupMetadataRecords(
+  raw: Partial<PersistedGroupMetadataState> | Record<string, GroupMetadataRecord> | null | undefined
+): void {
+  groupMetadataRecords.clear();
+  if (!raw || typeof raw !== 'object') return;
+
+  const state = raw as Partial<PersistedGroupMetadataState> | Record<string, GroupMetadataRecord>;
+  const records =
+    'groups' in state && state.groups && typeof state.groups === 'object'
+      ? state.groups
+      : (state as Record<string, GroupMetadataRecord>);
+
+  for (const [groupId, record] of Object.entries(records)) {
+    const numericGroupId = Number(groupId);
+    if (!Number.isInteger(numericGroupId) || !record) continue;
+    groupMetadataRecords.set(numericGroupId, {
+      autoGroupEnabled: record.autoGroupEnabled ?? true,
+      autoGroupPresetIds: Array.isArray(record.autoGroupPresetIds) ? record.autoGroupPresetIds : [],
+      autoGroupRules: Array.isArray(record.autoGroupRules) ? record.autoGroupRules : []
+    });
+  }
+}
+
 async function ensureGroupMetadataLoaded(): Promise<void> {
   if (groupMetadataLoadPromise) return groupMetadataLoadPromise;
 
   groupMetadataLoadPromise = (async () => {
     const stored = await chrome.storage.local.get(GROUP_METADATA_STORAGE_KEY);
-    const raw = stored[GROUP_METADATA_STORAGE_KEY];
-    if (!raw || typeof raw !== 'object') return;
-
-    const state = raw as Partial<PersistedGroupMetadataState> | Record<string, GroupMetadataRecord>;
-    const records =
-      'groups' in state && state.groups && typeof state.groups === 'object'
-        ? state.groups
-        : (state as Record<string, GroupMetadataRecord>);
-
-    for (const [groupId, record] of Object.entries(records)) {
-      const numericGroupId = Number(groupId);
-      if (!Number.isInteger(numericGroupId) || !record) continue;
-      groupMetadataRecords.set(numericGroupId, {
-        autoGroupEnabled: record.autoGroupEnabled ?? true,
-        autoGroupPresetIds: Array.isArray(record.autoGroupPresetIds) ? record.autoGroupPresetIds : [],
-        autoGroupRules: Array.isArray(record.autoGroupRules) ? record.autoGroupRules : []
-      });
-    }
+    hydrateGroupMetadataRecords(
+      stored[GROUP_METADATA_STORAGE_KEY] as
+        | Partial<PersistedGroupMetadataState>
+        | Record<string, GroupMetadataRecord>
+        | null
+        | undefined
+    );
   })();
 
   return groupMetadataLoadPromise;
@@ -343,6 +366,7 @@ function normalizeAutoGroupRuleValue(field: AutoGroupRuleField, value: string): 
 
 function resolveAutoGroupTargetValue(tab: chrome.tabs.Tab, field: AutoGroupRuleField): string {
   const rawUrl = `${tab.url ?? tab.pendingUrl ?? ''}`.trim();
+  if (field === 'title') return `${tab.title ?? ''}`.trim().toLowerCase();
   if (!rawUrl) return '';
 
   if (field === 'url') return rawUrl.toLowerCase();
@@ -389,6 +413,50 @@ function matchesSelectedAutoGroupPresets(
   return presetIds.some((presetId) => matchesDefaultAutoGroupPresetById(tab, presetId));
 }
 
+function normalizeWebsitePattern(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/.*$/, '');
+}
+
+function matchesWebsitePattern(tab: chrome.tabs.Tab, value: string): boolean {
+  const expected = normalizeWebsitePattern(value);
+  if (!expected) return false;
+
+  const hostname = resolveAutoGroupTargetValue(tab, 'hostname');
+  if (!hostname) return false;
+
+  return hostname === expected || hostname.endsWith(`.${expected}`);
+}
+
+function matchesAutoGroupConfig(tab: chrome.tabs.Tab, config: AutoGroupConfig): boolean {
+  if (!config.enabled) return false;
+
+  return (
+    Boolean(config.presetId && matchesDefaultAutoGroupPresetById(tab, config.presetId)) ||
+    config.websites.some((website) => matchesWebsitePattern(tab, website)) ||
+    matchesAnyAutoGroupRule(tab, config.rules)
+  );
+}
+
+function resolveAutoGroupConfigTitle(
+  config: AutoGroupConfig,
+  locale: 'system' | 'en' | 'zh-CN'
+): string {
+  if (!config.presetId) return config.title;
+
+  const preset = defaultAutoGroupPresets.find((entry) => entry.id === config.presetId);
+  if (!preset) return config.title;
+
+  const defaultTitles = Object.values(preset.titles);
+  return !config.title || defaultTitles.includes(config.title)
+    ? getDefaultAutoGroupPresetTitle(preset, locale)
+    : config.title;
+}
+
 function matchesGroupAutoGrouping(
   tab: chrome.tabs.Tab,
   metadata: GroupMetadataRecord
@@ -412,10 +480,20 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
 
   await ensureGroupMetadataLoaded();
 
-  const [candidateTabs, groups] = await Promise.all([
+  const [candidateTabs, initialGroups] = await Promise.all([
     tabIds ? loadTabsById(uniqueTabIds(tabIds)) : chrome.tabs.query({}),
     chrome.tabGroups.query({})
   ]);
+  const groups = [...initialGroups];
+  const effectiveConfigs = settings.autoGroupConfigs.filter(
+    (config) =>
+      config.enabled &&
+      (Boolean(config.presetId) ||
+        config.websites.some((website) => Boolean(normalizeWebsitePattern(website))) ||
+        config.rules.some((rule) =>
+          Boolean(normalizeAutoGroupRuleValue(rule.field, rule.value))
+        ))
+  );
 
   const effectiveGroups = groups.filter((group) => {
     const metadata = getGroupMetadata(group.id);
@@ -428,7 +506,7 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
     );
   });
 
-  if (effectiveGroups.length === 0) return;
+  if (effectiveGroups.length === 0 && effectiveConfigs.length === 0) return;
 
   let groupedAny = false;
 
@@ -453,21 +531,32 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
       continue;
     }
 
-    const preset = matchDefaultAutoGroupPreset(tab);
-    if (!preset) continue;
-    if (!settings.autoGroupPresetIds.includes(preset.id)) continue;
+    const matchingConfig = effectiveConfigs.find((config) => matchesAutoGroupConfig(tab, config));
+    if (!matchingConfig) continue;
+    const matchingConfigTitle = resolveAutoGroupConfigTitle(matchingConfig, settings.locale);
 
-    const presetTitle = getDefaultAutoGroupPresetTitle(preset, settings.locale);
-    const existingPresetGroup =
-      groups.find((group) => group.windowId === tab.windowId && group.title === presetTitle) ??
-      groups.find((group) => group.title === presetTitle);
+    const existingConfiguredGroup =
+      groups.find((group) => group.windowId === tab.windowId && group.title === matchingConfigTitle) ??
+      groups.find((group) => group.title === matchingConfigTitle);
 
-    const result = existingPresetGroup
-      ? await createGroups([tab.id], { groupId: existingPresetGroup.id })
-      : await createGroups([tab.id], { title: presetTitle, color: preset.color });
+    const result = existingConfiguredGroup
+      ? await createGroups([tab.id], { groupId: existingConfiguredGroup.id })
+      : await createGroups([tab.id], { title: matchingConfigTitle, color: matchingConfig.color });
 
     if (result.affectedCount > 0) {
       groupedAny = true;
+
+      if (!existingConfiguredGroup) {
+        const createdGroupId = (await chrome.tabs.get(tab.id)).groupId;
+
+        if (createdGroupId >= 0 && !groups.some((group) => group.id === createdGroupId)) {
+          try {
+            groups.push(await chrome.tabGroups.get(createdGroupId));
+          } catch {
+            // The group may have been removed by the user before we could cache it.
+          }
+        }
+      }
     }
   }
 
@@ -528,11 +617,141 @@ function createHistoryEvent(
   };
 }
 
+function createUrlHistoryEvent(
+  tabId: number,
+  kind: TabHistoryEventKind,
+  url: string,
+  patch: Partial<TabHistoryEvent> = {}
+): TabHistoryEvent {
+  return {
+    id: `${tabId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+    at: Date.now(),
+    kind,
+    title: patch.title ?? normalizeHostname(url) ?? 'Navigation',
+    url,
+    hostname: normalizeHostname(url),
+    ...patch
+  };
+}
+
 function pushHistoryEvent(record: TabHistoryRecord, event: TabHistoryEvent): void {
+  const lastEvent = record.history.at(-1);
+  if (
+    lastEvent &&
+    lastEvent.kind === event.kind &&
+    lastEvent.url === event.url &&
+    lastEvent.fromUrl === event.fromUrl &&
+    Math.abs(lastEvent.at - event.at) < 1000
+  ) {
+    return;
+  }
+
   record.history.push(event);
   if (record.history.length > MAX_TAB_HISTORY_EVENTS) {
     record.history.splice(0, record.history.length - MAX_TAB_HISTORY_EVENTS);
   }
+}
+
+async function ensureTabHistoryRecord(tabId: number): Promise<TabHistoryRecord | null> {
+  await ensureTabHistoryLoaded();
+
+  const existing = tabHistoryRecords.get(tabId);
+  if (existing) return existing;
+
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    await trackTabHistory(tab, 'updated');
+    return tabHistoryRecords.get(tabId) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function recordUrlHistoryEvent(
+  tabId: number,
+  kind: 'redirected' | 'history-state',
+  url: string,
+  patch: Partial<TabHistoryEvent> = {}
+): Promise<void> {
+  if (tabId < 0 || !url) return;
+
+  const record = await ensureTabHistoryRecord(tabId);
+  if (!record) return;
+
+  pushHistoryEvent(record, createUrlHistoryEvent(tabId, kind, url, patch));
+  record.updatedAt = Date.now();
+  scheduleTabHistoryPersist();
+  scheduleOverviewInvalidation('updated');
+}
+
+function queueRedirectEvent(details: chrome.webRequest.OnBeforeRedirectDetails): void {
+  if (!redirectTrackingEnabled) return;
+  if (details.tabId < 0 || details.frameId !== 0 || details.type !== 'main_frame') return;
+  if (!details.url || !details.redirectUrl || details.url === details.redirectUrl) return;
+
+  const events = pendingRedirectEvents.get(details.tabId) ?? [];
+  events.push({
+    fromUrl: details.url,
+    toUrl: details.redirectUrl,
+    at: Math.round(details.timeStamp),
+    statusCode: details.statusCode
+  });
+  pendingRedirectEvents.set(details.tabId, events.slice(-24));
+}
+
+async function flushRedirectEvents(tabId: number): Promise<void> {
+  const events = pendingRedirectEvents.get(tabId);
+  if (!events || events.length === 0) return;
+
+  pendingRedirectEvents.delete(tabId);
+
+  for (const event of events) {
+    await recordUrlHistoryEvent(tabId, 'redirected', event.toUrl, {
+      at: event.at,
+      fromUrl: event.fromUrl,
+      title: `${event.statusCode} redirect`
+    });
+  }
+}
+
+const redirectTrackingPermissions: chrome.permissions.Permissions = {
+  permissions: ['webNavigation', 'webRequest'],
+  origins: ['http://*/*', 'https://*/*']
+};
+
+async function getRedirectTrackingPermissionState(): Promise<RedirectTrackingPermissionState> {
+  if (!chrome.permissions?.contains) {
+    return { granted: false };
+  }
+
+  const granted = await chrome.permissions.contains(redirectTrackingPermissions);
+  return { granted };
+}
+
+async function refreshRedirectTrackingEnabled(): Promise<boolean> {
+  const [settings, permissionState] = await Promise.all([
+    getSettings(),
+    getRedirectTrackingPermissionState()
+  ]);
+
+  redirectTrackingEnabled = settings.redirectTrackingEnabled && permissionState.granted;
+  if (!redirectTrackingEnabled) {
+    pendingRedirectEvents.clear();
+  }
+
+  return redirectTrackingEnabled;
+}
+
+function hasRedirectTrackingPermissionDelta(permissions: chrome.permissions.Permissions): boolean {
+  const requestedPermissions = new Set(permissions.permissions ?? []);
+  const requestedOrigins = new Set(permissions.origins ?? []);
+
+  return (
+    requestedPermissions.has('webNavigation') ||
+    requestedPermissions.has('webRequest') ||
+    requestedOrigins.has('http://*/*') ||
+    requestedOrigins.has('https://*/*')
+  );
 }
 
 function pushRecentClosedRecord(record: ClosedTabHistoryRecord): void {
@@ -636,11 +855,6 @@ function archiveClosedTabHistory(tabId: number, closedAt = Date.now()): void {
   });
 
   tabHistoryRecords.delete(tabId);
-  scheduleTabHistoryPersist();
-}
-
-function dropTabHistory(tabId: number): void {
-  if (!tabHistoryRecords.delete(tabId)) return;
   scheduleTabHistoryPersist();
 }
 
@@ -933,10 +1147,6 @@ async function discardTabs(tabIds: number[]): Promise<TabMutationResult> {
   return collectMutationOutcome(affectedTabIds);
 }
 
-async function groupTabs(tabIds: number[]): Promise<TabMutationResult> {
-  return createGroups(tabIds, {});
-}
-
 async function assignTabsToGroup(
   tabIds: number[],
   groupId: number
@@ -1201,6 +1411,7 @@ async function updateGroup(
       autoGroupPresetIds: patch.autoGroupPresetIds,
       autoGroupRules: patch.autoGroupRules
     });
+    scheduleOverviewInvalidation('updated');
     await maybeAutoGroupTabs();
   }
 
@@ -1221,16 +1432,6 @@ function getDomainLabel(tab: chrome.tabs.Tab): string {
   } catch {
     return 'Website';
   }
-}
-
-async function classifySiteType(tab: chrome.tabs.Tab): Promise<string> {
-  const settings = await getSettings();
-  const preset = matchDefaultAutoGroupPreset(tab);
-  if (preset) {
-    return getDefaultAutoGroupPresetTitle(preset, settings.locale);
-  }
-
-  return settings.locale === 'en' ? 'Reference' : '参考';
 }
 
 function colorFromLabel(label: string): TabGroupColor {
@@ -1297,6 +1498,55 @@ export function installBackgroundService(): void {
   void maybeAutoGroupTabs().catch((error) => {
     console.warn('Failed to auto group tabs during startup.', error);
   });
+  void refreshRedirectTrackingEnabled().catch((error) => {
+    console.warn('Failed to initialize redirect tracking permission state.', error);
+  });
+
+  if (chrome.webRequest?.onBeforeRedirect) {
+    chrome.webRequest.onBeforeRedirect.addListener(queueRedirectEvent, {
+      urls: ['http://*/*', 'https://*/*'],
+      types: ['main_frame']
+    });
+  }
+
+  if (chrome.webNavigation?.onCommitted) {
+    chrome.webNavigation.onCommitted.addListener((details) => {
+      if (!redirectTrackingEnabled) return;
+      if (details.tabId < 0 || details.frameId !== 0) return;
+
+      const hasServerRedirect = details.transitionQualifiers.includes('server_redirect');
+      void (async () => {
+        const pending = pendingRedirectEvents.get(details.tabId);
+        if (pending && pending.length > 0) {
+          await flushRedirectEvents(details.tabId);
+          return;
+        }
+
+        if (hasServerRedirect) {
+          await recordUrlHistoryEvent(details.tabId, 'redirected', details.url, {
+            at: Math.round(details.timeStamp),
+            title: 'Server redirect'
+          });
+        }
+      })().catch((error) => {
+        console.warn('Failed to record redirect navigation.', error);
+      });
+    });
+  }
+
+  if (chrome.webNavigation?.onHistoryStateUpdated) {
+    chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+      if (!redirectTrackingEnabled) return;
+      if (details.tabId < 0 || details.frameId !== 0) return;
+
+      void recordUrlHistoryEvent(details.tabId, 'history-state', details.url, {
+        at: Math.round(details.timeStamp),
+        title: 'History state update'
+      }).catch((error) => {
+        console.warn('Failed to record history state navigation.', error);
+      });
+    });
+  }
 
   chrome.tabs.onCreated.addListener((tab) => {
     if (tab.id == null) return;
@@ -1315,7 +1565,7 @@ export function installBackgroundService(): void {
     });
   });
 
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
     if (tab.id == null) return;
 
     const relevantUpdate =
@@ -1368,6 +1618,7 @@ export function installBackgroundService(): void {
     }
 
     archiveClosedTabHistory(tabId);
+    pendingRedirectEvents.delete(tabId);
     runtimeTabs.delete(tabId);
     scheduleOverviewInvalidation('removed');
   });
@@ -1401,18 +1652,44 @@ export function installBackgroundService(): void {
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'sync' && changes[SETTINGS_KEY]) {
+      void refreshRedirectTrackingEnabled().catch((error) => {
+        console.warn('Failed to refresh redirect tracking permission state.', error);
+      });
       void maybeAutoGroupTabs().catch((error) => {
         console.warn('Failed to auto group tabs after settings change.', error);
       });
     }
 
     if (areaName === 'local' && changes[GROUP_METADATA_STORAGE_KEY]) {
-      void ensureGroupMetadataLoaded()
-        .then(() => maybeAutoGroupTabs())
-        .catch((error) => {
+      try {
+        hydrateGroupMetadataRecords(
+          changes[GROUP_METADATA_STORAGE_KEY].newValue as
+            | Partial<PersistedGroupMetadataState>
+            | Record<string, GroupMetadataRecord>
+            | null
+            | undefined
+        );
+        void maybeAutoGroupTabs().catch((error) => {
           console.warn('Failed to auto group tabs after rule change.', error);
         });
+      } catch (error) {
+        console.warn('Failed to hydrate group metadata after storage change.', error);
+      }
     }
+  });
+
+  chrome.permissions?.onAdded?.addListener((permissions) => {
+    if (!hasRedirectTrackingPermissionDelta(permissions)) return;
+    void refreshRedirectTrackingEnabled().catch((error) => {
+      console.warn('Failed to refresh redirect tracking after permission grant.', error);
+    });
+  });
+
+  chrome.permissions?.onRemoved?.addListener((permissions) => {
+    if (!hasRedirectTrackingPermissionDelta(permissions)) return;
+    void refreshRedirectTrackingEnabled().catch((error) => {
+      console.warn('Failed to refresh redirect tracking after permission removal.', error);
+    });
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -1420,7 +1697,9 @@ export function installBackgroundService(): void {
 
     void (async () => {
       try {
-        let response: ExtensionResult<OverviewSnapshot | TabDetailSnapshot | TabMutationResult | null>;
+        let response: ExtensionResult<
+          OverviewSnapshot | RedirectTrackingPermissionState | TabDetailSnapshot | TabMutationResult | null
+        >;
 
         switch (request.type) {
           case 'tab-manager/get-overview':
@@ -1428,6 +1707,9 @@ export function installBackgroundService(): void {
             break;
           case 'tab-manager/get-tab-detail':
             response = { ok: true, data: await getTabDetail(request.tabId) };
+            break;
+          case 'tab-manager/get-redirect-tracking-permission':
+            response = { ok: true, data: await getRedirectTrackingPermissionState() };
             break;
           case 'tab-manager/open-dashboard':
             await openDashboardTab();

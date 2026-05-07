@@ -1,3 +1,4 @@
+import { getSettings } from './settings';
 import type {
   ExtensionRequest,
   ExtensionResult,
@@ -5,6 +6,7 @@ import type {
   LaunchSurface,
   OverviewInvalidatedMessage,
   OverviewSnapshot,
+  RedirectTrackingPermissionState,
   SmartGroupStrategy,
   TabDetailSnapshot,
   TabGroupUpdatePatch,
@@ -56,6 +58,28 @@ export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
   return response.data;
 }
 
+const redirectTrackingPermissions: chrome.permissions.Permissions = {
+  permissions: ['webNavigation', 'webRequest'],
+  origins: ['http://*/*', 'https://*/*']
+};
+
+export async function getRedirectTrackingPermissionState(): Promise<RedirectTrackingPermissionState> {
+  const response = await sendRequest<RedirectTrackingPermissionState>({
+    type: 'tab-manager/get-redirect-tracking-permission'
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+export async function requestRedirectTrackingPermission(): Promise<boolean> {
+  return chrome.permissions.request(redirectTrackingPermissions);
+}
+
+export async function removeRedirectTrackingPermission(): Promise<boolean> {
+  return chrome.permissions.remove(redirectTrackingPermissions);
+}
+
 export async function requestOpenDashboard(): Promise<void> {
   const response = await sendRequest({
     type: 'tab-manager/open-dashboard'
@@ -85,6 +109,11 @@ export async function openLaunchSurface(surface: LaunchSurface): Promise<void> {
   }
 
   await openDashboardPage();
+}
+
+export async function openPreferredLaunchSurface(): Promise<void> {
+  const settings = await getSettings();
+  await openLaunchSurface(settings.launchSurface);
 }
 
 export async function focusTab(tabId: number, windowId: number): Promise<void> {

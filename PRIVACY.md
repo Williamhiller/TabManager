@@ -1,10 +1,10 @@
-# Privacy Policy - Tab Manager
+# Privacy Policy - Auto Tab Groups - Tab Manager
 
 Last updated: 2026-04-22
 
 ## Summary
 
-Tab Manager is designed to work locally in your browser.
+Auto Tab Groups - Tab Manager is designed to work locally in your browser.
 
 - No user account is required.
 - No analytics service is integrated.
@@ -16,8 +16,10 @@ The extension processes tab metadata locally to provide core features, including
 
 - tab title and URL
 - tab group metadata
+- custom auto-group website lists and rules
 - tab activity timeline/history
 - workspace preferences (theme, language, launch surface, refresh options)
+- optional navigation/redirect history if Redirect trace is enabled and permission is granted by the user
 
 ## Where Data Is Stored
 
@@ -31,10 +33,12 @@ Data is stored in browser-provided local/sync storage (`chrome.storage.local` an
 - `storage`: required to persist settings and local history.
 - `system.memory`: required to show memory snapshot information.
 - `favicon`: required to display tab favicons.
+- Optional `webNavigation`: used only when the user enables Redirect trace.
+- Optional `webRequest` and optional host access for `http://*/*` and `https://*/*`: used only after the user enables Redirect trace and grants permission, so the extension can record main-frame redirect chains locally.
 
 ## Data Sharing
 
-Tab Manager does not sell, transfer, or share your browsing data with third parties.
+Auto Tab Groups - Tab Manager does not sell, transfer, or share your browsing data with third parties.
 
 ## Contact
 

@@ -1,11 +1,8 @@
-# Tab Manager
+# Auto Tab Groups - Tab Manager
 
-A Chrome-first MV3 extension starter for tab management with:
+Auto Tab Groups - Tab Manager is a Chrome MV3 extension for automatically grouping, searching, and cleaning up browser tabs.
 
-- `sidepanel`
-- `popup`
-- `options`
-- a standalone `dashboard.html`
+The main product promise is simple: tabs should organize themselves. The extension can auto group Chrome tabs by website, topic, domain, custom website lists, and user-defined rules, while still keeping manual search, cleanup, batch actions, and tab history close at hand.
 
 The stack is intentionally simple:
 
@@ -22,10 +19,13 @@ For app store publishing, use:
 - `PRIVACY.md` for the privacy policy template
 - `privacy.html` as the public privacy-policy page for GitHub Pages
 
-## First Version
+## Current Product Focus
 
-The first working version already supports:
+The current version focuses on:
 
+- automatic tab grouping by website, topic, and domain
+- custom auto groups with name, color, enabled state, website lists, rules, and priority
+- one-click smart grouping by domain or website type
 - searching tabs by title, URL, hostname, and group title
 - filtering by active, sleeping, audible, pinned, grouped, ungrouped, and incognito state
 - sorting by recent access, oldest access, title, and tracked active time
@@ -33,6 +33,7 @@ The first working version already supports:
 - multi-select batch actions for close, pin, mute, discard, group, and ungroup
 - a side panel workspace, popup launcher, options page, and standalone dashboard
 - system-memory snapshots plus runtime tab telemetry in the background service
+- optional redirect tracing for users who explicitly grant the required optional permissions
 
 ## Why this architecture
 

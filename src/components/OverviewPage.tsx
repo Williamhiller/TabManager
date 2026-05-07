@@ -42,6 +42,7 @@ import {
   RiAddCircleLine,
   RiArticleLine,
   RiArrowDownSLine,
+  RiArrowLeftLine,
   RiArrowRightUpLine,
   RiBrushLine,
   RiCloseLine,
@@ -52,11 +53,13 @@ import {
   RiFolderLine,
   RiGlobalLine,
   RiLayoutGridLine,
+  RiLinksLine,
   RiMore2Line,
   RiMoonFill,
   RiMoonLine,
   RiPaletteLine,
   RiPriceTag3Line,
+  RiRouteLine,
   RiPushpin2Fill,
   RiPushpin2Line,
   RiRefreshLine,
@@ -77,6 +80,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -87,19 +91,23 @@ import { createPortal } from 'react-dom';
 
 import { Tooltip } from './Tooltip';
 import type {
+  AutoGroupConfig,
   AutoGroupRule,
+  AutoGroupRuleField,
+  AutoGroupRuleOperator,
   HistoryTabSnapshot,
   ManagerSettings,
   OverviewSnapshot,
   SmartGroupStrategy,
   TabDetailSnapshot,
+  TabHistoryEvent,
   TabGroupColor,
   TabGroupSnapshot,
-  TabHistoryEvent,
   TabSnapshot
 } from '../lib/contracts';
 import {
   defaultAutoGroupPresets,
+  type DefaultAutoGroupPreset,
   getDefaultAutoGroupPresetTitle
 } from '../lib/auto-group-defaults';
 import { formatDuration, formatRelativeTime, getErrorMessage } from '../lib/format';
@@ -116,9 +124,12 @@ import {
   moveTabsAfter,
   moveTabsBefore,
   muteTabs,
-  openDashboardPage,
+  getRedirectTrackingPermissionState,
+  openPreferredLaunchSurface,
   openSidePanel,
   pinTabs,
+  removeRedirectTrackingPermission,
+  requestRedirectTrackingPermission,
   smartGroupTabs,
   subscribeToOverviewUpdates,
   ungroupTabs,
@@ -132,12 +143,12 @@ type SmartView = 'all' | 'ungrouped' | 'grouped' | 'sleeping' | 'audible' | 'pin
 type TabSort = 'manual' | 'recent' | 'opened-time' | 'title' | 'active-time';
 type DropPosition = 'before' | 'after' | 'inside';
 type GroupFilter = 'all' | 'ungrouped' | `${number}`;
+type SidepanelView = 'tabs' | 'auto-groups';
 type ListEntry =
   | { type: 'ungrouped'; tabs: TabSnapshot[] }
   | { type: 'group'; group: TabGroupSnapshot; tabs: TabSnapshot[] };
 
 const primaryViews: SmartView[] = ['all', 'ungrouped', 'grouped'];
-const secondaryViews: SmartView[] = ['audible', 'pinned', 'stale'];
 
 interface OverviewPageProps {
   mode: SurfaceMode;
@@ -255,6 +266,57 @@ function createAutoGroupRule(): AutoGroupRule {
     operator: 'contains',
     value: ''
   };
+}
+
+function createAutoGroupConfig(locale: string): AutoGroupConfig {
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  return {
+    id: `custom:${id}`,
+    title: locale === 'zh-CN' ? '自定义分组' : 'Custom group',
+    color: 'blue',
+    enabled: true,
+    websites: [],
+    rules: [createAutoGroupRule()]
+  };
+}
+
+function normalizeDraftRule(rule: Partial<AutoGroupRule>): AutoGroupRule {
+  return {
+    id: rule.id || createAutoGroupRule().id,
+    field: rule.field ?? 'url',
+    operator: rule.operator ?? 'contains',
+    value: rule.value ?? ''
+  };
+}
+
+function normalizeWebsiteDraft(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/.*$/, '');
+}
+
+function getPresetPatternLabels(preset: DefaultAutoGroupPreset): string[] {
+  return preset.patterns.flatMap((pattern) =>
+    pattern.source
+      .replace(/^\(/, '')
+      .replace(/\)$/, '')
+      .split('|')
+      .map((item) =>
+        item
+          .replace(/\\\./g, '.')
+          .replace(/\\\//g, '/')
+          .replace(/\\/g, '')
+          .trim()
+      )
+      .filter(Boolean)
+  );
 }
 
 function groupChipStyle(color: TabGroupColor): {
@@ -422,18 +484,6 @@ function getViewCount(tabs: TabSnapshot[], smartView: SmartView): number {
   return tabs.filter((tab) => matchesSmartView(tab, smartView)).length;
 }
 
-function formatAbsoluteDateTime(timestamp: number | null | undefined, locale: string): string {
-  if (timestamp == null) return 'Unknown';
-
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(timestamp);
-}
-
 function formatTimelineTime(timestamp: number | null | undefined, locale: string): string {
   if (timestamp == null) return 'Unknown';
 
@@ -444,6 +494,23 @@ function formatTimelineTime(timestamp: number | null | undefined, locale: string
     fractionalSecondDigits: 3,
     hour12: false
   }).format(timestamp);
+}
+
+function getHistoryKindLabel(kind: TabHistoryEvent['kind'], t: Messages): string {
+  switch (kind) {
+    case 'created':
+      return t.historyCreated;
+    case 'navigated':
+      return t.historyNavigated;
+    case 'redirected':
+      return t.historyRedirected;
+    case 'history-state':
+      return t.historyStateChanged;
+    case 'observed':
+      return t.historyObserved;
+    default:
+      return kind;
+  }
 }
 
 export function OverviewPage({ mode }: OverviewPageProps) {
@@ -459,8 +526,11 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showTools, setShowTools] = useState(false);
+  const [sidepanelView, setSidepanelView] = useState<SidepanelView>('tabs');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSettingsAutoGroupPicker, setShowSettingsAutoGroupPicker] = useState(false);
+  const [redirectTrackingPermissionGranted, setRedirectTrackingPermissionGranted] = useState(false);
+  const [redirectTrackingBusy, setRedirectTrackingBusy] = useState(false);
   const [showFilterPicker, setShowFilterPicker] = useState(false);
   const [moveGroupPickerOpen, setMoveGroupPickerOpen] = useState(false);
   const [pendingAutoOpenGroupEditorId, setPendingAutoOpenGroupEditorId] = useState<number | null>(null);
@@ -470,7 +540,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const [activeDragGroupId, setActiveDragGroupId] = useState<number | null>(null);
   const [overDropId, setOverDropId] = useState<string | null>(null);
   const [overDropPosition, setOverDropPosition] = useState<DropPosition | null>(null);
-  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dragPointerYRef = useRef<number | null>(null);
@@ -501,6 +570,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
   const config = surfaceConfig[mode];
   const isSidepanel = mode === 'sidepanel';
+  const showingAutoGroupsManager = mode !== 'popup' && sidepanelView === 'auto-groups';
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const resolvedTheme = resolveTheme(settings.theme);
   const locale = resolveLocale(settings.locale);
@@ -550,22 +620,28 @@ export function OverviewPage({ mode }: OverviewPageProps) {
       : 'Group only when triggered manually';
   const settingsAutoGroupPresetLabels = useMemo(
     () =>
-      defaultAutoGroupPresets.map((preset) => ({
-        id: preset.id,
-        label: getDefaultAutoGroupPresetTitle(preset, locale)
-      })),
-    [locale]
+      settings.autoGroupConfigs.map((config) => {
+        const preset = config.presetId
+          ? defaultAutoGroupPresets.find((entry) => entry.id === config.presetId)
+          : null;
+
+        return {
+          id: config.id,
+          label: preset ? getDefaultAutoGroupPresetTitle(preset, locale) : config.title,
+          enabled: config.enabled
+        };
+      }),
+    [locale, settings.autoGroupConfigs]
   );
   const settingsAutoGroupSummary = useMemo(() => {
-    if (settings.autoGroupPresetIds.length === 0) return t.selectModules;
+    const enabledConfigs = settingsAutoGroupPresetLabels.filter((config) => config.enabled);
+    if (enabledConfigs.length === 0) return t.selectModules;
 
-    const labels = settingsAutoGroupPresetLabels
-      .filter((preset) => settings.autoGroupPresetIds.includes(preset.id))
-      .map((preset) => preset.label);
+    const labels = enabledConfigs.map((config) => config.label);
 
     if (labels.length <= 2) return labels.join(' · ');
     return locale === 'zh-CN' ? `已选 ${labels.length} 项` : `${labels.length} selected`;
-  }, [locale, settings.autoGroupPresetIds, settingsAutoGroupPresetLabels, t.selectModules]);
+  }, [locale, settingsAutoGroupPresetLabels, t.selectModules]);
 
   const sortChoices = useMemo(
     () => [
@@ -579,17 +655,18 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   );
 
   const load = async () => {
-    setLoading(true);
-
     try {
-      const [nextOverview, nextSettings] = await Promise.all([getOverview(), getSettings()]);
+      const [nextOverview, nextSettings, redirectPermission] = await Promise.all([
+        getOverview(),
+        getSettings(),
+        getRedirectTrackingPermissionState()
+      ]);
       setOverview(nextOverview);
       setSettings(nextSettings);
+      setRedirectTrackingPermissionGranted(redirectPermission.granted);
       setError(null);
     } catch (nextError) {
       setError(getErrorMessage(nextError));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -601,6 +678,10 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     }
+  };
+
+  const scheduleOverviewRefresh = () => {
+    void refreshOverviewRef.current();
   };
 
   refreshOverviewRef.current = refreshOverview;
@@ -619,7 +700,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
       refreshTimer = window.setTimeout(() => {
         refreshTimer = null;
-        void refreshOverviewRef.current();
+        scheduleOverviewRefresh();
       }, 48);
     });
 
@@ -631,6 +712,17 @@ export function OverviewPage({ mode }: OverviewPageProps) {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (settings.autoRefreshSeconds <= 0) return;
+    if (mode === 'popup') return;
+
+    const intervalId = window.setInterval(() => {
+      scheduleOverviewRefresh();
+    }, settings.autoRefreshSeconds * 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [mode, settings.autoRefreshSeconds]);
 
   useEffect(() => {
     applyTheme(settings.theme);
@@ -694,7 +786,10 @@ export function OverviewPage({ mode }: OverviewPageProps) {
         const currentContent = sidepanelTreeShellRef.current;
         if (!currentScroller || !currentHeader || !currentContent) return;
 
-        const headerHeight = Math.round(currentHeader.getBoundingClientRect().height);
+        const headerHeight =
+          showingAutoGroupsManager
+            ? 0
+            : Math.round(currentHeader.getBoundingClientRect().height);
         const viewportHeight = Math.max(currentScroller.clientHeight - headerHeight, 0);
         const contentHeight = Math.max(currentContent.scrollHeight - headerHeight, viewportHeight);
         const maxScrollTop = Math.max(currentScroller.scrollHeight - currentScroller.clientHeight, 0);
@@ -757,7 +852,9 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     showFilterPicker,
     moveGroupPickerOpen,
     expandedGroups,
-    showTools
+    showTools,
+    showingAutoGroupsManager,
+    settings.autoGroupConfigs
   ]);
 
   useEffect(() => {
@@ -1096,6 +1193,20 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   }, [selectedCount]);
 
   useEffect(() => {
+    if (pendingAutoOpenGroupEditorId == null || !overview) return;
+
+    const nextGroupId = overview.tabs.find((tab) => tab.id === pendingAutoOpenGroupEditorId)?.group?.id ?? null;
+    if (nextGroupId == null) return;
+
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      next.add(nextGroupId);
+      return next;
+    });
+    setPendingAutoOpenGroupEditorId(nextGroupId);
+  }, [overview, pendingAutoOpenGroupEditorId]);
+
+  useEffect(() => {
     if (detailTabId == null || !tabDetail) return;
 
     const liveTab = allTabs.find((tab) => tab.id === detailTabId) ?? null;
@@ -1111,12 +1222,8 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const execute = async (
     successMessage: string,
     action: () => Promise<void>,
-    options?: { clearSelection?: boolean; silentStatus?: boolean; soft?: boolean }
+    options?: { clearSelection?: boolean; silentStatus?: boolean; soft?: boolean; refresh?: boolean }
   ) => {
-    if (!options?.soft) {
-      setLoading(true);
-    }
-
     try {
       await action();
       if (!options?.silentStatus) {
@@ -1125,13 +1232,11 @@ export function OverviewPage({ mode }: OverviewPageProps) {
       if (options?.clearSelection) {
         setSelectedIds(new Set());
       }
-      await refreshOverview();
+      if (options?.refresh !== false) {
+        await refreshOverview();
+      }
     } catch (nextError) {
       setError(getErrorMessage(nextError));
-    } finally {
-      if (!options?.soft) {
-        setLoading(false);
-      }
     }
   };
 
@@ -1142,6 +1247,106 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     }
+  };
+
+  const toggleRedirectTracking = async () => {
+    if (redirectTrackingBusy) return;
+
+    setRedirectTrackingBusy(true);
+    try {
+      if (settings.redirectTrackingEnabled) {
+        await saveSetting({ redirectTrackingEnabled: false });
+        const removed = await removeRedirectTrackingPermission();
+        setRedirectTrackingPermissionGranted(!removed);
+        setStatusMessage(t.redirectTrackingOff);
+        return;
+      }
+
+      const granted = await requestRedirectTrackingPermission();
+      setRedirectTrackingPermissionGranted(granted);
+      if (!granted) {
+        await saveSetting({ redirectTrackingEnabled: false });
+        setError(t.redirectTrackingDenied);
+        return;
+      }
+
+      await saveSetting({ redirectTrackingEnabled: true });
+      setStatusMessage(t.redirectTrackingGranted);
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    } finally {
+      setRedirectTrackingBusy(false);
+    }
+  };
+
+  const saveAutoGroupConfigs = async (configs: AutoGroupConfig[]) => {
+    await saveSetting({ autoGroupConfigs: configs });
+  };
+
+  const toggleAutoGroupConfig = async (configId: string) => {
+    await saveAutoGroupConfigs(
+      settings.autoGroupConfigs.map((config) =>
+        config.id === configId ? { ...config, enabled: !config.enabled } : config
+      )
+    );
+  };
+
+  const updateAutoGroupConfig = async (configId: string, patch: Partial<AutoGroupConfig>) => {
+    await saveAutoGroupConfigs(
+      settings.autoGroupConfigs.map((config) =>
+        config.id === configId
+          ? {
+              ...config,
+              ...patch,
+              title: typeof patch.title === 'string' ? patch.title : config.title,
+              websites: patch.websites ?? config.websites,
+              rules: patch.rules ?? config.rules
+            }
+          : config
+      )
+    );
+  };
+
+  const addAutoGroupConfig = async (): Promise<string> => {
+    const nextConfig = createAutoGroupConfig(locale);
+    await saveAutoGroupConfigs([...settings.autoGroupConfigs, nextConfig]);
+    return nextConfig.id;
+  };
+
+  const deleteAutoGroupConfig = async (configId: string) => {
+    const config = settings.autoGroupConfigs.find((item) => item.id === configId);
+    if (config?.presetId) {
+      const preset = defaultAutoGroupPresets.find((item) => item.id === config.presetId);
+      await updateAutoGroupConfig(configId, {
+        title: preset?.titles.en ?? config.title,
+        color: preset?.color ?? config.color,
+        enabled: false,
+        websites: [],
+        rules: []
+      });
+      return;
+    }
+
+    await saveAutoGroupConfigs(settings.autoGroupConfigs.filter((item) => item.id !== configId));
+  };
+
+  const moveAutoGroupConfig = async (configId: string, direction: -1 | 1) => {
+    const currentIndex = settings.autoGroupConfigs.findIndex((config) => config.id === configId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= settings.autoGroupConfigs.length) return;
+
+    const nextConfigs = [...settings.autoGroupConfigs];
+    const [movedConfig] = nextConfigs.splice(currentIndex, 1);
+    nextConfigs.splice(nextIndex, 0, movedConfig);
+    await saveAutoGroupConfigs(nextConfigs);
+  };
+
+  const openAutoGroupsManager = () => {
+    setShowSettingsModal(false);
+    setShowSettingsAutoGroupPicker(false);
+    setShowTools(false);
+    setSelectedIds(new Set());
+    setSidepanelView('auto-groups');
   };
 
   const markTabActiveLocally = (tabId: number, windowId: number) => {
@@ -1293,64 +1498,40 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     const title = suggestGroupKeyword(anchorTab, t.newGroup);
     const color = colorFromSeed(title);
 
-    setLoading(true);
-
     try {
       await groupTabs(
         selectedTabs.map((tab) => tab.id),
         { title, color }
       );
-
-      const nextOverview = await getOverview();
-      setOverview(nextOverview);
-      setError(null);
       setStatusMessage(t.createdGroup);
 
-      const nextGroupId = anchorTab
-        ? nextOverview.tabs.find((tab) => tab.id === anchorTab.id)?.group?.id ?? null
-        : null;
-
-      if (nextGroupId != null) {
-        setExpandedGroups((current) => {
-          const next = new Set(current);
-          next.add(nextGroupId);
-          return next;
-        });
-        setPendingAutoOpenGroupEditorId(nextGroupId);
-        setMoveGroupPickerOpen(false);
-      } else {
-        closeMoveGroupPicker();
+      if (anchorTab) {
+        setPendingAutoOpenGroupEditorId(anchorTab.id);
       }
+
+      closeMoveGroupPicker();
     } catch (nextError) {
       setError(getErrorMessage(nextError));
-    } finally {
-      setLoading(false);
     }
   };
 
-  const openCreatedGroupEditor = async (anchorTabId: number | null, successMessage: string) => {
-    const nextOverview = await getOverview();
-    setOverview(nextOverview);
-    setError(null);
-    setStatusMessage(successMessage);
-
-    const nextGroupId = anchorTabId
-      ? nextOverview.tabs.find((tab) => tab.id === anchorTabId)?.group?.id ?? null
-      : null;
-
-    if (nextGroupId != null) {
-      setExpandedGroups((current) => {
-        const next = new Set(current);
-        next.add(nextGroupId);
-        return next;
-      });
-      setPendingAutoOpenGroupEditorId(nextGroupId);
+  const openCreatedGroupEditor = (anchorTabId: number | null, successMessage: string) => {
+    if (anchorTabId != null) {
+      setPendingAutoOpenGroupEditorId(anchorTabId);
     }
+
+    setStatusMessage(successMessage);
   };
 
   const launchAlternate = async () => {
-    const opened = await openSidePanel();
-    if (!opened) await openDashboardPage();
+    if (mode === 'dashboard') {
+      const opened = await openSidePanel();
+      if (!opened) {
+        await openPreferredLaunchSurface();
+      }
+    } else {
+      await openPreferredLaunchSurface();
+    }
 
     if (mode === 'popup') window.close();
   };
@@ -1364,11 +1545,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
         strategy
       );
     });
-  };
-
-  const handleSettingsSmartGrouping = async (strategy: SmartGroupStrategy) => {
-    setShowSettingsModal(false);
-    await handleSmartGrouping(strategy);
   };
 
   const handleCreateGroup = async (tabs: TabSnapshot[]) => {
@@ -1392,8 +1568,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     const title = t.newGroup;
     const color = colorFromSeed(title);
 
-    setLoading(true);
-
     try {
       const createdTab = await chrome.tabs.create({
         active: true
@@ -1405,11 +1579,9 @@ export function OverviewPage({ mode }: OverviewPageProps) {
         title,
         color
       });
-      await openCreatedGroupEditor(createdTab.id, t.createdGroup);
+      openCreatedGroupEditor(createdTab.id, t.createdGroup);
     } catch (nextError) {
       setError(getErrorMessage(nextError));
-    } finally {
-      setLoading(false);
     }
 
     if (mode === 'popup') {
@@ -1878,10 +2050,13 @@ export function OverviewPage({ mode }: OverviewPageProps) {
           onScroll={isSidepanel ? () => markScrollbarActive(sidepanelScrollRef.current) : undefined}
           ref={isSidepanel ? sidepanelScrollRef : undefined}
         >
-          <section
-            className={`tm-panel tm-searchbar${isSidepanel ? ' tm-searchbar-sidepanel' : ''}`}
-            ref={isSidepanel ? sidepanelHeaderRef : undefined}
-          >
+          {showingAutoGroupsManager ? (
+            <section ref={sidepanelHeaderRef} className="tm-sidepanel-hidden-header" aria-hidden="true" />
+          ) : (
+            <section
+              className={`tm-panel tm-searchbar${isSidepanel ? ' tm-searchbar-sidepanel' : ''}`}
+              ref={isSidepanel ? sidepanelHeaderRef : undefined}
+            >
             {mode === 'sidepanel' ? (
               <>
                 <div className="tm-search-row tm-search-row-sidepanel tm-search-row-sidepanel-primary">
@@ -1987,27 +2162,21 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                                           transition={{ duration: 0.14, ease: 'easeOut' }}
                                           {...getSettingsAutoGroupPickerFloatingProps()}
                                         >
-                                          {settingsAutoGroupPresetLabels.map((preset) => {
-                                            const active = settings.autoGroupPresetIds.includes(preset.id);
+                                          {settingsAutoGroupPresetLabels.map((config) => {
+                                            const active = config.enabled;
 
                                             return (
                                               <button
                                                 className="tm-sidepanel-settings-module-picker-option"
                                                 data-active={active}
-                                                key={preset.id}
-                                                onClick={() =>
-                                                  void saveSetting({
-                                                    autoGroupPresetIds: active
-                                                      ? settings.autoGroupPresetIds.filter((id) => id !== preset.id)
-                                                      : [...settings.autoGroupPresetIds, preset.id]
-                                                  })
-                                                }
+                                                key={config.id}
+                                                onClick={() => void toggleAutoGroupConfig(config.id)}
                                                 type="button"
                                               >
                                                 <span className="tm-sidepanel-settings-module-picker-check" aria-hidden="true">
                                                   {active ? '✓' : ''}
                                                 </span>
-                                                <span className="tm-sidepanel-settings-module-picker-label">{preset.label}</span>
+                                                <span className="tm-sidepanel-settings-module-picker-label">{config.label}</span>
                                               </button>
                                             );
                                           })}
@@ -2028,7 +2197,54 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                                   </div>
                                 ) : null}
                               </div>
+                              <button
+                                className="tm-sidepanel-settings-manage-button"
+                                onClick={openAutoGroupsManager}
+                                type="button"
+                              >
+                                <RiSettings3Line size={12} />
+                                <span>{locale === 'zh-CN' ? '管理分组和规则' : 'Manage groups and rules'}</span>
+                              </button>
                               <p className="tm-sidepanel-settings-hint-copy">{autoGroupStateCopy}</p>
+                            </section>
+
+                            <section className="tm-sidepanel-settings-card">
+                              <div className="tm-sidepanel-settings-card-head">
+                                <div className="tm-sidepanel-settings-card-icon">
+                                  <RiRouteLine size={12} />
+                                </div>
+                                <div className="tm-sidepanel-settings-card-copy">
+                                  <strong>{t.redirectTracking}</strong>
+                                  <span>{t.redirectTrackingSub}</span>
+                                </div>
+                              </div>
+                              <button
+                                className="tm-sidepanel-settings-permission-toggle"
+                                data-active={settings.redirectTrackingEnabled && redirectTrackingPermissionGranted}
+                                disabled={redirectTrackingBusy}
+                                onClick={() => void toggleRedirectTracking()}
+                                type="button"
+                              >
+                                <span className="tm-sidepanel-settings-permission-copy">
+                                  <strong>
+                                    {settings.redirectTrackingEnabled && redirectTrackingPermissionGranted
+                                      ? t.enabled
+                                      : t.disabled}
+                                  </strong>
+                                  <span>
+                                    {settings.redirectTrackingEnabled && redirectTrackingPermissionGranted
+                                      ? t.redirectTrackingGranted
+                                      : t.redirectTrackingOff}
+                                  </span>
+                                </span>
+                                <span
+                                  aria-hidden="true"
+                                  className="tm-sidepanel-settings-switch"
+                                  data-active={settings.redirectTrackingEnabled && redirectTrackingPermissionGranted}
+                                >
+                                  <span className="tm-sidepanel-settings-switch-thumb" />
+                                </span>
+                              </button>
                             </section>
 
                             <section className="tm-sidepanel-settings-card">
@@ -2216,6 +2432,17 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                     }
                   />
                   <IconButton icon={RiRefreshLine} label={t.refreshed} onClick={() => void load()} />
+                  {mode === 'dashboard' ? (
+                    <button
+                      className="tm-button"
+                      onClick={openAutoGroupsManager}
+                      title={locale === 'zh-CN' ? '管理分组和规则' : 'Manage groups and rules'}
+                      type="button"
+                    >
+                      <RiShining2Line size={13} />
+                      {locale === 'zh-CN' ? '自动分组' : 'Auto groups'}
+                    </button>
+                  ) : null}
                   <button
                     className={showTools ? 'tm-button-primary' : 'tm-button'}
                     onClick={() => setShowTools((current) => !current)}
@@ -2264,9 +2491,10 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                   ))}
               </div>
             ) : null}
-          </section>
+            </section>
+          )}
 
-          {isSidepanel ? null : showTools || selectedCount > 0 ? (
+          {showingAutoGroupsManager || isSidepanel ? null : showTools || selectedCount > 0 ? (
             <section className="tm-panel tm-action-strip">
               <div className="tm-action-primary">
                 <div className="tm-action-overview">
@@ -2450,11 +2678,25 @@ export function OverviewPage({ mode }: OverviewPageProps) {
             </section>
           ) : null}
 
-          <section
-            className="tm-panel tm-tree-shell"
-            ref={isSidepanel ? sidepanelTreeShellRef : undefined}
-          >
-            <DndContext
+          {showingAutoGroupsManager ? (
+            <AutoGroupsManagerView
+              configs={settings.autoGroupConfigs}
+              locale={locale}
+              onAddConfig={addAutoGroupConfig}
+              onBack={() => setSidepanelView('tabs')}
+              onDeleteConfig={deleteAutoGroupConfig}
+              onMoveConfig={moveAutoGroupConfig}
+              onToggleConfig={(configId) => void toggleAutoGroupConfig(configId)}
+              onUpdateConfig={updateAutoGroupConfig}
+              scrollRef={sidepanelTreeShellRef}
+              surfaceMode={mode}
+            />
+          ) : (
+            <section
+              className="tm-panel tm-tree-shell"
+              ref={isSidepanel ? sidepanelTreeShellRef : undefined}
+            >
+              <DndContext
               collisionDetection={collisionDetectionStrategy}
               onDragCancel={resetDragState}
               onDragEnd={(event) => void handleDragEnd(event)}
@@ -2724,8 +2966,9 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                 </DragOverlay>,
                 document.body
               )}
-            </DndContext>
-          </section>
+              </DndContext>
+            </section>
+          )}
 
         </div>
         {isSidepanel ? (
@@ -2812,7 +3055,7 @@ function TabDetailModal({
   detail: TabDetailSnapshot | null;
   loading: boolean;
   error: string | null;
-  locale: string;
+  locale: 'en' | 'zh-CN';
   t: Messages;
   onCopyUrl: (url: string) => void;
   onClose: () => void;
@@ -2996,11 +3239,21 @@ function TabDetailModal({
                           </div>
                           <div className="tm-timeline-card">
                             <div className="tm-timeline-head">
+                              <span className="tm-timeline-kind">
+                                {getHistoryKindLabel(event.kind, t)}
+                              </span>
                               <strong className="tm-timeline-title" title={event.title}>
                                 {event.title}
                               </strong>
                               <span className="tm-timeline-time">{formatTimelineTime(event.at, locale)}</span>
                             </div>
+                            {event.fromUrl ? (
+                              <div className="tm-timeline-meta">
+                                <span className="tm-timeline-url" title={event.fromUrl}>
+                                  {event.fromUrl}
+                                </span>
+                              </div>
+                            ) : null}
                             <div className="tm-timeline-meta">
                               <span className="tm-timeline-url" title={event.url || event.hostname}>
                                 {event.url || event.hostname}
@@ -3046,7 +3299,7 @@ function HistoryTabsSection({
   onOpenTab
 }: {
   historyTabs: HistoryTabSnapshot[];
-  locale: string;
+  locale: 'en' | 'zh-CN';
   t: Messages;
   onOpenDetail: (historyTab: HistoryTabSnapshot) => void;
   onOpenTab: (historyTab: HistoryTabSnapshot) => void;
@@ -3139,6 +3392,489 @@ function HistoryTabsSection({
       </AnimatePresence>
     </section>
   );
+}
+
+function AutoGroupsManagerView({
+  configs,
+  locale,
+  scrollRef,
+  surfaceMode,
+  onAddConfig,
+  onBack,
+  onDeleteConfig,
+  onMoveConfig,
+  onToggleConfig,
+  onUpdateConfig
+}: {
+  configs: AutoGroupConfig[];
+  locale: 'en' | 'zh-CN';
+  scrollRef: RefObject<HTMLElement | null>;
+  surfaceMode: SurfaceMode;
+  onAddConfig: () => Promise<string>;
+  onBack: () => void;
+  onDeleteConfig: (configId: string) => Promise<void>;
+  onMoveConfig: (configId: string, direction: -1 | 1) => Promise<void>;
+  onToggleConfig: (configId: string) => void;
+  onUpdateConfig: (configId: string, patch: Partial<AutoGroupConfig>) => Promise<void>;
+}) {
+  const [selectedConfigId, setSelectedConfigId] = useState(configs[0]?.id ?? null);
+  const [websiteDraft, setWebsiteDraft] = useState('');
+  const selectedConfig =
+    configs.find((config) => config.id === selectedConfigId) ?? configs[0] ?? null;
+  const selectedIndex = selectedConfig
+    ? configs.findIndex((config) => config.id === selectedConfig.id)
+    : -1;
+  const labels = getAutoGroupsManagerLabels(locale);
+  const selectedPreset = selectedConfig?.presetId
+    ? defaultAutoGroupPresets.find((preset) => preset.id === selectedConfig.presetId) ?? null
+    : null;
+  const selectedPresetPatterns = selectedPreset ? getPresetPatternLabels(selectedPreset) : [];
+
+  useEffect(() => {
+    if (selectedConfigId && configs.some((config) => config.id === selectedConfigId)) return;
+    setSelectedConfigId(configs[0]?.id ?? null);
+  }, [configs, selectedConfigId]);
+
+  const addConfig = async () => {
+    const id = await onAddConfig();
+    setSelectedConfigId(id);
+  };
+
+  const updateSelectedConfig = (patch: Partial<AutoGroupConfig>) => {
+    if (!selectedConfig) return;
+    void onUpdateConfig(selectedConfig.id, patch);
+  };
+
+  const addWebsite = () => {
+    if (!selectedConfig) return;
+
+    const website = normalizeWebsiteDraft(websiteDraft);
+    if (!website || selectedConfig.websites.includes(website)) {
+      setWebsiteDraft('');
+      return;
+    }
+
+    updateSelectedConfig({ websites: [...selectedConfig.websites, website] });
+    setWebsiteDraft('');
+  };
+
+  const updateRuleAt = (
+    ruleId: string,
+    patch: Partial<Pick<AutoGroupRule, 'field' | 'operator' | 'value'>>
+  ) => {
+    if (!selectedConfig) return;
+
+    updateSelectedConfig({
+      rules: selectedConfig.rules.map((rule) =>
+        rule.id === ruleId ? normalizeDraftRule({ ...rule, ...patch }) : rule
+      )
+    });
+  };
+
+  const addRule = () => {
+    if (!selectedConfig) return;
+    updateSelectedConfig({ rules: [...selectedConfig.rules, createAutoGroupRule()] });
+  };
+
+  const removeRule = (ruleId: string) => {
+    if (!selectedConfig) return;
+    updateSelectedConfig({ rules: selectedConfig.rules.filter((rule) => rule.id !== ruleId) });
+  };
+
+  return (
+    <section className="tm-panel tm-auto-groups-page" data-surface={surfaceMode} ref={scrollRef}>
+      <div className="tm-auto-groups-head">
+        <button className="tm-icon-button" onClick={onBack} type="button" aria-label={labels.back}>
+          <RiArrowLeftLine size={14} />
+        </button>
+        <div className="tm-auto-groups-title">
+          <strong>{labels.title}</strong>
+          <span>{labels.subtitle}</span>
+        </div>
+        <button className="tm-button-primary tm-auto-groups-add" onClick={() => void addConfig()} type="button">
+          <RiAddCircleLine size={13} />
+          <span>{labels.newGroup}</span>
+        </button>
+      </div>
+
+      <div className="tm-auto-groups-layout">
+        <div className="tm-auto-groups-list" role="listbox" aria-label={labels.title}>
+          {configs.map((config, index) => {
+            const preset = config.presetId
+              ? defaultAutoGroupPresets.find((entry) => entry.id === config.presetId)
+              : null;
+            const title = preset && config.title === preset.titles.en
+              ? getDefaultAutoGroupPresetTitle(preset, locale)
+              : config.title;
+            const matchCount =
+              (config.presetId ? 1 : 0) + config.websites.length + config.rules.length;
+
+            return (
+              <button
+                className="tm-auto-group-list-item"
+                data-active={selectedConfig?.id === config.id}
+                data-enabled={config.enabled}
+                key={config.id}
+                onClick={() => setSelectedConfigId(config.id)}
+                role="option"
+                type="button"
+                aria-selected={selectedConfig?.id === config.id}
+              >
+                <span
+                  className="tm-auto-group-list-dot"
+                  style={{ backgroundColor: groupColorTokens[config.color].solid }}
+                />
+                <span className="tm-auto-group-list-copy">
+                  <strong>{title}</strong>
+                  <span>
+                    {index + 1} · {matchCount} {labels.matchers}
+                  </span>
+                </span>
+                <span className="tm-auto-group-list-state">
+                  {config.enabled ? labels.on : labels.off}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedConfig ? (
+          <div className="tm-auto-group-detail">
+            <div className="tm-auto-group-detail-card tm-auto-group-identity">
+              <div className="tm-auto-group-detail-card-head">
+                <div>
+                  <strong>{labels.identity}</strong>
+                  <span>{selectedConfig.presetId ? labels.defaultGroup : labels.customGroup}</span>
+                </div>
+                <button
+                  className="tm-sidepanel-settings-inline-toggle"
+                  data-active={selectedConfig.enabled}
+                  onClick={() => onToggleConfig(selectedConfig.id)}
+                  type="button"
+                >
+                  <span className="tm-sidepanel-settings-inline-toggle-label">
+                    {selectedConfig.enabled ? labels.on : labels.off}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="tm-sidepanel-settings-switch"
+                    data-active={selectedConfig.enabled}
+                  >
+                    <span className="tm-sidepanel-settings-switch-thumb" />
+                  </span>
+                </button>
+              </div>
+
+              <label className="tm-auto-group-field">
+                <span>{labels.name}</span>
+                <input
+                  className="tm-auto-group-input"
+                  defaultValue={selectedConfig.title}
+                  key={`${selectedConfig.id}:title`}
+                  onBlur={(event) => {
+                    const nextTitle = event.target.value.trim();
+                    if (!nextTitle) {
+                      event.target.value = selectedConfig.title;
+                      return;
+                    }
+
+                    if (nextTitle === selectedConfig.title) return;
+                    updateSelectedConfig({ title: nextTitle });
+                  }}
+                />
+              </label>
+
+              <div className="tm-auto-group-color-grid" aria-label={labels.color}>
+                {allGroupColors.map((color) => {
+                  const tokens = groupColorTokens[color];
+
+                  return (
+                    <button
+                      aria-label={color}
+                      className="tm-group-color-swatch"
+                      data-active={selectedConfig.color === color}
+                      key={color}
+                      onClick={() => updateSelectedConfig({ color })}
+                      style={{
+                        backgroundColor: selectedConfig.color === color ? tokens.soft : 'transparent',
+                        borderColor:
+                          selectedConfig.color === color ? tokens.ring : 'var(--tm-border)'
+                      }}
+                      type="button"
+                    >
+                      <span
+                        className="tm-group-color-swatch-inner"
+                        style={{ backgroundColor: tokens.solid }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="tm-auto-group-detail-card">
+              <div className="tm-auto-group-detail-card-head">
+                <div>
+                  <strong>{labels.priority}</strong>
+                  <span>{labels.priorityHint}</span>
+                </div>
+                <div className="tm-auto-group-priority-actions">
+                  <button
+                    className="tm-icon-button"
+                    disabled={selectedIndex <= 0}
+                    onClick={() => void onMoveConfig(selectedConfig.id, -1)}
+                    type="button"
+                    aria-label={labels.moveUp}
+                  >
+                    <RiArrowDownSLine size={14} style={{ transform: 'rotate(180deg)' }} />
+                  </button>
+                  <button
+                    className="tm-icon-button"
+                    disabled={selectedIndex < 0 || selectedIndex >= configs.length - 1}
+                    onClick={() => void onMoveConfig(selectedConfig.id, 1)}
+                    type="button"
+                    aria-label={labels.moveDown}
+                  >
+                    <RiArrowDownSLine size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="tm-auto-group-detail-card">
+              <div className="tm-auto-group-detail-card-head">
+                <div>
+                  <strong>{labels.websites}</strong>
+                  <span>{labels.websitesHint}</span>
+                </div>
+                <RiLinksLine size={14} />
+              </div>
+              <div className="tm-auto-group-add-row">
+                <input
+                  className="tm-auto-group-input"
+                  onChange={(event) => setWebsiteDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addWebsite();
+                    }
+                  }}
+                  placeholder={labels.websitePlaceholder}
+                  value={websiteDraft}
+                />
+                <button className="tm-button" onClick={addWebsite} type="button">
+                  <RiAddCircleLine size={13} />
+                </button>
+              </div>
+              <div className="tm-auto-group-chip-list">
+                {selectedConfig.websites.length === 0 ? (
+                  <span className="tm-auto-group-empty">{labels.noWebsites}</span>
+                ) : (
+                  selectedConfig.websites.map((website) => (
+                    <span className="tm-auto-group-site-chip" key={website}>
+                      {website}
+                      <button
+                        aria-label={labels.remove}
+                        onClick={() =>
+                          updateSelectedConfig({
+                            websites: selectedConfig.websites.filter((item) => item !== website)
+                          })
+                        }
+                        type="button"
+                      >
+                        <RiCloseLine size={11} />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {selectedPreset ? (
+              <div className="tm-auto-group-detail-card">
+                <div className="tm-auto-group-detail-card-head">
+                  <div>
+                    <strong>{labels.defaultRules}</strong>
+                    <span>{labels.defaultRulesHint}</span>
+                  </div>
+                  <RiShining2Line size={14} />
+                </div>
+                <div className="tm-auto-group-chip-list">
+                  {selectedPresetPatterns.map((pattern) => (
+                    <span className="tm-auto-group-site-chip tm-auto-group-default-chip" key={pattern}>
+                      {pattern}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="tm-auto-group-detail-card">
+              <div className="tm-auto-group-detail-card-head">
+                <div>
+                  <strong>{labels.rules}</strong>
+                  <span>{labels.rulesHint}</span>
+                </div>
+                <button className="tm-button" onClick={addRule} type="button">
+                  <RiAddCircleLine size={13} />
+                  <span>{labels.addRule}</span>
+                </button>
+              </div>
+
+              <div className="tm-auto-group-rule-list">
+                {selectedConfig.rules.length === 0 ? (
+                  <span className="tm-auto-group-empty">{labels.noRules}</span>
+                ) : (
+                  selectedConfig.rules.map((rule) => (
+                    <div className="tm-auto-group-rule-editor" key={rule.id}>
+                      <select
+                        className="tm-select tm-auto-group-rule-select"
+                        onChange={(event) =>
+                          updateRuleAt(rule.id, { field: event.target.value as AutoGroupRuleField })
+                        }
+                        value={rule.field}
+                      >
+                        <option value="hostname">{labels.ruleDomain}</option>
+                        <option value="url">{labels.ruleUrl}</option>
+                        <option value="title">{labels.ruleTitle}</option>
+                      </select>
+                      <select
+                        className="tm-select tm-auto-group-rule-select"
+                        onChange={(event) =>
+                          updateRuleAt(rule.id, {
+                            operator: event.target.value as AutoGroupRuleOperator
+                          })
+                        }
+                        value={rule.operator}
+                      >
+                        <option value="contains">{labels.ruleContains}</option>
+                        <option value="equals">{labels.ruleEquals}</option>
+                      </select>
+                      <input
+                        className="tm-auto-group-input"
+                        defaultValue={rule.value}
+                        onBlur={(event) => {
+                          if (event.target.value === rule.value) return;
+                          updateRuleAt(rule.id, { value: event.target.value });
+                        }}
+                        placeholder={labels.ruleValuePlaceholder}
+                      />
+                      <button
+                        className="tm-icon-button-danger"
+                        onClick={() => removeRule(rule.id)}
+                        type="button"
+                        aria-label={labels.remove}
+                      >
+                        <RiCloseLine size={13} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="tm-auto-group-detail-actions">
+              <button
+                className={selectedConfig.presetId ? 'tm-button' : 'tm-button-danger'}
+                onClick={() => void onDeleteConfig(selectedConfig.id)}
+                type="button"
+              >
+                <RiDeleteBinLine size={13} />
+                <span>{selectedConfig.presetId ? labels.resetDefault : labels.deleteGroup}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="tm-empty">
+            <RiFolderLine size={16} />
+            <div>{labels.empty}</div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function getAutoGroupsManagerLabels(locale: string) {
+  if (locale === 'zh-CN') {
+    return {
+      title: '自动分组',
+      subtitle: '管理分组、网站列表和匹配规则',
+      back: '返回',
+      newGroup: '新建',
+      identity: '分组信息',
+      defaultGroup: '默认模块',
+      customGroup: '自定义分组',
+      name: '名称',
+      color: '颜色',
+      on: '开启',
+      off: '关闭',
+      priority: '匹配优先级',
+      priorityHint: '靠前的分组先匹配',
+      moveUp: '上移',
+      moveDown: '下移',
+      websites: '网站列表',
+      websitesHint: '域名命中后直接归入该分组',
+      websitePlaceholder: 'github.com',
+      noWebsites: '还没有添加网站',
+      defaultRules: '默认规则',
+      defaultRulesHint: '内置模块会匹配这些关键词',
+      rules: '规则',
+      rulesHint: '按域名、URL 或标题匹配',
+      addRule: '添加',
+      noRules: '还没有自定义规则',
+      ruleDomain: '域名',
+      ruleUrl: 'URL',
+      ruleTitle: '标题',
+      ruleContains: '包含',
+      ruleEquals: '等于',
+      ruleValuePlaceholder: '输入匹配内容',
+      remove: '删除',
+      resetDefault: '清空自定义',
+      deleteGroup: '删除分组',
+      matchers: '条匹配',
+      empty: '还没有自动分组'
+    };
+  }
+
+  return {
+    title: 'Auto groups',
+    subtitle: 'Manage groups, websites, and matching rules',
+    back: 'Back',
+    newGroup: 'New',
+    identity: 'Group details',
+    defaultGroup: 'Default module',
+    customGroup: 'Custom group',
+    name: 'Name',
+    color: 'Color',
+    on: 'On',
+    off: 'Off',
+    priority: 'Match priority',
+    priorityHint: 'Higher groups match first',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    websites: 'Websites',
+    websitesHint: 'Domains route directly to this group',
+    websitePlaceholder: 'github.com',
+    noWebsites: 'No websites added',
+    defaultRules: 'Default rules',
+    defaultRulesHint: 'Built-in module matches these keywords',
+    rules: 'Rules',
+    rulesHint: 'Match by domain, URL, or title',
+    addRule: 'Add',
+    noRules: 'No custom rules',
+    ruleDomain: 'Domain',
+    ruleUrl: 'URL',
+    ruleTitle: 'Title',
+    ruleContains: 'Contains',
+    ruleEquals: 'Equals',
+    ruleValuePlaceholder: 'Match value',
+    remove: 'Remove',
+    resetDefault: 'Clear custom',
+    deleteGroup: 'Delete group',
+    matchers: 'matchers',
+    empty: 'No auto groups yet'
+  };
 }
 
 function GroupTreeBlock({
@@ -3313,25 +4049,16 @@ function GroupTreeBlock({
     if (editMenuFocusWithin) return;
     setAutoGroupEnabledDraft(group.autoGroupEnabled);
     setAutoGroupPresetIdsDraft(group.autoGroupPresetIds);
-    setRulesDraft(group.autoGroupRules);
+    setRulesDraft(group.autoGroupRules.map(normalizeDraftRule));
     lastSubmittedAutoConfigRef.current = JSON.stringify({
       autoGroupEnabled: group.autoGroupEnabled,
       autoGroupPresetIds: group.autoGroupPresetIds,
-      autoGroupRules: group.autoGroupRules.map((rule) => ({
-        ...rule,
-        field: 'url' as const,
-        operator: 'contains' as const
-      }))
+      autoGroupRules: group.autoGroupRules.map(normalizeDraftRule)
     });
   }, [editMenuFocusWithin, group.autoGroupEnabled, group.autoGroupPresetIds, group.autoGroupRules]);
 
   const normalizedRules = useMemo<AutoGroupRule[]>(
-    () =>
-      rulesDraft.map((rule) => ({
-        ...rule,
-        field: 'url',
-        operator: 'contains'
-      })),
+    () => rulesDraft.map(normalizeDraftRule),
     [rulesDraft]
   );
 
@@ -3360,11 +4087,7 @@ function GroupTreeBlock({
     nextPresetIds = autoGroupPresetIdsDraft,
     nextRules: AutoGroupRule[] = normalizedRules
   ) => {
-    const normalizedNextRules: AutoGroupRule[] = nextRules.map((rule) => ({
-      ...rule,
-      field: 'url',
-      operator: 'contains'
-    }));
+    const normalizedNextRules: AutoGroupRule[] = nextRules.map(normalizeDraftRule);
     const nextPayload = {
       autoGroupEnabled: nextEnabled,
       autoGroupPresetIds: nextPresetIds,
@@ -3379,12 +4102,7 @@ function GroupTreeBlock({
 
   useEffect(() => {
     if (editMenuFocusWithin) return;
-    const normalizedGroupRules: AutoGroupRule[] = group.autoGroupRules.map((rule) => ({
-      ...rule,
-      field: 'url',
-      operator: 'contains'
-    }));
-    setRulesDraft(normalizedGroupRules);
+    setRulesDraft(group.autoGroupRules.map(normalizeDraftRule));
   }, [editMenuFocusWithin, group.autoGroupRules]);
 
   useEffect(() => {
