@@ -39,6 +39,7 @@ export default defineConfig({
   hooks: {
     'build:manifestGenerated': (_wxt, manifest) => {
       if (manifest.action) {
+        manifest.action.default_title = 'Auto Tab Groups - Tab & Bookmark Manager';
         delete manifest.action.default_popup;
       }
     }
