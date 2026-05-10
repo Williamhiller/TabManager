@@ -1,6 +1,6 @@
-# Auto Tab Groups - Tab Manager
+# Auto Tab Groups - Tab & Bookmark Manager
 
-Auto Tab Groups - Tab Manager is a Chrome MV3 extension for automatically grouping, searching, and cleaning up browser tabs.
+Auto Tab Groups - Tab & Bookmark Manager is a Chrome MV3 extension for automatically grouping, searching, and cleaning up browser tabs.
 
 The main product promise is simple: tabs should organize themselves. The extension can auto group Chrome tabs by website, topic, domain, custom website lists, and user-defined rules, while still keeping manual search, cleanup, batch actions, and tab history close at hand.
 

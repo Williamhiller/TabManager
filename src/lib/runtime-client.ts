@@ -72,6 +72,15 @@ export async function getRedirectTrackingPermissionState(): Promise<RedirectTrac
   return response.data;
 }
 
+export async function refreshRedirectTracking(): Promise<RedirectTrackingPermissionState> {
+  const response = await sendRequest<RedirectTrackingPermissionState>({
+    type: 'tab-manager/refresh-redirect-tracking'
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
 export async function requestRedirectTrackingPermission(): Promise<boolean> {
   return chrome.permissions.request(redirectTrackingPermissions);
 }

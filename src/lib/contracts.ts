@@ -193,6 +193,7 @@ export type ExtensionRequest =
   | { type: 'tab-manager/get-overview' }
   | { type: 'tab-manager/get-tab-detail'; tabId: number }
   | { type: 'tab-manager/get-redirect-tracking-permission' }
+  | { type: 'tab-manager/refresh-redirect-tracking' }
   | { type: 'tab-manager/open-dashboard' }
   | { type: 'tab-manager/close-tabs'; tabIds: number[] }
   | { type: 'tab-manager/pin-tabs'; tabIds: number[]; pinned: boolean }

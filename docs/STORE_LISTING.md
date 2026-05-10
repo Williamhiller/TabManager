@@ -2,7 +2,7 @@
 
 ## 1) Basic Info
 
-- Product name (recommended): `Auto Tab Groups - Tab Manager`
+- Product name (recommended): `Auto Tab Groups - Tab & Bookmark Manager`
 - Alternative names:
   - `Auto Group Tabs - Tab Manager`
   - `Tab Manager: Auto Groups`
@@ -22,7 +22,7 @@ Primary keyword focus:
 
 Recommended Chrome Web Store field updates:
 
-- Name: `Auto Tab Groups - Tab Manager`
+- Name: `Auto Tab Groups - Tab & Bookmark Manager`
 - Short description: `Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.`
 - First screenshot headline: `Auto-group messy Chrome tabs instantly`
 - Second screenshot headline: `Customize groups, websites, and rules`
@@ -41,7 +41,7 @@ Automatically group Chrome tabs by website, topic, and custom rules. Search, cle
 ## 3) Detailed Description
 
 ### Chinese
-标签页太多、分组太麻烦？Auto Tab Groups - Tab Manager 可以自动帮你分组 Chrome 标签页。
+标签页太多、分组太麻烦？Auto Tab Groups - Tab & Bookmark Manager 可以自动帮你分组 Chrome 标签页。
 
 它可以按网站类型、主题、域名、自定义网站列表和规则自动分组，让工作、购物、社交、AI、开发、学习等标签自动归类。你也可以创建自己的分组，配置每个分组的网站列表、匹配规则和优先级，让标签页按照你的工作方式整理。
 
@@ -69,7 +69,7 @@ Automatically group Chrome tabs by website, topic, and custom rules. Search, cle
 - 想保留标签历史并快速恢复
 
 ### English
-Too many Chrome tabs open? Auto Tab Groups - Tab Manager groups them automatically.
+Too many Chrome tabs open? Auto Tab Groups - Tab & Bookmark Manager groups them automatically.
 
 It automatically groups tabs by website, topic, domain, custom website lists, and matching rules, so work, shopping, social, AI, development, learning, and research tabs stay separated. You can also create custom groups, edit each group's websites and rules, and set match priority for your own workflow.
 
@@ -103,18 +103,18 @@ Built for users who want tabs to organize themselves, while still keeping fast s
 ## 5) Single Purpose Statement
 
 ### Chinese
-Auto Tab Groups - Tab Manager 的唯一目的，是帮助用户在 Chrome 中自动分组、搜索、整理与回溯标签页，降低多标签工作场景下的切换成本和管理负担。
+Auto Tab Groups - Tab & Bookmark Manager 的唯一目的，是帮助用户在 Chrome 中自动分组、搜索、整理与回溯标签页，降低多标签工作场景下的切换成本和管理负担。
 
 ### English
-Auto Tab Groups - Tab Manager has one purpose: helping users automatically group, search, organize, and revisit browser tabs in Chrome.
+Auto Tab Groups - Tab & Bookmark Manager has one purpose: helping users automatically group, search, organize, and revisit browser tabs in Chrome.
 
 ## 6) Privacy Statement (For Listing Form)
 
 ### Chinese
-Auto Tab Groups - Tab Manager 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签、分组、自定义网站列表和规则信息。只有当用户主动开启 Redirect trace 并授权后，插件才会在本地记录导航/重定向历史。配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
+Auto Tab Groups - Tab & Bookmark Manager 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签、分组、自定义网站列表和规则信息。只有当用户主动开启 Redirect trace 并授权后，插件才会在本地记录导航/重定向历史。配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
 
 ### English
-Auto Tab Groups - Tab Manager does not send your tab data to external servers. Tab data, group data, custom website lists, and rules are processed locally. Navigation/redirect history is recorded locally only after the user enables Redirect trace and grants permission. Settings/history are stored in browser storage (`chrome.storage`) to provide core features.
+Auto Tab Groups - Tab & Bookmark Manager does not send your tab data to external servers. Tab data, group data, custom website lists, and rules are processed locally. Navigation/redirect history is recorded locally only after the user enables Redirect trace and grants permission. Settings/history are stored in browser storage (`chrome.storage`) to provide core features.
 
 ## 7) Privacy Policy URL (GitHub Pages)
 

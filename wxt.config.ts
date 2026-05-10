@@ -6,7 +6,7 @@ export default defineConfig({
   outDir: 'output',
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    name: 'Auto Tab Groups - Tab Manager',
+    name: 'Auto Tab Groups - Tab & Bookmark Manager',
     description:
       'Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.',
     minimum_chrome_version: '114',
@@ -27,7 +27,7 @@ export default defineConfig({
       '128': 'icons/icon-128.png'
     },
     action: {
-      default_title: 'Auto Tab Groups - Tab Manager',
+      default_title: 'Auto Tab Groups - Tab & Bookmark Manager',
       default_icon: {
         '16': 'icons/icon-16.png',
         '32': 'icons/icon-32.png',

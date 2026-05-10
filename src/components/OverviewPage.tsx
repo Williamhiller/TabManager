@@ -128,6 +128,7 @@ import {
   openPreferredLaunchSurface,
   openSidePanel,
   pinTabs,
+  refreshRedirectTracking,
   removeRedirectTrackingPermission,
   requestRedirectTrackingPermission,
   smartGroupTabs,
@@ -511,6 +512,45 @@ function getHistoryKindLabel(kind: TabHistoryEvent['kind'], t: Messages): string
     default:
       return kind;
   }
+}
+
+function getTimelineEventTitle(event: TabHistoryEvent): string {
+  if (event.kind === 'redirected') {
+    return event.title && event.title !== 'Navigation' ? event.title : 'Redirect';
+  }
+
+  return event.hostname || event.title || 'Navigation';
+}
+
+function getCompactTimelineEvents(history: TabHistoryEvent[]): TabHistoryEvent[] {
+  const sortedHistory = [...history].sort((first, second) => first.at - second.at);
+  const compactEvents: TabHistoryEvent[] = [];
+  const trackedKinds = new Set<TabHistoryEvent['kind']>([
+    'observed',
+    'created',
+    'navigated',
+    'redirected',
+    'history-state'
+  ]);
+
+  for (const event of sortedHistory) {
+    if (!trackedKinds.has(event.kind)) continue;
+    if (!event.url) continue;
+
+    const lastEvent = compactEvents.at(-1);
+    if (lastEvent?.url === event.url) continue;
+
+    if (
+      (event.kind === 'observed' || event.kind === 'created') &&
+      compactEvents.some((item) => item.kind === 'observed' || item.kind === 'created')
+    ) {
+      continue;
+    }
+
+    compactEvents.push(event);
+  }
+
+  return compactEvents;
 }
 
 export function OverviewPage({ mode }: OverviewPageProps) {
@@ -1256,8 +1296,9 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     try {
       if (settings.redirectTrackingEnabled) {
         await saveSetting({ redirectTrackingEnabled: false });
-        const removed = await removeRedirectTrackingPermission();
-        setRedirectTrackingPermissionGranted(!removed);
+        await removeRedirectTrackingPermission();
+        const permissionState = await refreshRedirectTracking();
+        setRedirectTrackingPermissionGranted(permissionState.granted);
         setStatusMessage(t.redirectTrackingOff);
         return;
       }
@@ -1271,6 +1312,8 @@ export function OverviewPage({ mode }: OverviewPageProps) {
       }
 
       await saveSetting({ redirectTrackingEnabled: true });
+      const permissionState = await refreshRedirectTracking();
+      setRedirectTrackingPermissionGranted(permissionState.granted);
       setStatusMessage(t.redirectTrackingGranted);
     } catch (nextError) {
       setError(getErrorMessage(nextError));
@@ -3061,8 +3104,9 @@ function TabDetailModal({
   onClose: () => void;
 }) {
   const tab = detail?.tab ?? null;
-  const history = (detail?.history ?? []).filter((event) =>
-    event.kind === 'observed' || event.kind === 'created' || event.kind === 'navigated'
+  const timelineEvents = useMemo(
+    () => getCompactTimelineEvents(detail?.history ?? []),
+    [detail?.history]
   );
   const detailTitle = tab?.title ?? t.details;
   const detailChips = tab
@@ -3084,7 +3128,7 @@ function TabDetailModal({
         },
         {
           label: t.eventCountLabel,
-          value: String(history.length)
+          value: String(timelineEvents.length)
         }
       ]
     : [];
@@ -3226,13 +3270,13 @@ function TabDetailModal({
                   <div className="tm-detail-section-head">
                     <strong>{t.detailTimeline}</strong>
                     <span className="tm-subtle">
-                      {history.length > 0 ? `${history.length} ${t.eventCountLabel}` : t.detailEmptyHistory}
+                      {timelineEvents.length > 0 ? `${timelineEvents.length} ${t.eventCountLabel}` : t.detailEmptyHistory}
                     </span>
                   </div>
 
-                  {history.length > 0 ? (
+                  {timelineEvents.length > 0 ? (
                     <div className="tm-detail-timeline">
-                      {history.map((event) => (
+                      {timelineEvents.map((event) => (
                         <article className="tm-timeline-item" key={event.id}>
                           <div className="tm-timeline-rail">
                             <span className="tm-timeline-dot" />
@@ -3243,17 +3287,10 @@ function TabDetailModal({
                                 {getHistoryKindLabel(event.kind, t)}
                               </span>
                               <strong className="tm-timeline-title" title={event.title}>
-                                {event.title}
+                                {getTimelineEventTitle(event)}
                               </strong>
                               <span className="tm-timeline-time">{formatTimelineTime(event.at, locale)}</span>
                             </div>
-                            {event.fromUrl ? (
-                              <div className="tm-timeline-meta">
-                                <span className="tm-timeline-url" title={event.fromUrl}>
-                                  {event.fromUrl}
-                                </span>
-                              </div>
-                            ) : null}
                             <div className="tm-timeline-meta">
                               <span className="tm-timeline-url" title={event.url || event.hostname}>
                                 {event.url || event.hostname}

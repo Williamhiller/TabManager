@@ -128,6 +128,10 @@ let persistGroupMetadataTimer: ReturnType<typeof setTimeout> | null = null;
 let overviewInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOverviewInvalidationReason: OverviewChangeReason = 'updated';
 let redirectTrackingEnabled = false;
+let redirectBeforeRequestListenerInstalled = false;
+let redirectBeforeNavigateListenerInstalled = false;
+let redirectCommittedListenerInstalled = false;
+let redirectHistoryStateListenerInstalled = false;
 
 function ensureRuntimeTab(tabId: number, observedAt = Date.now()): RuntimeTabState {
   const existing = runtimeTabs.get(tabId);
@@ -142,6 +146,16 @@ function ensureRuntimeTab(tabId: number, observedAt = Date.now()): RuntimeTabSta
 
   runtimeTabs.set(tabId, created);
   return created;
+}
+
+function sortHistoryEvents(history: TabHistoryEvent[] | undefined): TabHistoryEvent[] {
+  return [...(history ?? [])]
+    .map((event) =>
+      event.kind === 'navigated'
+        ? { ...event, fromTitle: undefined, fromUrl: undefined }
+        : event
+    )
+    .sort((first, second) => first.at - second.at);
 }
 
 function stopActiveSession(windowId: number, at = Date.now()): void {
@@ -217,13 +231,18 @@ async function ensureTabHistoryLoaded(): Promise<void> {
     for (const [tabId, record] of Object.entries(activeRecords)) {
       const numericTabId = Number(tabId);
       if (!Number.isInteger(numericTabId) || !record?.snapshot || !record?.telemetry) continue;
+      record.history = sortHistoryEvents(record.history);
       tabHistoryRecords.set(numericTabId, record);
     }
 
     recentClosedTabHistory.splice(
       0,
       recentClosedTabHistory.length,
-      ...recentClosed.slice(0, MAX_RECENT_CLOSED_TABS).filter((record) => record?.snapshot)
+      ...recentClosed.slice(0, MAX_RECENT_CLOSED_TABS).filter((record) => {
+        if (!record?.snapshot) return false;
+        record.history = sortHistoryEvents(record.history);
+        return true;
+      })
     );
   })();
 
@@ -512,6 +531,7 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
 
   for (const tab of candidateTabs) {
     if (tab.id == null) continue;
+    if (tab.pinned) continue;
     if ((tab.groupId ?? -1) >= 0) continue;
 
     const sameWindowGroups = effectiveGroups.filter((group) => group.windowId === tab.windowId);
@@ -634,19 +654,45 @@ function createUrlHistoryEvent(
   };
 }
 
+function isTrackableUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 function pushHistoryEvent(record: TabHistoryRecord, event: TabHistoryEvent): void {
-  const lastEvent = record.history.at(-1);
+  const duplicateEvent = record.history.find(
+    (existingEvent) =>
+      existingEvent.kind === event.kind &&
+      existingEvent.url === event.url &&
+      existingEvent.fromUrl === event.fromUrl &&
+      Math.abs(existingEvent.at - event.at) < 1000
+  );
+  if (duplicateEvent) return;
+
+  const insertionIndex = record.history.findIndex(
+    (existingEvent) => existingEvent.at > event.at
+  );
+  const previousEvent =
+    insertionIndex > 0
+      ? record.history[insertionIndex - 1]
+      : insertionIndex === -1
+        ? record.history.at(-1)
+        : null;
+
   if (
-    lastEvent &&
-    lastEvent.kind === event.kind &&
-    lastEvent.url === event.url &&
-    lastEvent.fromUrl === event.fromUrl &&
-    Math.abs(lastEvent.at - event.at) < 1000
+    previousEvent &&
+    previousEvent.kind === event.kind &&
+    previousEvent.url === event.url &&
+    previousEvent.fromUrl === event.fromUrl
   ) {
     return;
   }
 
-  record.history.push(event);
+  if (insertionIndex === -1) {
+    record.history.push(event);
+  } else {
+    record.history.splice(insertionIndex, 0, event);
+  }
+
   if (record.history.length > MAX_TAB_HISTORY_EVENTS) {
     record.history.splice(0, record.history.length - MAX_TAB_HISTORY_EVENTS);
   }
@@ -669,25 +715,85 @@ async function ensureTabHistoryRecord(tabId: number): Promise<TabHistoryRecord |
 
 async function recordUrlHistoryEvent(
   tabId: number,
-  kind: 'redirected' | 'history-state',
+  kind: 'navigated' | 'redirected' | 'history-state',
   url: string,
-  patch: Partial<TabHistoryEvent> = {}
+  patch: Partial<TabHistoryEvent> = {},
+  options: { inferFromUrl?: boolean; skipIfLastUrl?: boolean } = {}
 ): Promise<void> {
-  if (tabId < 0 || !url) return;
+  if (tabId < 0 || !url || !isTrackableUrl(url)) return;
 
   const record = await ensureTabHistoryRecord(tabId);
   if (!record) return;
 
-  pushHistoryEvent(record, createUrlHistoryEvent(tabId, kind, url, patch));
+  const lastEvent = record.history.at(-1);
+  if (options.skipIfLastUrl && lastEvent?.url === url) return;
+
+  const inferredFromUrl =
+    options.inferFromUrl && lastEvent?.url && lastEvent.url !== url ? lastEvent.url : null;
+  const eventPatch: Partial<TabHistoryEvent> = {
+    ...patch,
+    fromUrl: patch.fromUrl === undefined ? inferredFromUrl : patch.fromUrl
+  };
+  if (eventPatch.fromTitle === undefined && eventPatch.fromUrl) {
+    eventPatch.fromTitle = record.snapshot.title;
+  }
+
+  pushHistoryEvent(
+    record,
+    createUrlHistoryEvent(tabId, kind, url, eventPatch)
+  );
   record.updatedAt = Date.now();
   scheduleTabHistoryPersist();
   scheduleOverviewInvalidation('updated');
 }
 
+async function recordNavigationStart(
+  details: chrome.webNavigation.WebNavigationBaseCallbackDetails
+): Promise<void> {
+  await recordUrlHistoryEvent(
+    details.tabId,
+    'navigated',
+    details.url,
+    {
+      at: Math.round(details.timeStamp),
+      title: normalizeHostname(details.url) ?? 'Navigation started'
+    },
+    { skipIfLastUrl: true }
+  );
+}
+
+async function recordCommittedNavigation(
+  details: chrome.webNavigation.WebNavigationTransitionCallbackDetails
+): Promise<void> {
+  const pending = pendingRedirectEvents.get(details.tabId);
+  if (pending && pending.length > 0) {
+    await flushRedirectEvents(details.tabId);
+  }
+
+  const hasServerRedirect = details.transitionQualifiers.includes('server_redirect');
+  await recordUrlHistoryEvent(
+    details.tabId,
+    hasServerRedirect ? 'redirected' : 'navigated',
+    details.url,
+    {
+      at: Math.round(details.timeStamp),
+      title: hasServerRedirect ? 'Server redirect' : 'Navigation committed'
+    },
+    { skipIfLastUrl: true }
+  );
+}
+
 function queueRedirectEvent(details: chrome.webRequest.OnBeforeRedirectDetails): void {
   if (!redirectTrackingEnabled) return;
   if (details.tabId < 0 || details.frameId !== 0 || details.type !== 'main_frame') return;
-  if (!details.url || !details.redirectUrl || details.url === details.redirectUrl) return;
+  if (
+    !details.url ||
+    !details.redirectUrl ||
+    details.url === details.redirectUrl ||
+    !isTrackableUrl(details.redirectUrl)
+  ) {
+    return;
+  }
 
   const events = pendingRedirectEvents.get(details.tabId) ?? [];
   events.push({
@@ -735,11 +841,73 @@ async function refreshRedirectTrackingEnabled(): Promise<boolean> {
   ]);
 
   redirectTrackingEnabled = settings.redirectTrackingEnabled && permissionState.granted;
+  if (permissionState.granted) {
+    ensureRedirectTrackingListeners();
+  }
   if (!redirectTrackingEnabled) {
     pendingRedirectEvents.clear();
   }
 
   return redirectTrackingEnabled;
+}
+
+function shouldHandleWebNavigation(
+  details:
+    | chrome.webNavigation.WebNavigationBaseCallbackDetails
+    | chrome.webNavigation.WebNavigationTransitionCallbackDetails
+): boolean {
+  return (
+    redirectTrackingEnabled &&
+    details.tabId >= 0 &&
+    details.frameId === 0 &&
+    isTrackableUrl(details.url)
+  );
+}
+
+function ensureRedirectTrackingListeners(): void {
+  if (!redirectBeforeRequestListenerInstalled && chrome.webRequest?.onBeforeRedirect) {
+    chrome.webRequest.onBeforeRedirect.addListener(queueRedirectEvent, {
+      urls: ['http://*/*', 'https://*/*'],
+      types: ['main_frame']
+    });
+    redirectBeforeRequestListenerInstalled = true;
+  }
+
+  if (!redirectBeforeNavigateListenerInstalled && chrome.webNavigation?.onBeforeNavigate) {
+    chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+      if (!shouldHandleWebNavigation(details)) return;
+
+      void recordNavigationStart(details).catch((error) => {
+        console.warn('Failed to record navigation start.', error);
+      });
+    });
+    redirectBeforeNavigateListenerInstalled = true;
+  }
+
+  if (!redirectCommittedListenerInstalled && chrome.webNavigation?.onCommitted) {
+    chrome.webNavigation.onCommitted.addListener((details) => {
+      if (!shouldHandleWebNavigation(details)) return;
+
+      void recordCommittedNavigation(details).catch((error) => {
+        console.warn('Failed to record committed navigation.', error);
+      });
+    });
+    redirectCommittedListenerInstalled = true;
+  }
+
+  if (!redirectHistoryStateListenerInstalled && chrome.webNavigation?.onHistoryStateUpdated) {
+    chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+      if (!shouldHandleWebNavigation(details)) return;
+
+      void recordUrlHistoryEvent(details.tabId, 'history-state', details.url, {
+        at: Math.round(details.timeStamp),
+        title: 'History state update'
+      }, { inferFromUrl: true }).catch((error) => {
+        console.warn('Failed to record history state navigation.', error);
+      });
+    });
+    redirectHistoryStateListenerInstalled = true;
+  }
 }
 
 function hasRedirectTrackingPermissionDelta(permissions: chrome.permissions.Permissions): boolean {
@@ -1090,7 +1258,7 @@ export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
 
   return {
     tab: detailTab,
-    history: record?.history ?? closedRecord?.history ?? []
+    history: sortHistoryEvents(record?.history ?? closedRecord?.history)
   };
 }
 
@@ -1502,51 +1670,7 @@ export function installBackgroundService(): void {
     console.warn('Failed to initialize redirect tracking permission state.', error);
   });
 
-  if (chrome.webRequest?.onBeforeRedirect) {
-    chrome.webRequest.onBeforeRedirect.addListener(queueRedirectEvent, {
-      urls: ['http://*/*', 'https://*/*'],
-      types: ['main_frame']
-    });
-  }
-
-  if (chrome.webNavigation?.onCommitted) {
-    chrome.webNavigation.onCommitted.addListener((details) => {
-      if (!redirectTrackingEnabled) return;
-      if (details.tabId < 0 || details.frameId !== 0) return;
-
-      const hasServerRedirect = details.transitionQualifiers.includes('server_redirect');
-      void (async () => {
-        const pending = pendingRedirectEvents.get(details.tabId);
-        if (pending && pending.length > 0) {
-          await flushRedirectEvents(details.tabId);
-          return;
-        }
-
-        if (hasServerRedirect) {
-          await recordUrlHistoryEvent(details.tabId, 'redirected', details.url, {
-            at: Math.round(details.timeStamp),
-            title: 'Server redirect'
-          });
-        }
-      })().catch((error) => {
-        console.warn('Failed to record redirect navigation.', error);
-      });
-    });
-  }
-
-  if (chrome.webNavigation?.onHistoryStateUpdated) {
-    chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-      if (!redirectTrackingEnabled) return;
-      if (details.tabId < 0 || details.frameId !== 0) return;
-
-      void recordUrlHistoryEvent(details.tabId, 'history-state', details.url, {
-        at: Math.round(details.timeStamp),
-        title: 'History state update'
-      }).catch((error) => {
-        console.warn('Failed to record history state navigation.', error);
-      });
-    });
-  }
+  ensureRedirectTrackingListeners();
 
   chrome.tabs.onCreated.addListener((tab) => {
     if (tab.id == null) return;
@@ -1709,6 +1833,10 @@ export function installBackgroundService(): void {
             response = { ok: true, data: await getTabDetail(request.tabId) };
             break;
           case 'tab-manager/get-redirect-tracking-permission':
+            response = { ok: true, data: await getRedirectTrackingPermissionState() };
+            break;
+          case 'tab-manager/refresh-redirect-tracking':
+            await refreshRedirectTrackingEnabled();
             response = { ok: true, data: await getRedirectTrackingPermissionState() };
             break;
           case 'tab-manager/open-dashboard':

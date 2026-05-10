@@ -1278,12 +1278,14 @@ button:disabled {
   }
 
   .tm-detail-heading-link {
-    @apply flex min-w-0 items-center gap-1;
+    @apply flex min-w-0 items-start gap-1;
   }
 
   .tm-detail-heading-url {
     color: var(--tm-text-muted);
-    @apply min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[10px] leading-4;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    @apply min-w-0 flex-1 whitespace-normal text-[10px] leading-4;
   }
 
   .tm-detail-copy-button {
@@ -1508,7 +1510,7 @@ button:disabled {
   }
 
   .tm-timeline-head {
-    @apply flex items-center gap-1.5;
+    @apply flex flex-wrap items-center gap-1.5;
   }
 
   .tm-timeline-title {
@@ -1528,12 +1530,14 @@ button:disabled {
   }
 
   .tm-timeline-meta {
-    @apply flex min-w-0 items-center gap-0.5;
+    @apply flex min-w-0 items-start gap-0.5;
   }
 
   .tm-timeline-url {
     color: var(--tm-text-muted);
-    @apply min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] leading-4;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    @apply min-w-0 flex-1 whitespace-normal text-[11px] leading-4;
   }
 
   .tm-settings-modal .tm-button,

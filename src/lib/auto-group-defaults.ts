@@ -96,18 +96,17 @@ export function resolveAutoGroupPresetLocale(
 }
 
 function buildAutoGroupMatchSource(input: AutoGroupMatchInput): string {
-  const url = `${input.url ?? input.pendingUrl ?? ''}`.toLowerCase();
-  const hostname =
-    input.hostname ??
-    (() => {
-      try {
-        return new URL(input.url ?? input.pendingUrl ?? '').hostname;
-      } catch {
-        return '';
-      }
-    })();
+  const rawUrl = input.url ?? input.pendingUrl ?? '';
+  const explicitHostname = input.hostname?.replace(/^www\./, '').toLowerCase() ?? '';
 
-  return `${hostname.replace(/^www\./, '').toLowerCase()} ${url} ${(input.title ?? '').toLowerCase()}`;
+  try {
+    const parsedUrl = new URL(rawUrl);
+    const hostname = parsedUrl.hostname.replace(/^www\./, '').toLowerCase();
+    const pathname = parsedUrl.pathname.replace(/\/+$/, '').toLowerCase();
+    return `${hostname}${pathname}`;
+  } catch {
+    return explicitHostname;
+  }
 }
 
 export function matchDefaultAutoGroupPreset(

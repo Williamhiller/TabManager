@@ -1,10 +1,10 @@
-# Privacy Policy - Auto Tab Groups - Tab Manager
+# Privacy Policy - Auto Tab Groups - Tab & Bookmark Manager
 
 Last updated: 2026-04-22
 
 ## Summary
 
-Auto Tab Groups - Tab Manager is designed to work locally in your browser.
+Auto Tab Groups - Tab & Bookmark Manager is designed to work locally in your browser.
 
 - No user account is required.
 - No analytics service is integrated.
@@ -38,7 +38,7 @@ Data is stored in browser-provided local/sync storage (`chrome.storage.local` an
 
 ## Data Sharing
 
-Auto Tab Groups - Tab Manager does not sell, transfer, or share your browsing data with third parties.
+Auto Tab Groups - Tab & Bookmark Manager does not sell, transfer, or share your browsing data with third parties.
 
 ## Contact
 
