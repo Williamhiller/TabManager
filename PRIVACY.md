@@ -1,6 +1,6 @@
 # Privacy Policy - Auto Tab Groups - Tab & Bookmark Manager
 
-Last updated: 2026-04-22
+Last updated: 2026-05-11
 
 ## Summary
 
@@ -16,6 +16,7 @@ The extension processes tab metadata locally to provide core features, including
 
 - tab title and URL
 - tab group metadata
+- bookmark titles, URLs, folder structure, and user-initiated bookmark edits
 - custom auto-group website lists and rules
 - tab activity timeline/history
 - workspace preferences (theme, language, launch surface, refresh options)
@@ -29,6 +30,7 @@ Data is stored in browser-provided local/sync storage (`chrome.storage.local` an
 
 - `tabs`: required to list and manage tabs.
 - `tabGroups`: required to read and manage tab groups.
+- `bookmarks`: required to read, search, create, edit, move, and delete bookmarks and bookmark folders inside the bookmark workspace.
 - `sidePanel`: required to open the side panel workspace.
 - `storage`: required to persist settings and local history.
 - `system.memory`: required to show memory snapshot information.

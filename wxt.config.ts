@@ -11,6 +11,7 @@ export default defineConfig({
       'Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.',
     minimum_chrome_version: '114',
     permissions: [
+      'bookmarks',
       'favicon',
       'sidePanel',
       'storage',

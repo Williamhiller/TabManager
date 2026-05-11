@@ -2,9 +2,15 @@ import type {
   AutoGroupConfig,
   AutoGroupRule,
   AutoGroupRuleField,
+  BookmarkNodeSnapshot,
+  BookmarksInvalidatedMessage,
+  BookmarkTreeSnapshot,
+  BookmarkUpdatePatch,
   ExtensionRequest,
   ExtensionResult,
   GroupTabsOptions,
+  LocaleMode,
+  ManagerSettings,
   OverviewChangeReason,
   OverviewInvalidatedMessage,
   OverviewSnapshot,
@@ -91,6 +97,15 @@ interface PersistedGroupMetadataState {
   groups: Record<string, GroupMetadataRecord>;
 }
 
+interface AutoGroupExemptionRecord {
+  targetKey: string;
+  updatedAt: number;
+}
+
+interface PersistedAutoGroupExemptionState {
+  tabs: Record<string, AutoGroupExemptionRecord>;
+}
+
 interface PendingRedirectEvent {
   fromUrl: string;
   toUrl: string;
@@ -98,11 +113,26 @@ interface PendingRedirectEvent {
   statusCode: number;
 }
 
+type MatchingAutoGroupTarget =
+  | {
+      kind: 'group';
+      targetKey: string;
+      group: chrome.tabGroups.TabGroup;
+    }
+  | {
+      kind: 'config';
+      targetKey: string;
+      config: AutoGroupConfig;
+      configTitle: string;
+      existingConfiguredGroup?: chrome.tabGroups.TabGroup;
+    };
+
 const runtimeTabs = new Map<number, RuntimeTabState>();
 const activeWindowSessions = new Map<number, ActiveWindowSession>();
 const tabHistoryRecords = new Map<number, TabHistoryRecord>();
 const recentClosedTabHistory: ClosedTabHistoryRecord[] = [];
 const groupMetadataRecords = new Map<number, GroupMetadataRecord>();
+const autoGroupExemptionRecords = new Map<number, AutoGroupExemptionRecord>();
 const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
 const groupColors: TabGroupColor[] = [
   'grey',
@@ -117,14 +147,17 @@ const groupColors: TabGroupColor[] = [
 ];
 const TAB_HISTORY_STORAGE_KEY = 'tab-manager/tab-history';
 const GROUP_METADATA_STORAGE_KEY = 'tab-manager/group-metadata';
+const AUTO_GROUP_EXEMPTIONS_STORAGE_KEY = 'tab-manager/auto-group-exemptions';
 const MAX_TAB_HISTORY_EVENTS = 120;
 const MAX_RECENT_CLOSED_TABS = 10;
 const OVERVIEW_INVALIDATION_DEBOUNCE_MS = 80;
 
 let tabHistoryLoadPromise: Promise<void> | null = null;
 let groupMetadataLoadPromise: Promise<void> | null = null;
+let autoGroupExemptionLoadPromise: Promise<void> | null = null;
 let persistTabHistoryTimer: ReturnType<typeof setTimeout> | null = null;
 let persistGroupMetadataTimer: ReturnType<typeof setTimeout> | null = null;
+let persistAutoGroupExemptionTimer: ReturnType<typeof setTimeout> | null = null;
 let overviewInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOverviewInvalidationReason: OverviewChangeReason = 'updated';
 let redirectTrackingEnabled = false;
@@ -180,6 +213,7 @@ function startActiveSession(windowId: number, tabId: number, at = Date.now()): v
 
 async function seedRuntimeState(): Promise<void> {
   await ensureTabHistoryLoaded();
+  await ensureAutoGroupExemptionsLoaded();
 
   const tabs = await chrome.tabs.query({});
   const now = Date.now();
@@ -195,6 +229,16 @@ async function seedRuntimeState(): Promise<void> {
   for (const tabId of [...tabHistoryRecords.keys()]) {
     if (liveIds.has(tabId)) continue;
     archiveClosedTabHistory(tabId, now);
+  }
+
+  let removedExemption = false;
+  for (const tabId of [...autoGroupExemptionRecords.keys()]) {
+    if (liveIds.has(tabId)) continue;
+    autoGroupExemptionRecords.delete(tabId);
+    removedExemption = true;
+  }
+  if (removedExemption) {
+    scheduleAutoGroupExemptionsPersist();
   }
 
   const windows = await chrome.windows.getAll({
@@ -289,6 +333,50 @@ async function ensureGroupMetadataLoaded(): Promise<void> {
   return groupMetadataLoadPromise;
 }
 
+function hydrateAutoGroupExemptionRecords(
+  raw:
+    | Partial<PersistedAutoGroupExemptionState>
+    | Record<string, AutoGroupExemptionRecord>
+    | null
+    | undefined
+): void {
+  autoGroupExemptionRecords.clear();
+  if (!raw || typeof raw !== 'object') return;
+
+  const state =
+    raw as Partial<PersistedAutoGroupExemptionState> | Record<string, AutoGroupExemptionRecord>;
+  const records =
+    'tabs' in state && state.tabs && typeof state.tabs === 'object'
+      ? state.tabs
+      : (state as Record<string, AutoGroupExemptionRecord>);
+
+  for (const [tabId, record] of Object.entries(records)) {
+    const numericTabId = Number(tabId);
+    if (!Number.isInteger(numericTabId) || !record?.targetKey) continue;
+    autoGroupExemptionRecords.set(numericTabId, {
+      targetKey: record.targetKey,
+      updatedAt: record.updatedAt ?? Date.now()
+    });
+  }
+}
+
+async function ensureAutoGroupExemptionsLoaded(): Promise<void> {
+  if (autoGroupExemptionLoadPromise) return autoGroupExemptionLoadPromise;
+
+  autoGroupExemptionLoadPromise = (async () => {
+    const stored = await chrome.storage.local.get(AUTO_GROUP_EXEMPTIONS_STORAGE_KEY);
+    hydrateAutoGroupExemptionRecords(
+      stored[AUTO_GROUP_EXEMPTIONS_STORAGE_KEY] as
+        | Partial<PersistedAutoGroupExemptionState>
+        | Record<string, AutoGroupExemptionRecord>
+        | null
+        | undefined
+    );
+  })();
+
+  return autoGroupExemptionLoadPromise;
+}
+
 function serializeTabHistoryRecords(): PersistedTabHistoryState {
   return {
     active: Object.fromEntries(
@@ -302,6 +390,17 @@ function serializeGroupMetadataRecords(): PersistedGroupMetadataState {
   return {
     groups: Object.fromEntries(
       Array.from(groupMetadataRecords.entries()).map(([groupId, record]) => [String(groupId), record])
+    )
+  };
+}
+
+function serializeAutoGroupExemptionRecords(): PersistedAutoGroupExemptionState {
+  return {
+    tabs: Object.fromEntries(
+      Array.from(autoGroupExemptionRecords.entries()).map(([tabId, record]) => [
+        String(tabId),
+        record
+      ])
     )
   };
 }
@@ -332,6 +431,19 @@ function scheduleGroupMetadataPersist(): void {
   }, 120);
 }
 
+function scheduleAutoGroupExemptionsPersist(): void {
+  if (persistAutoGroupExemptionTimer != null) return;
+
+  persistAutoGroupExemptionTimer = setTimeout(() => {
+    persistAutoGroupExemptionTimer = null;
+    void chrome.storage.local
+      .set({ [AUTO_GROUP_EXEMPTIONS_STORAGE_KEY]: serializeAutoGroupExemptionRecords() })
+      .catch((error) => {
+        console.warn('Failed to persist auto group exemptions.', error);
+      });
+  }, 120);
+}
+
 function scheduleOverviewInvalidation(reason: OverviewChangeReason): void {
   pendingOverviewInvalidationReason = reason;
   if (overviewInvalidationTimer != null) return;
@@ -347,6 +459,15 @@ function scheduleOverviewInvalidation(reason: OverviewChangeReason): void {
 
     void chrome.runtime.sendMessage(message).catch(() => {});
   }, OVERVIEW_INVALIDATION_DEBOUNCE_MS);
+}
+
+function scheduleBookmarksInvalidation(): void {
+  const message: BookmarksInvalidatedMessage = {
+    type: 'tab-manager/bookmarks-invalidated',
+    at: Date.now()
+  };
+
+  void chrome.runtime.sendMessage(message).catch(() => {});
 }
 
 function getGroupMetadata(groupId: number): GroupMetadataRecord {
@@ -370,6 +491,23 @@ function setGroupMetadata(groupId: number, patch: Partial<GroupMetadataRecord>):
 function deleteGroupMetadata(groupId: number): void {
   if (!groupMetadataRecords.delete(groupId)) return;
   scheduleGroupMetadataPersist();
+}
+
+function setAutoGroupExemption(tabId: number, targetKey: string): void {
+  autoGroupExemptionRecords.set(tabId, {
+    targetKey,
+    updatedAt: Date.now()
+  });
+  scheduleAutoGroupExemptionsPersist();
+}
+
+function deleteAutoGroupExemption(tabId: number): void {
+  if (!autoGroupExemptionRecords.delete(tabId)) return;
+  scheduleAutoGroupExemptionsPersist();
+}
+
+function isTabAutoGroupExempt(tabId: number, targetKey: string): boolean {
+  return autoGroupExemptionRecords.get(tabId)?.targetKey === targetKey;
 }
 
 function normalizeAutoGroupRuleValue(field: AutoGroupRuleField, value: string): string {
@@ -461,9 +599,21 @@ function matchesAutoGroupConfig(tab: chrome.tabs.Tab, config: AutoGroupConfig): 
   );
 }
 
+function getEffectiveAutoGroupConfigs(settings: ManagerSettings): AutoGroupConfig[] {
+  return settings.autoGroupConfigs.filter(
+    (config) =>
+      config.enabled &&
+      (Boolean(config.presetId) ||
+        config.websites.some((website) => Boolean(normalizeWebsitePattern(website))) ||
+        config.rules.some((rule) =>
+          Boolean(normalizeAutoGroupRuleValue(rule.field, rule.value))
+        ))
+  );
+}
+
 function resolveAutoGroupConfigTitle(
   config: AutoGroupConfig,
-  locale: 'system' | 'en' | 'zh-CN'
+  locale: LocaleMode
 ): string {
   if (!config.presetId) return config.title;
 
@@ -488,33 +638,10 @@ function matchesGroupAutoGrouping(
   );
 }
 
-async function maybeAutoGroupTab(tab: chrome.tabs.Tab): Promise<void> {
-  if (tab.id == null) return;
-  await maybeAutoGroupTabs([tab.id]);
-}
-
-async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
-  const settings = await getSettings();
-  if (!settings.autoGroupEnabled) return;
-
-  await ensureGroupMetadataLoaded();
-
-  const [candidateTabs, initialGroups] = await Promise.all([
-    tabIds ? loadTabsById(uniqueTabIds(tabIds)) : chrome.tabs.query({}),
-    chrome.tabGroups.query({})
-  ]);
-  const groups = [...initialGroups];
-  const effectiveConfigs = settings.autoGroupConfigs.filter(
-    (config) =>
-      config.enabled &&
-      (Boolean(config.presetId) ||
-        config.websites.some((website) => Boolean(normalizeWebsitePattern(website))) ||
-        config.rules.some((rule) =>
-          Boolean(normalizeAutoGroupRuleValue(rule.field, rule.value))
-        ))
-  );
-
-  const effectiveGroups = groups.filter((group) => {
+function getEffectiveAutoGroupGroups(
+  groups: chrome.tabGroups.TabGroup[]
+): chrome.tabGroups.TabGroup[] {
+  return groups.filter((group) => {
     const metadata = getGroupMetadata(group.id);
     return (
       metadata.autoGroupEnabled &&
@@ -524,6 +651,85 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
         ))
     );
   });
+}
+
+function resolveMatchingAutoGroupTarget(
+  tab: chrome.tabs.Tab,
+  groups: chrome.tabGroups.TabGroup[],
+  effectiveGroups: chrome.tabGroups.TabGroup[],
+  effectiveConfigs: AutoGroupConfig[],
+  locale: LocaleMode
+): MatchingAutoGroupTarget | null {
+  const sameWindowGroups = effectiveGroups.filter((group) => group.windowId === tab.windowId);
+  const matchingGroup =
+    sameWindowGroups.find((group) => matchesGroupAutoGrouping(tab, getGroupMetadata(group.id))) ??
+    effectiveGroups.find((group) => matchesGroupAutoGrouping(tab, getGroupMetadata(group.id)));
+
+  if (matchingGroup) {
+    return {
+      kind: 'group',
+      targetKey: `group:${matchingGroup.id}`,
+      group: matchingGroup
+    };
+  }
+
+  const matchingConfig = effectiveConfigs.find((config) => matchesAutoGroupConfig(tab, config));
+  if (!matchingConfig) return null;
+
+  const configTitle = resolveAutoGroupConfigTitle(matchingConfig, locale);
+  const existingConfiguredGroup =
+    groups.find((group) => group.windowId === tab.windowId && group.title === configTitle) ??
+    groups.find((group) => group.title === configTitle);
+
+  return {
+    kind: 'config',
+    targetKey: `config:${matchingConfig.id}`,
+    config: matchingConfig,
+    configTitle,
+    existingConfiguredGroup: existingConfiguredGroup ?? undefined
+  };
+}
+
+async function rememberManualAutoGroupExit(tab: chrome.tabs.Tab): Promise<void> {
+  if (tab.id == null) return;
+  if (tab.pinned) return;
+
+  const settings = await getSettings();
+  if (!settings.autoGroupEnabled) return;
+
+  await Promise.all([ensureGroupMetadataLoaded(), ensureAutoGroupExemptionsLoaded()]);
+
+  const groups = await chrome.tabGroups.query({});
+  const target = resolveMatchingAutoGroupTarget(
+    tab,
+    groups,
+    getEffectiveAutoGroupGroups(groups),
+    getEffectiveAutoGroupConfigs(settings),
+    settings.locale
+  );
+
+  if (!target) return;
+  setAutoGroupExemption(tab.id, target.targetKey);
+}
+
+async function maybeAutoGroupTab(tab: chrome.tabs.Tab): Promise<void> {
+  if (tab.id == null) return;
+  await maybeAutoGroupTabs([tab.id]);
+}
+
+async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
+  const settings = await getSettings();
+  if (!settings.autoGroupEnabled) return;
+
+  await Promise.all([ensureGroupMetadataLoaded(), ensureAutoGroupExemptionsLoaded()]);
+
+  const [candidateTabs, initialGroups] = await Promise.all([
+    tabIds ? loadTabsById(uniqueTabIds(tabIds)) : chrome.tabs.query({}),
+    chrome.tabGroups.query({})
+  ]);
+  const groups = [...initialGroups];
+  const effectiveConfigs = getEffectiveAutoGroupConfigs(settings);
+  const effectiveGroups = getEffectiveAutoGroupGroups(groups);
 
   if (effectiveGroups.length === 0 && effectiveConfigs.length === 0) return;
 
@@ -534,39 +740,31 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
     if (tab.pinned) continue;
     if ((tab.groupId ?? -1) >= 0) continue;
 
-    const sameWindowGroups = effectiveGroups.filter((group) => group.windowId === tab.windowId);
-    const matchingGroup =
-      sameWindowGroups.find((group) =>
-        matchesGroupAutoGrouping(tab, getGroupMetadata(group.id))
-      ) ??
-      effectiveGroups.find((group) =>
-        matchesGroupAutoGrouping(tab, getGroupMetadata(group.id))
-      );
+    const target = resolveMatchingAutoGroupTarget(
+      tab,
+      groups,
+      effectiveGroups,
+      effectiveConfigs,
+      settings.locale
+    );
+    if (!target) continue;
+    if (isTabAutoGroupExempt(tab.id, target.targetKey)) continue;
 
-    if (matchingGroup) {
-      const result = await createGroups([tab.id], { groupId: matchingGroup.id });
-      if (result.affectedCount > 0) {
-        groupedAny = true;
-      }
-      continue;
-    }
-
-    const matchingConfig = effectiveConfigs.find((config) => matchesAutoGroupConfig(tab, config));
-    if (!matchingConfig) continue;
-    const matchingConfigTitle = resolveAutoGroupConfigTitle(matchingConfig, settings.locale);
-
-    const existingConfiguredGroup =
-      groups.find((group) => group.windowId === tab.windowId && group.title === matchingConfigTitle) ??
-      groups.find((group) => group.title === matchingConfigTitle);
-
-    const result = existingConfiguredGroup
-      ? await createGroups([tab.id], { groupId: existingConfiguredGroup.id })
-      : await createGroups([tab.id], { title: matchingConfigTitle, color: matchingConfig.color });
+    const result =
+      target.kind === 'group'
+        ? await createGroups([tab.id], { groupId: target.group.id })
+        : target.existingConfiguredGroup
+          ? await createGroups([tab.id], { groupId: target.existingConfiguredGroup.id })
+          : await createGroups([tab.id], {
+              title: target.configTitle,
+              color: target.config.color
+            });
 
     if (result.affectedCount > 0) {
       groupedAny = true;
+      deleteAutoGroupExemption(tab.id);
 
-      if (!existingConfiguredGroup) {
+      if (target.kind === 'config' && !target.existingConfiguredGroup) {
         const createdGroupId = (await chrome.tabs.get(tab.id)).groupId;
 
         if (createdGroupId >= 0 && !groups.some((group) => group.id === createdGroupId)) {
@@ -1266,6 +1464,140 @@ async function openDashboardTab(): Promise<void> {
   await chrome.tabs.create({ url: chrome.runtime.getURL('/dashboard.html') });
 }
 
+function toBookmarkNodeSnapshot(
+  node: chrome.bookmarks.BookmarkTreeNode
+): BookmarkNodeSnapshot {
+  return {
+    id: node.id,
+    parentId: node.parentId ?? null,
+    index: node.index ?? 0,
+    title: node.title || node.url || '',
+    url: node.url ?? null,
+    dateAdded: node.dateAdded ?? null,
+    dateGroupModified: node.dateGroupModified ?? null,
+    folderType: node.folderType ?? null,
+    syncing: Boolean(node.syncing),
+    unmodifiable: node.unmodifiable ?? null,
+    children: (node.children ?? []).map((child) => toBookmarkNodeSnapshot(child))
+  };
+}
+
+function countBookmarks(node: BookmarkNodeSnapshot): { bookmarks: number; folders: number } {
+  const ownCounts =
+    node.url == null
+      ? { bookmarks: 0, folders: 1 }
+      : { bookmarks: 1, folders: 0 };
+
+  return node.children.reduce(
+    (totals, child) => {
+      const childCounts = countBookmarks(child);
+      return {
+        bookmarks: totals.bookmarks + childCounts.bookmarks,
+        folders: totals.folders + childCounts.folders
+      };
+    },
+    ownCounts
+  );
+}
+
+async function getBookmarks(): Promise<BookmarkTreeSnapshot> {
+  const tree = await chrome.bookmarks.getTree();
+  const rawRoots =
+    tree.length === 1 && tree[0]?.id === '0' && Array.isArray(tree[0].children)
+      ? tree[0].children
+      : tree;
+  const roots = rawRoots.map((node) => toBookmarkNodeSnapshot(node));
+  const totals = roots.reduce(
+    (accumulator, root) => {
+      const counts = countBookmarks(root);
+      return {
+        totalBookmarks: accumulator.totalBookmarks + counts.bookmarks,
+        totalFolders: accumulator.totalFolders + counts.folders
+      };
+    },
+    { totalBookmarks: 0, totalFolders: 0 }
+  );
+
+  return {
+    roots,
+    totalBookmarks: totals.totalBookmarks,
+    totalFolders: totals.totalFolders
+  };
+}
+
+async function createBookmarkFolder(
+  parentId: string,
+  title: string,
+  index?: number
+): Promise<BookmarkNodeSnapshot | null> {
+  const created = await chrome.bookmarks.create({
+    parentId,
+    title: title.trim() || 'Untitled folder',
+    index
+  });
+  scheduleBookmarksInvalidation();
+  return toBookmarkNodeSnapshot(created);
+}
+
+async function createBookmarkFromActiveTab(
+  parentId: string,
+  index?: number
+): Promise<BookmarkNodeSnapshot | null> {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const url = activeTab?.url ?? activeTab?.pendingUrl ?? '';
+  if (!url) return null;
+
+  const created = await chrome.bookmarks.create({
+    parentId,
+    title: activeTab?.title || url,
+    url,
+    index
+  });
+  scheduleBookmarksInvalidation();
+  return toBookmarkNodeSnapshot(created);
+}
+
+async function updateBookmark(
+  bookmarkId: string,
+  patch: BookmarkUpdatePatch
+): Promise<BookmarkNodeSnapshot | null> {
+  const nextPatch: { title?: string; url?: string } = {};
+  if (patch.title !== undefined) {
+    nextPatch.title = patch.title.trim();
+  }
+  if (patch.url !== undefined) {
+    nextPatch.url = patch.url.trim();
+  }
+
+  const updated = await chrome.bookmarks.update(bookmarkId, nextPatch);
+  scheduleBookmarksInvalidation();
+  return toBookmarkNodeSnapshot(updated);
+}
+
+async function deleteBookmark(bookmarkId: string): Promise<TabMutationResult> {
+  const [node] = await chrome.bookmarks.get(bookmarkId);
+  if (node?.url) {
+    await chrome.bookmarks.remove(bookmarkId);
+  } else {
+    await chrome.bookmarks.removeTree(bookmarkId);
+  }
+  scheduleBookmarksInvalidation();
+  return collectMutationOutcome([]);
+}
+
+async function moveBookmark(
+  bookmarkId: string,
+  parentId: string,
+  index?: number
+): Promise<TabMutationResult> {
+  await chrome.bookmarks.move(bookmarkId, {
+    parentId,
+    index
+  });
+  scheduleBookmarksInvalidation();
+  return collectMutationOutcome([]);
+}
+
 function uniqueTabIds(tabIds: number[]): number[] {
   return [...new Set(tabIds)].filter((tabId) => Number.isInteger(tabId) && tabId > 0);
 }
@@ -1356,6 +1688,10 @@ async function assignTabsToGroup(
     tabIds: nonEmptyTabIds
   });
 
+  for (const tabId of movedTabIds) {
+    deleteAutoGroupExemption(tabId);
+  }
+
   return collectMutationOutcome(movedTabIds);
 }
 
@@ -1398,7 +1734,12 @@ async function createGroups(
     }
   }
 
-  return collectMutationOutcome(uniqueTabIds(affected));
+  const affectedTabIds = uniqueTabIds(affected);
+  for (const tabId of affectedTabIds) {
+    deleteAutoGroupExemption(tabId);
+  }
+
+  return collectMutationOutcome(affectedTabIds);
 }
 
 async function ungroupTabs(tabIds: number[]): Promise<TabMutationResult> {
@@ -1692,6 +2033,7 @@ export function installBackgroundService(): void {
   chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
     if (tab.id == null) return;
 
+    const groupIdChanged = 'groupId' in changeInfo;
     const relevantUpdate =
       changeInfo.url !== undefined ||
       changeInfo.title !== undefined ||
@@ -1700,16 +2042,37 @@ export function installBackgroundService(): void {
       changeInfo.pinned !== undefined ||
       changeInfo.mutedInfo !== undefined ||
       changeInfo.discarded !== undefined ||
-      'groupId' in changeInfo;
+      groupIdChanged;
 
     if (!relevantUpdate) return;
     scheduleOverviewInvalidation('updated');
-    void trackTabHistory(tab, 'updated');
-    if (changeInfo.url !== undefined || changeInfo.status === 'complete' || 'groupId' in changeInfo) {
-      void maybeAutoGroupTab(tab).catch((error) => {
-        console.warn('Failed to auto group updated tab.', error);
-      });
-    }
+    void (async () => {
+      if (changeInfo.url !== undefined) {
+        await ensureAutoGroupExemptionsLoaded();
+        deleteAutoGroupExemption(tab.id!);
+      }
+
+      if (groupIdChanged) {
+        if ((tab.groupId ?? -1) >= 0) {
+          await ensureAutoGroupExemptionsLoaded();
+          deleteAutoGroupExemption(tab.id!);
+        } else {
+          await rememberManualAutoGroupExit(tab);
+        }
+      }
+
+      await trackTabHistory(tab, 'updated');
+
+      if (changeInfo.url !== undefined || changeInfo.status === 'complete' || groupIdChanged) {
+        if (groupIdChanged && (tab.groupId ?? -1) < 0) {
+          return;
+        }
+
+        await maybeAutoGroupTab(tab);
+      }
+    })().catch((error) => {
+      console.warn('Failed to process updated tab.', error);
+    });
   });
 
   chrome.tabs.onMoved.addListener(() => {
@@ -1744,6 +2107,7 @@ export function installBackgroundService(): void {
     archiveClosedTabHistory(tabId);
     pendingRedirectEvents.delete(tabId);
     runtimeTabs.delete(tabId);
+    deleteAutoGroupExemption(tabId);
     scheduleOverviewInvalidation('removed');
   });
 
@@ -1816,13 +2180,39 @@ export function installBackgroundService(): void {
     });
   });
 
+  chrome.bookmarks?.onCreated?.addListener(() => {
+    scheduleBookmarksInvalidation();
+  });
+
+  chrome.bookmarks?.onRemoved?.addListener(() => {
+    scheduleBookmarksInvalidation();
+  });
+
+  chrome.bookmarks?.onChanged?.addListener(() => {
+    scheduleBookmarksInvalidation();
+  });
+
+  chrome.bookmarks?.onMoved?.addListener(() => {
+    scheduleBookmarksInvalidation();
+  });
+
+  chrome.bookmarks?.onChildrenReordered?.addListener(() => {
+    scheduleBookmarksInvalidation();
+  });
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const request = message as ExtensionRequest;
 
     void (async () => {
       try {
         let response: ExtensionResult<
-          OverviewSnapshot | RedirectTrackingPermissionState | TabDetailSnapshot | TabMutationResult | null
+          | OverviewSnapshot
+          | RedirectTrackingPermissionState
+          | TabDetailSnapshot
+          | BookmarkTreeSnapshot
+          | BookmarkNodeSnapshot
+          | TabMutationResult
+          | null
         >;
 
         switch (request.type) {
@@ -1831,6 +2221,36 @@ export function installBackgroundService(): void {
             break;
           case 'tab-manager/get-tab-detail':
             response = { ok: true, data: await getTabDetail(request.tabId) };
+            break;
+          case 'tab-manager/get-bookmarks':
+            response = { ok: true, data: await getBookmarks() };
+            break;
+          case 'tab-manager/create-bookmark-folder':
+            response = {
+              ok: true,
+              data: await createBookmarkFolder(request.parentId, request.title, request.index)
+            };
+            break;
+          case 'tab-manager/create-bookmark-from-active-tab':
+            response = {
+              ok: true,
+              data: await createBookmarkFromActiveTab(request.parentId, request.index)
+            };
+            break;
+          case 'tab-manager/update-bookmark':
+            response = {
+              ok: true,
+              data: await updateBookmark(request.bookmarkId, request.patch)
+            };
+            break;
+          case 'tab-manager/delete-bookmark':
+            response = { ok: true, data: await deleteBookmark(request.bookmarkId) };
+            break;
+          case 'tab-manager/move-bookmark':
+            response = {
+              ok: true,
+              data: await moveBookmark(request.bookmarkId, request.parentId, request.index)
+            };
             break;
           case 'tab-manager/get-redirect-tracking-permission':
             response = { ok: true, data: await getRedirectTrackingPermissionState() };

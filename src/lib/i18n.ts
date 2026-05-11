@@ -1,9 +1,8 @@
 import type { LocaleMode } from './contracts';
 
-export type ResolvedLocale = 'en' | 'zh-CN';
+export type ResolvedLocale = 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
 
-const messages = {
-  en: {
+const enMessages = {
     appTitle: 'Auto Tab Groups',
     appSubtitle: 'Automatically group tabs, then search and clean them up fast.',
     searchPlaceholder: 'Search title, site, or group',
@@ -147,13 +146,18 @@ const messages = {
     localeAuto: 'Follow browser',
     localeEnglish: 'English',
     localeChinese: '简体中文',
+    localeJapanese: '日本語',
+    localeFrench: 'Français',
+    localeSpanish: 'Español',
+    localeArabic: 'العربية',
     organizePanelHint: 'Views, batch actions, and smart grouping in one place.',
     websiteType: 'Website type',
     chooseGroup: 'Choose group',
     rootUngrouped: 'Loose tabs',
     tabs: 'tabs'
-  },
-  'zh-CN': {
+} as const;
+
+const zhCnMessages = {
     appTitle: '标签管理',
     appSubtitle: '先搜索，再分组，把标签真正管起来。',
     searchPlaceholder: '搜索标题、站点或分组',
@@ -297,11 +301,59 @@ const messages = {
     localeAuto: '跟随浏览器',
     localeEnglish: 'English',
     localeChinese: '简体中文',
+    localeJapanese: '日本語',
+    localeFrench: 'Français',
+    localeSpanish: 'Español',
+    localeArabic: 'العربية',
     organizePanelHint: '视图、批量操作和智能整理都收在这里。',
     websiteType: '网站类型',
     chooseGroup: '选择分组',
     rootUngrouped: '未归类标签',
     tabs: '个标签'
+} as const;
+
+const messages = {
+  en: enMessages,
+  'zh-CN': zhCnMessages,
+  ja: {
+    ...enMessages,
+    localeAuto: 'ブラウザに従う',
+    localeEnglish: 'English',
+    localeChinese: '简体中文',
+    localeJapanese: '日本語',
+    localeFrench: 'Français',
+    localeSpanish: 'Español',
+    localeArabic: 'العربية'
+  },
+  fr: {
+    ...enMessages,
+    localeAuto: 'Suivre le navigateur',
+    localeEnglish: 'English',
+    localeChinese: '简体中文',
+    localeJapanese: '日本語',
+    localeFrench: 'Français',
+    localeSpanish: 'Español',
+    localeArabic: 'العربية'
+  },
+  es: {
+    ...enMessages,
+    localeAuto: 'Seguir al navegador',
+    localeEnglish: 'English',
+    localeChinese: '简体中文',
+    localeJapanese: '日本語',
+    localeFrench: 'Français',
+    localeSpanish: 'Español',
+    localeArabic: 'العربية'
+  },
+  ar: {
+    ...enMessages,
+    localeAuto: 'اتباع المتصفح',
+    localeEnglish: 'English',
+    localeChinese: '简体中文',
+    localeJapanese: '日本語',
+    localeFrench: 'Français',
+    localeSpanish: 'Español',
+    localeArabic: 'العربية'
   }
 } as const;
 
@@ -309,10 +361,26 @@ export type Messages = Record<keyof typeof messages.en, string>;
 
 export function resolveLocale(localeMode: LocaleMode): ResolvedLocale {
   if (localeMode === 'system') {
-    return navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+    const language = navigator.language.toLowerCase();
+    if (language.startsWith('zh')) return 'zh-CN';
+    if (language.startsWith('ja')) return 'ja';
+    if (language.startsWith('fr')) return 'fr';
+    if (language.startsWith('es')) return 'es';
+    if (language.startsWith('ar')) return 'ar';
+    return 'en';
   }
 
-  return localeMode === 'zh-CN' ? 'zh-CN' : 'en';
+  if (
+    localeMode === 'zh-CN' ||
+    localeMode === 'ja' ||
+    localeMode === 'fr' ||
+    localeMode === 'es' ||
+    localeMode === 'ar'
+  ) {
+    return localeMode;
+  }
+
+  return 'en';
 }
 
 export function getMessages(localeMode: LocaleMode): Messages {

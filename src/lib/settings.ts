@@ -14,7 +14,7 @@ import type {
 const validLaunchSurfaces: readonly LaunchSurface[] = ['sidepanel', 'dashboard'];
 const validRefreshIntervals = new Set([0, 15, 30, 60]);
 const validThemes: readonly ThemeMode[] = ['light', 'dark', 'system'];
-const validLocales: readonly LocaleMode[] = ['system', 'en', 'zh-CN'];
+const validLocales: readonly LocaleMode[] = ['system', 'en', 'zh-CN', 'ja', 'fr', 'es', 'ar'];
 const validRuleFields: readonly AutoGroupRuleField[] = ['hostname', 'url', 'title'];
 const validRuleOperators: readonly AutoGroupRuleOperator[] = ['contains', 'equals'];
 const validGroupColors: readonly TabGroupColor[] = [

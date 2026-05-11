@@ -1,6 +1,6 @@
 export type LaunchSurface = 'sidepanel' | 'dashboard';
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type LocaleMode = 'system' | 'en' | 'zh-CN';
+export type LocaleMode = 'system' | 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
 export type AutoGroupRuleField = 'hostname' | 'url' | 'title';
 export type AutoGroupRuleOperator = 'contains' | 'equals';
 export type TabGroupColor =
@@ -176,6 +176,31 @@ export interface RedirectTrackingPermissionState {
   granted: boolean;
 }
 
+export interface BookmarkNodeSnapshot {
+  id: string;
+  parentId: string | null;
+  index: number;
+  title: string;
+  url: string | null;
+  dateAdded: number | null;
+  dateGroupModified: number | null;
+  folderType: string | null;
+  syncing: boolean;
+  unmodifiable: string | null;
+  children: BookmarkNodeSnapshot[];
+}
+
+export interface BookmarkTreeSnapshot {
+  roots: BookmarkNodeSnapshot[];
+  totalBookmarks: number;
+  totalFolders: number;
+}
+
+export interface BookmarkUpdatePatch {
+  title?: string;
+  url?: string;
+}
+
 export type OverviewChangeReason =
   | 'created'
   | 'updated'
@@ -189,9 +214,20 @@ export interface OverviewInvalidatedMessage {
   reason: OverviewChangeReason;
 }
 
+export interface BookmarksInvalidatedMessage {
+  type: 'tab-manager/bookmarks-invalidated';
+  at: number;
+}
+
 export type ExtensionRequest =
   | { type: 'tab-manager/get-overview' }
   | { type: 'tab-manager/get-tab-detail'; tabId: number }
+  | { type: 'tab-manager/get-bookmarks' }
+  | { type: 'tab-manager/create-bookmark-folder'; parentId: string; title: string; index?: number }
+  | { type: 'tab-manager/create-bookmark-from-active-tab'; parentId: string; index?: number }
+  | { type: 'tab-manager/update-bookmark'; bookmarkId: string; patch: BookmarkUpdatePatch }
+  | { type: 'tab-manager/delete-bookmark'; bookmarkId: string }
+  | { type: 'tab-manager/move-bookmark'; bookmarkId: string; parentId: string; index?: number }
   | { type: 'tab-manager/get-redirect-tracking-permission' }
   | { type: 'tab-manager/refresh-redirect-tracking' }
   | { type: 'tab-manager/open-dashboard' }

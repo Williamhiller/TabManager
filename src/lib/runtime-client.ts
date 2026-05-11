@@ -1,7 +1,11 @@
 import { getSettings } from './settings';
 import type {
+  BookmarkNodeSnapshot,
+  BookmarksInvalidatedMessage,
   ExtensionRequest,
   ExtensionResult,
+  BookmarkTreeSnapshot,
+  BookmarkUpdatePatch,
   GroupTabsOptions,
   LaunchSurface,
   OverviewInvalidatedMessage,
@@ -48,10 +52,39 @@ export function subscribeToOverviewUpdates(
   return () => chrome.runtime.onMessage.removeListener(handleMessage);
 }
 
+export function subscribeToBookmarksUpdates(
+  listener: (message: BookmarksInvalidatedMessage) => void
+): () => void {
+  const handleMessage = (message: unknown) => {
+    const payload = message as Partial<BookmarksInvalidatedMessage> | null;
+    if (
+      !payload ||
+      payload.type !== 'tab-manager/bookmarks-invalidated' ||
+      typeof payload.at !== 'number'
+    ) {
+      return;
+    }
+
+    listener(payload as BookmarksInvalidatedMessage);
+  };
+
+  chrome.runtime.onMessage.addListener(handleMessage);
+  return () => chrome.runtime.onMessage.removeListener(handleMessage);
+}
+
 export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
   const response = await sendRequest<TabDetailSnapshot>({
     type: 'tab-manager/get-tab-detail',
     tabId
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+export async function getBookmarks(): Promise<BookmarkTreeSnapshot> {
+  const response = await sendRequest<BookmarkTreeSnapshot>({
+    type: 'tab-manager/get-bookmarks'
   });
 
   if (!response.ok) throw new Error(response.error);
@@ -132,6 +165,11 @@ export async function focusTab(tabId: number, windowId: number): Promise<void> {
 
 async function sendMutation(
   request:
+    | Extract<ExtensionRequest, { type: 'tab-manager/create-bookmark-folder' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/create-bookmark-from-active-tab' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/update-bookmark' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/delete-bookmark' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/move-bookmark' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/close-tabs' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/pin-tabs' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/mute-tabs' }>
@@ -146,6 +184,17 @@ async function sendMutation(
     | Extract<ExtensionRequest, { type: 'tab-manager/smart-group-tabs' }>
 ): Promise<TabMutationResult> {
   const response = await sendRequest<TabMutationResult>(request);
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+async function sendBookmarkRequest<T extends BookmarkNodeSnapshot | null>(
+  request:
+    | Extract<ExtensionRequest, { type: 'tab-manager/create-bookmark-folder' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/create-bookmark-from-active-tab' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/update-bookmark' }>
+): Promise<T> {
+  const response = await sendRequest<T>(request);
   if (!response.ok) throw new Error(response.error);
   return response.data;
 }
@@ -223,4 +272,51 @@ export async function smartGroupTabs(
   strategy: SmartGroupStrategy
 ): Promise<TabMutationResult> {
   return sendMutation({ type: 'tab-manager/smart-group-tabs', tabIds, strategy });
+}
+
+export async function createBookmarkFolder(
+  parentId: string,
+  title: string,
+  index?: number
+): Promise<BookmarkNodeSnapshot | null> {
+  return sendBookmarkRequest({
+    type: 'tab-manager/create-bookmark-folder',
+    parentId,
+    title,
+    index
+  });
+}
+
+export async function createBookmarkFromActiveTab(
+  parentId: string,
+  index?: number
+): Promise<BookmarkNodeSnapshot | null> {
+  return sendBookmarkRequest({
+    type: 'tab-manager/create-bookmark-from-active-tab',
+    parentId,
+    index
+  });
+}
+
+export async function updateBookmark(
+  bookmarkId: string,
+  patch: BookmarkUpdatePatch
+): Promise<BookmarkNodeSnapshot | null> {
+  return sendBookmarkRequest({
+    type: 'tab-manager/update-bookmark',
+    bookmarkId,
+    patch
+  });
+}
+
+export async function deleteBookmark(bookmarkId: string): Promise<TabMutationResult> {
+  return sendMutation({ type: 'tab-manager/delete-bookmark', bookmarkId });
+}
+
+export async function moveBookmark(
+  bookmarkId: string,
+  parentId: string,
+  index?: number
+): Promise<TabMutationResult> {
+  return sendMutation({ type: 'tab-manager/move-bookmark', bookmarkId, parentId, index });
 }

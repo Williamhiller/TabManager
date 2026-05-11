@@ -424,6 +424,209 @@ button:disabled {
     @apply relative shrink-0;
   }
 
+  .tm-sidepanel-view-tabs-row {
+    @apply flex items-center gap-2;
+  }
+
+  .tm-sidepanel-view-tabs {
+    background: color-mix(in srgb, var(--tm-surface-muted) 76%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tm-border) 92%, transparent);
+    @apply grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-[12px] p-1;
+  }
+
+  .tm-sidepanel-view-tab {
+    color: var(--tm-text-muted);
+    @apply inline-flex min-w-0 items-center justify-center gap-1 rounded-[9px] px-2 py-1 text-[11px] font-medium;
+  }
+
+  .tm-sidepanel-view-tab[data-active='true'] {
+    background: color-mix(in srgb, var(--tm-surface-strong) 86%, transparent);
+    color: var(--tm-text);
+  }
+
+  .tm-sidepanel-view-tab-count {
+    background: color-mix(in srgb, var(--tm-surface-strong) 82%, transparent);
+    color: var(--tm-text-faint);
+    @apply rounded-full px-1.5 py-[1px] text-[10px];
+  }
+
+  .tm-sidepanel-view-tabs-actions {
+    @apply shrink-0;
+  }
+
+  .tm-sidepanel-view-tabs-actions .tm-icon-button,
+  .tm-sidepanel-view-tabs-actions .tm-icon-button-danger {
+    @apply h-8 w-8 rounded-[12px];
+  }
+
+  .tm-bookmark-search-meta {
+    color: var(--tm-text-faint);
+    @apply px-1 pt-1 text-[11px] leading-4;
+  }
+
+  .tm-bookmark-item {
+    border: 1px solid color-mix(in srgb, var(--tm-border) 90%, transparent);
+    background: color-mix(in srgb, var(--tm-surface) 86%, transparent);
+    @apply rounded-[12px];
+  }
+
+  .tm-bookmark-main {
+    @apply flex w-full flex-col items-start gap-1 px-2.5 py-2 text-left;
+  }
+
+  .tm-bookmark-title {
+    color: var(--tm-text);
+    @apply line-clamp-2 text-[12px] font-semibold leading-4;
+  }
+
+  .tm-bookmark-domain {
+    color: var(--tm-text-muted);
+    @apply text-[11px] leading-4;
+  }
+
+  .tm-bookmark-url {
+    color: var(--tm-text-faint);
+    word-break: break-all;
+    @apply text-[10px] leading-4;
+  }
+
+  .tm-bookmark-status {
+    color: var(--tm-text-muted);
+    background: color-mix(in srgb, var(--tm-surface) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tm-border) 82%, transparent);
+    @apply mb-2 rounded-[12px] px-3 py-2 text-[11px];
+  }
+
+  .tm-bookmark-dialog-backdrop {
+    background: rgba(15, 23, 42, 0.24);
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+  }
+
+  .tm-bookmark-dialog {
+    width: min(360px, calc(100vw - 24px));
+  }
+
+  .tm-bookmark-dialog-title {
+    color: var(--tm-text);
+    @apply text-[13px] font-semibold;
+  }
+
+  .tm-bookmark-dialog-field {
+    @apply flex flex-col gap-1;
+  }
+
+  .tm-bookmark-dialog-field span,
+  .tm-bookmark-dialog-copy {
+    color: var(--tm-text-faint);
+    @apply text-[11px] leading-5;
+  }
+
+  .tm-bookmark-dialog .tm-bookmark-dialog-actions {
+    @apply mt-1 flex flex-row items-center gap-2 pt-2;
+  }
+
+  .tm-bookmark-dialog .tm-bookmark-dialog-actions .tm-button,
+  .tm-bookmark-dialog .tm-bookmark-dialog-actions .tm-button-primary {
+    @apply min-w-0 flex-1 justify-center;
+  }
+
+  .tm-bookmark-root-header {
+    background: color-mix(in srgb, var(--tm-surface-muted) 86%, transparent);
+    border-color: color-mix(in srgb, var(--tm-border) 88%, transparent);
+    @apply gap-2 px-3 py-2;
+  }
+
+  .tm-bookmark-root-section {
+    @apply mb-2;
+  }
+
+  .tm-bookmark-root-pill {
+    background: color-mix(in srgb, var(--tm-surface-strong) 84%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tm-border) 82%, transparent);
+    color: var(--tm-text-muted);
+    @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[10px];
+  }
+
+  .tm-bookmark-root-copy {
+    @apply flex min-w-0 flex-1 flex-col gap-0.5;
+  }
+
+  .tm-bookmark-group-copy {
+    @apply min-w-0 flex-1;
+  }
+
+  .tm-bookmark-root-header .tm-group-title,
+  .tm-bookmark-folder-header .tm-group-title {
+    @apply min-w-0 flex-none;
+  }
+
+  .tm-bookmark-folder-header .tm-group-title-label {
+    @apply font-semibold;
+  }
+
+  .tm-bookmark-root-header .tm-group-title-label {
+    @apply font-semibold;
+  }
+
+  .tm-bookmark-root-body {
+    @apply ml-3 mt-1 rounded-[14px] pl-1;
+  }
+
+  .tm-bookmark-root-actions {
+    @apply mb-2 mt-2 flex flex-wrap gap-1.5;
+  }
+
+  .tm-bookmark-tree {
+    @apply flex flex-col gap-1;
+  }
+
+  .tm-bookmark-node {
+    @apply flex flex-col gap-1;
+  }
+
+  .tm-bookmark-row {
+    grid-template-columns: auto auto auto minmax(0, 1fr);
+  }
+
+  .tm-bookmark-row:hover {
+    border-color: var(--tm-border-strong);
+  }
+
+  .tm-bookmark-open-button {
+    @apply flex w-full flex-col items-start text-left;
+    background: transparent;
+    color: inherit;
+  }
+
+  .tm-bookmark-folder-toggle {
+    color: var(--tm-text-muted);
+    @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[10px];
+  }
+
+  .tm-bookmark-folder-arrow {
+    transition: transform 160ms ease;
+  }
+
+  .tm-bookmark-folder-arrow[data-expanded='true'] {
+    transform: rotate(0deg);
+  }
+
+  .tm-bookmark-folder-arrow[data-expanded='false'] {
+    transform: rotate(-90deg);
+  }
+
+  .tm-bookmark-folder-badge {
+    background: color-mix(in srgb, var(--tm-surface-strong) 84%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tm-border) 82%, transparent);
+    color: var(--tm-text-muted);
+    @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[10px];
+  }
+
+  .tm-bookmark-children {
+    @apply ml-4 pl-1;
+  }
+
+
   .tm-sidepanel-settings-popover {
     --tm-sidepanel-settings-surface-solid: color-mix(in srgb, var(--tm-bg-elevated) 94%, rgba(107, 146, 255, 0.14));
     --tm-sidepanel-settings-surface:
@@ -1962,7 +2165,7 @@ button:disabled {
     opacity: 0;
     pointer-events: none;
     transition: opacity 120ms ease;
-    @apply flex items-center gap-1;
+    @apply ml-auto flex items-center gap-1;
   }
 
   .tm-section-block:hover .tm-group-actions,
@@ -2568,6 +2771,10 @@ button:disabled {
   }
 
   .tm-row-menu-arrow {
+    color: var(--tm-row-menu-surface);
+    fill: var(--tm-row-menu-surface);
+    stroke: var(--tm-row-menu-border);
+    stroke-width: 1px;
     filter: none;
   }
 
@@ -2590,6 +2797,10 @@ button:disabled {
   .tm-row-menu-button:hover {
     background: var(--tm-surface-strong);
     transform: translateX(1px);
+  }
+
+  .tm-row-menu-button-danger {
+    color: var(--tm-danger);
   }
 
   .tm-favicon {

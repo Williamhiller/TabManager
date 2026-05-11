@@ -112,7 +112,11 @@ export function OptionsPage() {
                 [
                   ['system', t.localeAuto],
                   ['en', t.localeEnglish],
-                  ['zh-CN', t.localeChinese]
+                  ['zh-CN', t.localeChinese],
+                  ['ja', t.localeJapanese],
+                  ['fr', t.localeFrench],
+                  ['es', t.localeSpanish],
+                  ['ar', t.localeArabic]
                 ] as Array<[LocaleMode, string]>
               ).map(([value, label]) => (
                 <button

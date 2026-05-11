@@ -1,11 +1,11 @@
 import type { LocaleMode, TabGroupColor } from './contracts';
 
-export type AutoGroupPresetLocale = 'en' | 'zh-CN';
+export type AutoGroupPresetLocale = 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
 
 export interface DefaultAutoGroupPreset {
   id: string;
   color: TabGroupColor;
-  titles: Record<AutoGroupPresetLocale, string>;
+  titles: { en: string; 'zh-CN': string } & Partial<Record<AutoGroupPresetLocale, string>>;
   patterns: RegExp[];
 }
 
@@ -82,14 +82,35 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
 export function resolveAutoGroupPresetLocale(
   localeMode: LocaleMode | AutoGroupPresetLocale
 ): AutoGroupPresetLocale {
-  if (localeMode === 'en' || localeMode === 'zh-CN') return localeMode;
+  if (
+    localeMode === 'en' ||
+    localeMode === 'zh-CN' ||
+    localeMode === 'ja' ||
+    localeMode === 'fr' ||
+    localeMode === 'es' ||
+    localeMode === 'ar'
+  ) {
+    return localeMode;
+  }
 
   if (typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage) {
-    return chrome.i18n.getUILanguage().toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+    const language = chrome.i18n.getUILanguage().toLowerCase();
+    if (language.startsWith('zh')) return 'zh-CN';
+    if (language.startsWith('ja')) return 'ja';
+    if (language.startsWith('fr')) return 'fr';
+    if (language.startsWith('es')) return 'es';
+    if (language.startsWith('ar')) return 'ar';
+    return 'en';
   }
 
   if (typeof navigator !== 'undefined') {
-    return navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+    const language = navigator.language.toLowerCase();
+    if (language.startsWith('zh')) return 'zh-CN';
+    if (language.startsWith('ja')) return 'ja';
+    if (language.startsWith('fr')) return 'fr';
+    if (language.startsWith('es')) return 'es';
+    if (language.startsWith('ar')) return 'ar';
+    return 'en';
   }
 
   return 'en';
@@ -131,5 +152,6 @@ export function getDefaultAutoGroupPresetTitle(
   preset: DefaultAutoGroupPreset,
   localeMode: LocaleMode | AutoGroupPresetLocale
 ): string {
-  return preset.titles[resolveAutoGroupPresetLocale(localeMode)];
+  const locale = resolveAutoGroupPresetLocale(localeMode);
+  return preset.titles[locale] ?? preset.titles.en;
 }
