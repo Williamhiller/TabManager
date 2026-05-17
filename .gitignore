@@ -10,6 +10,7 @@ output/
 .env
 .env.*
 .serena/
+.playwright-mcp/
 
 # logs
 npm-debug.log*
