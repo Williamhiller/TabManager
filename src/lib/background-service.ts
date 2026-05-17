@@ -16,6 +16,15 @@ import type {
   OverviewSnapshot,
   RedirectTrackingPermissionState,
   RuntimeTabTelemetry,
+  SessionRecord,
+  SessionRestoreMode,
+  SessionRestoreResult,
+  SessionsInvalidatedMessage,
+  SessionsSnapshot,
+  SessionStats,
+  SessionTabRecord,
+  SessionUpdatePatch,
+  SessionWindowRecord,
   SmartGroupStrategy,
   SystemMemorySnapshot,
   TabDetailSnapshot,
@@ -40,6 +49,8 @@ interface RuntimeTabState {
   observedAt: number;
   openedAt: number | null;
   lastActivatedAt: number | null;
+  lastAudibleAt: number | null;
+  autoDeduplicationPendingFromCreate: boolean;
   totalActiveMs: number;
 }
 
@@ -89,6 +100,7 @@ interface PersistedTabHistoryState {
 
 interface GroupMetadataRecord {
   autoGroupEnabled: boolean;
+  autoGroupConfigId?: string | null;
   autoGroupPresetIds: string[];
   autoGroupRules: AutoGroupRule[];
 }
@@ -104,6 +116,11 @@ interface AutoGroupExemptionRecord {
 
 interface PersistedAutoGroupExemptionState {
   tabs: Record<string, AutoGroupExemptionRecord>;
+}
+
+interface PersistedSessionsState {
+  version: 1;
+  sessions: Record<string, SessionRecord>;
 }
 
 interface PendingRedirectEvent {
@@ -133,6 +150,7 @@ const tabHistoryRecords = new Map<number, TabHistoryRecord>();
 const recentClosedTabHistory: ClosedTabHistoryRecord[] = [];
 const groupMetadataRecords = new Map<number, GroupMetadataRecord>();
 const autoGroupExemptionRecords = new Map<number, AutoGroupExemptionRecord>();
+const sessionRecords = new Map<string, SessionRecord>();
 const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
 const groupColors: TabGroupColor[] = [
   'grey',
@@ -148,23 +166,38 @@ const groupColors: TabGroupColor[] = [
 const TAB_HISTORY_STORAGE_KEY = 'tab-manager/tab-history';
 const GROUP_METADATA_STORAGE_KEY = 'tab-manager/group-metadata';
 const AUTO_GROUP_EXEMPTIONS_STORAGE_KEY = 'tab-manager/auto-group-exemptions';
+const SESSIONS_STORAGE_KEY = 'tab-manager/sessions';
+const AUTO_COLLAPSE_INACTIVE_GROUPS_ALARM = 'tab-manager/auto-collapse-inactive-groups';
 const MAX_TAB_HISTORY_EVENTS = 120;
 const MAX_RECENT_CLOSED_TABS = 10;
 const OVERVIEW_INVALIDATION_DEBOUNCE_MS = 80;
+const AUTO_SESSION_DEBOUNCE_MS = 10_000;
+const MAX_MANUAL_SESSIONS = 10;
+const MAX_AUTO_SESSIONS = 10;
+const AUTO_SESSION_FINE_WINDOW_MS = 60 * 60_000;
+const AUTO_SESSION_SPARSE_INTERVAL_MS = 30 * 60_000;
+const MAX_FINE_AUTO_SESSIONS = 3;
 
 let tabHistoryLoadPromise: Promise<void> | null = null;
 let groupMetadataLoadPromise: Promise<void> | null = null;
 let autoGroupExemptionLoadPromise: Promise<void> | null = null;
+let sessionsLoadPromise: Promise<void> | null = null;
 let persistTabHistoryTimer: ReturnType<typeof setTimeout> | null = null;
 let persistGroupMetadataTimer: ReturnType<typeof setTimeout> | null = null;
 let persistAutoGroupExemptionTimer: ReturnType<typeof setTimeout> | null = null;
+let persistSessionsTimer: ReturnType<typeof setTimeout> | null = null;
 let overviewInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOverviewInvalidationReason: OverviewChangeReason = 'updated';
+let autoCollapseInactiveGroupsInFlight = false;
+let autoSleepInactiveTabsInFlight = false;
+let autoCloseInactiveTabsInFlight = false;
 let redirectTrackingEnabled = false;
 let redirectBeforeRequestListenerInstalled = false;
 let redirectBeforeNavigateListenerInstalled = false;
 let redirectCommittedListenerInstalled = false;
 let redirectHistoryStateListenerInstalled = false;
+let autoSessionTimer: ReturnType<typeof setTimeout> | null = null;
+let autoSessionCaptureInFlight = false;
 
 function ensureRuntimeTab(tabId: number, observedAt = Date.now()): RuntimeTabState {
   const existing = runtimeTabs.get(tabId);
@@ -174,6 +207,8 @@ function ensureRuntimeTab(tabId: number, observedAt = Date.now()): RuntimeTabSta
     observedAt,
     openedAt: null,
     lastActivatedAt: null,
+    lastAudibleAt: null,
+    autoDeduplicationPendingFromCreate: false,
     totalActiveMs: 0
   };
 
@@ -310,6 +345,7 @@ function hydrateGroupMetadataRecords(
     if (!Number.isInteger(numericGroupId) || !record) continue;
     groupMetadataRecords.set(numericGroupId, {
       autoGroupEnabled: record.autoGroupEnabled ?? true,
+      autoGroupConfigId: typeof record.autoGroupConfigId === 'string' ? record.autoGroupConfigId : null,
       autoGroupPresetIds: Array.isArray(record.autoGroupPresetIds) ? record.autoGroupPresetIds : [],
       autoGroupRules: Array.isArray(record.autoGroupRules) ? record.autoGroupRules : []
     });
@@ -377,6 +413,65 @@ async function ensureAutoGroupExemptionsLoaded(): Promise<void> {
   return autoGroupExemptionLoadPromise;
 }
 
+function hydrateSessionRecords(raw: Partial<PersistedSessionsState> | Record<string, SessionRecord> | null | undefined): void {
+  sessionRecords.clear();
+  const records =
+    raw && 'sessions' in raw && raw.sessions && typeof raw.sessions === 'object'
+      ? raw.sessions
+      : raw && typeof raw === 'object'
+        ? raw as Record<string, SessionRecord>
+        : {};
+
+  for (const [sessionId, record] of Object.entries(records)) {
+    if (!record || typeof record !== 'object') continue;
+    if (!record.id || !Array.isArray(record.windows)) continue;
+    const source = record.source === 'auto' ? 'auto' : 'manual';
+    sessionRecords.set(sessionId, {
+      ...record,
+      title: source === 'auto' ? formatSessionTimeTitle(record.updatedAt ?? record.createdAt) : record.title,
+      note: record.note ?? '',
+      tags: Array.isArray(record.tags) ? record.tags : [],
+      pinned: record.pinned ?? false,
+      source,
+      windows: record.windows.map((window: SessionWindowRecord, windowIndex: number) => ({
+        ...window,
+        tabs: window.tabs.map((tab: SessionTabRecord, tabIndex: number) => ({
+          ...tab,
+          group: tab.group
+            ? {
+                key:
+                  typeof tab.group.key === 'string' && tab.group.key
+                    ? tab.group.key
+                    : `legacy:${windowIndex}:${tab.group.title}:${tab.group.color}:${tabIndex}`,
+                title: tab.group.title,
+                color: tab.group.color
+              }
+            : null
+        }))
+      }))
+    });
+  }
+
+  trimAutoSessions();
+}
+
+async function ensureSessionsLoaded(): Promise<void> {
+  if (sessionsLoadPromise) return sessionsLoadPromise;
+
+  sessionsLoadPromise = (async () => {
+    const stored = await chrome.storage.local.get(SESSIONS_STORAGE_KEY);
+    hydrateSessionRecords(
+      stored[SESSIONS_STORAGE_KEY] as
+        | Partial<PersistedSessionsState>
+        | Record<string, SessionRecord>
+        | null
+        | undefined
+    );
+  })();
+
+  return sessionsLoadPromise;
+}
+
 function serializeTabHistoryRecords(): PersistedTabHistoryState {
   return {
     active: Object.fromEntries(
@@ -402,6 +497,13 @@ function serializeAutoGroupExemptionRecords(): PersistedAutoGroupExemptionState 
         record
       ])
     )
+  };
+}
+
+function serializeSessionRecords(): PersistedSessionsState {
+  return {
+    version: 1,
+    sessions: Object.fromEntries(sessionRecords.entries())
   };
 }
 
@@ -444,6 +546,28 @@ function scheduleAutoGroupExemptionsPersist(): void {
   }, 120);
 }
 
+function scheduleSessionsPersist(): void {
+  if (persistSessionsTimer != null) return;
+
+  persistSessionsTimer = setTimeout(() => {
+    persistSessionsTimer = null;
+    void chrome.storage.local
+      .set({ [SESSIONS_STORAGE_KEY]: serializeSessionRecords() })
+      .catch((error) => {
+        console.warn('Failed to persist sessions.', error);
+      });
+  }, 120);
+}
+
+async function persistSessionsNow(): Promise<void> {
+  if (persistSessionsTimer != null) {
+    clearTimeout(persistSessionsTimer);
+    persistSessionsTimer = null;
+  }
+
+  await chrome.storage.local.set({ [SESSIONS_STORAGE_KEY]: serializeSessionRecords() });
+}
+
 function scheduleOverviewInvalidation(reason: OverviewChangeReason): void {
   pendingOverviewInvalidationReason = reason;
   if (overviewInvalidationTimer != null) return;
@@ -470,9 +594,19 @@ function scheduleBookmarksInvalidation(): void {
   void chrome.runtime.sendMessage(message).catch(() => {});
 }
 
+function scheduleSessionsInvalidation(): void {
+  const message: SessionsInvalidatedMessage = {
+    type: 'tab-manager/sessions-invalidated',
+    at: Date.now()
+  };
+
+  void chrome.runtime.sendMessage(message).catch(() => {});
+}
+
 function getGroupMetadata(groupId: number): GroupMetadataRecord {
   return groupMetadataRecords.get(groupId) ?? {
     autoGroupEnabled: true,
+    autoGroupConfigId: null,
     autoGroupPresetIds: [],
     autoGroupRules: []
   };
@@ -854,6 +988,19 @@ function createUrlHistoryEvent(
 
 function isTrackableUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
+}
+
+function normalizeAutoDeduplicationUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+
+    return parsed.href;
+  } catch {
+    return null;
+  }
 }
 
 function pushHistoryEvent(record: TabHistoryRecord, event: TabHistoryEvent): void {
@@ -1276,6 +1423,282 @@ function getTelemetry(tabId: number): RuntimeTabTelemetry {
   };
 }
 
+function getTabLastActivityAt(tab: chrome.tabs.Tab): number | null {
+  if (typeof tab.lastAccessed === 'number') return tab.lastAccessed;
+  if (tab.id == null) return null;
+
+  const state = runtimeTabs.get(tab.id);
+  return state?.lastActivatedAt ?? state?.openedAt ?? state?.observedAt ?? null;
+}
+
+function wasRecentlyAudible(tab: chrome.tabs.Tab, windowMs = 30 * 60_000): boolean {
+  if (tab.id == null) return false;
+  if (tab.audible) return true;
+
+  const state = runtimeTabs.get(tab.id);
+  return state?.lastAudibleAt != null && Date.now() - state.lastAudibleAt < windowMs;
+}
+
+function isAutoCleanupEligible(tab: chrome.tabs.Tab): boolean {
+  if (tab.id == null) return false;
+  if (tab.active) return false;
+  if (tab.pinned) return false;
+  if (wasRecentlyAudible(tab)) return false;
+
+  const url = tab.url ?? tab.pendingUrl ?? '';
+  if (!url) return false;
+  if (/^(chrome:|chrome-extension:|edge:|about:|brave:|vivaldi:|opera:)/.test(url)) {
+    return false;
+  }
+
+  return /^(https?:|file:)/.test(url);
+}
+
+function matchesUrlList(url: string, entries: string[]): boolean {
+  if (entries.length === 0) return false;
+
+  const normalizedUrl = url.trim().toLowerCase();
+  if (!normalizedUrl) return false;
+
+  let hostname = '';
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    hostname = '';
+  }
+
+  return entries.some((entry) => {
+    const candidate = entry.trim().toLowerCase();
+    if (!candidate) return false;
+    if (/^[a-z]+:\/\//.test(candidate)) return normalizedUrl.startsWith(candidate);
+    if (!hostname) return false;
+    return hostname === candidate || hostname.endsWith(`.${candidate}`);
+  });
+}
+
+function matchesAutoCleanupWhitelist(tab: chrome.tabs.Tab, whitelist: string[]): boolean {
+  const url = (tab.url ?? tab.pendingUrl ?? '').trim();
+  return matchesUrlList(url, whitelist);
+}
+
+async function maybeAutoDeduplicateTab(tab: chrome.tabs.Tab): Promise<boolean> {
+  if (tab.id == null || !tab.active) return false;
+
+  const state = ensureRuntimeTab(tab.id);
+  if (!state.autoDeduplicationPendingFromCreate) return false;
+
+  const url = tab.url ?? tab.pendingUrl ?? '';
+  const normalizedUrl = normalizeAutoDeduplicationUrl(url);
+  if (!normalizedUrl) return false;
+
+  state.autoDeduplicationPendingFromCreate = false;
+
+  const settings = await getSettings();
+  if (!settings.autoDeduplicateTabs) return false;
+
+  const siteMatched = matchesUrlList(url, settings.autoDeduplicationSites);
+  if (settings.autoDeduplicationScope === 'global-except-listed' && siteMatched) return false;
+  if (settings.autoDeduplicationScope === 'listed-only' && !siteMatched) return false;
+
+  const target = (await chrome.tabs.query({}))
+    .filter((candidate) => {
+      if (candidate.id == null || candidate.id === tab.id) return false;
+      const candidateUrl = candidate.url ?? candidate.pendingUrl ?? '';
+      return normalizeAutoDeduplicationUrl(candidateUrl) === normalizedUrl;
+    })
+    .sort((first, second) => {
+      const firstSameWindow = first.windowId === tab.windowId ? 1 : 0;
+      const secondSameWindow = second.windowId === tab.windowId ? 1 : 0;
+      if (firstSameWindow !== secondSameWindow) {
+        return secondSameWindow - firstSameWindow;
+      }
+
+      const firstActive = first.active ? 1 : 0;
+      const secondActive = second.active ? 1 : 0;
+      if (firstActive !== secondActive) {
+        return secondActive - firstActive;
+      }
+
+      return (getTabLastActivityAt(second) ?? 0) - (getTabLastActivityAt(first) ?? 0);
+    })[0];
+
+  if (target?.id == null) return false;
+
+  if (target.windowId !== tab.windowId && chrome.windows?.update) {
+    await chrome.windows.update(target.windowId, { focused: true });
+  }
+
+  await chrome.tabs.update(target.id, { active: true });
+  await chrome.tabs.remove(tab.id);
+  return true;
+}
+
+async function autoCollapseInactiveGroups(): Promise<void> {
+  if (autoCollapseInactiveGroupsInFlight) return;
+  autoCollapseInactiveGroupsInFlight = true;
+
+  try {
+    const settings = await getSettings();
+    if (settings.autoCollapseInactiveGroupsMinutes <= 0) return;
+
+    const thresholdAt = Date.now() - settings.autoCollapseInactiveGroupsMinutes * 60_000;
+    const [tabs, groups] = await Promise.all([
+      chrome.tabs.query({}),
+      chrome.tabGroups.query({})
+    ]);
+    const groupsById = new Map(groups.map((group) => [group.id, group]));
+    const tabsByGroup = new Map<number, chrome.tabs.Tab[]>();
+
+    for (const tab of tabs) {
+      const groupId = tab.groupId ?? -1;
+      if (groupId < 0) continue;
+
+      const groupTabs = tabsByGroup.get(groupId);
+      if (groupTabs) groupTabs.push(tab);
+      else tabsByGroup.set(groupId, [tab]);
+    }
+
+    const collapsedGroupIds: number[] = [];
+
+    for (const [groupId, groupTabs] of tabsByGroup) {
+      const group = groupsById.get(groupId);
+      if (!group || group.collapsed) continue;
+      if (groupTabs.some((tab) => tab.active)) continue;
+
+      const latestActivityAt = Math.max(
+        ...groupTabs.map((tab) => getTabLastActivityAt(tab) ?? 0)
+      );
+      if (latestActivityAt === 0 || latestActivityAt > thresholdAt) continue;
+
+      try {
+        await chrome.tabGroups.update(groupId, { collapsed: true });
+        collapsedGroupIds.push(groupId);
+      } catch (error) {
+        console.warn('Failed to auto-collapse inactive tab group.', error);
+      }
+    }
+
+    if (collapsedGroupIds.length > 0) {
+      scheduleOverviewInvalidation('updated');
+    }
+  } finally {
+    autoCollapseInactiveGroupsInFlight = false;
+  }
+}
+
+async function autoSleepInactiveTabs(): Promise<void> {
+  if (autoSleepInactiveTabsInFlight) return;
+  autoSleepInactiveTabsInFlight = true;
+
+  try {
+    const settings = await getSettings();
+    if (settings.autoSleepInactiveTabsMinutes <= 0) return;
+
+    const thresholdAt = Date.now() - settings.autoSleepInactiveTabsMinutes * 60_000;
+    const tabs = await chrome.tabs.query({});
+    const discardedTabIds: number[] = [];
+
+    for (const tab of tabs) {
+      if (!isAutoCleanupEligible(tab)) continue;
+      const tabId = tab.id;
+      if (tabId == null) continue;
+      if (tab.discarded) continue;
+      if (matchesAutoCleanupWhitelist(tab, settings.autoCleanupWhitelist)) continue;
+
+      const lastActivityAt = getTabLastActivityAt(tab);
+      if (lastActivityAt == null || lastActivityAt > thresholdAt) continue;
+
+      try {
+        await chrome.tabs.discard(tabId);
+        discardedTabIds.push(tabId);
+      } catch (error) {
+        console.warn('Failed to auto-sleep inactive tab.', error);
+      }
+    }
+
+    if (discardedTabIds.length > 0) {
+      scheduleOverviewInvalidation('updated');
+    }
+  } finally {
+    autoSleepInactiveTabsInFlight = false;
+  }
+}
+
+async function autoCloseInactiveTabs(): Promise<void> {
+  if (autoCloseInactiveTabsInFlight) return;
+  autoCloseInactiveTabsInFlight = true;
+
+  try {
+    const settings = await getSettings();
+    if (settings.autoCloseInactiveTabsMinutes <= 0) return;
+
+    const thresholdAt = Date.now() - settings.autoCloseInactiveTabsMinutes * 60_000;
+    const tabs = await chrome.tabs.query({});
+    const closableTabIds: number[] = [];
+    const sleepThresholdAt =
+      settings.autoSleepInactiveTabsMinutes > 0
+        ? Date.now() - settings.autoSleepInactiveTabsMinutes * 60_000
+        : null;
+
+    for (const tab of tabs) {
+      if (!isAutoCleanupEligible(tab)) continue;
+      const tabId = tab.id;
+      if (tabId == null) continue;
+      if (matchesAutoCleanupWhitelist(tab, settings.autoCleanupWhitelist)) continue;
+
+      const lastActivityAt = getTabLastActivityAt(tab);
+      if (lastActivityAt == null || lastActivityAt > thresholdAt) continue;
+      const isSleeping = tab.discarded || Boolean((tab as chrome.tabs.Tab & { frozen?: boolean }).frozen);
+      if (!isSleeping) {
+        if (settings.autoCloseCondition === 'sleeping-only') continue;
+        if (sleepThresholdAt == null || lastActivityAt > sleepThresholdAt) continue;
+      }
+
+      closableTabIds.push(tabId);
+    }
+
+    if (closableTabIds.length === 0) return;
+
+    const result = await closeTabs(closableTabIds);
+    if (result.affectedCount > 0) {
+      scheduleOverviewInvalidation('updated');
+    }
+  } finally {
+    autoCloseInactiveTabsInFlight = false;
+  }
+}
+
+async function syncAutoCollapseInactiveGroupsAlarm(): Promise<void> {
+  if (!chrome.alarms?.create || !chrome.alarms?.clear) return;
+
+  const settings = await getSettings();
+  if (
+    settings.autoCollapseInactiveGroupsMinutes <= 0 &&
+    settings.autoSleepInactiveTabsMinutes <= 0 &&
+    settings.autoCloseInactiveTabsMinutes <= 0
+  ) {
+    await chrome.alarms.clear(AUTO_COLLAPSE_INACTIVE_GROUPS_ALARM);
+    return;
+  }
+
+  await chrome.alarms.create(AUTO_COLLAPSE_INACTIVE_GROUPS_ALARM, {
+    delayInMinutes: 1,
+    periodInMinutes: 1
+  });
+}
+
+function scheduleAutoCollapseInactiveGroupsCheck(): void {
+  void autoCollapseInactiveGroups().catch((error) => {
+    console.warn('Failed to auto-collapse inactive tab groups.', error);
+  });
+  void autoSleepInactiveTabs().catch((error) => {
+    console.warn('Failed to auto-sleep inactive tabs.', error);
+  });
+  void autoCloseInactiveTabs().catch((error) => {
+    console.warn('Failed to auto-close inactive tabs.', error);
+  });
+}
+
 async function getSystemMemory(): Promise<SystemMemorySnapshot | null> {
   if (!chrome.system?.memory?.getInfo) return null;
 
@@ -1296,6 +1719,7 @@ function toGroupSnapshot(group: chrome.tabGroups.TabGroup): TabGroupSnapshot {
     color: group.color,
     collapsed: group.collapsed,
     autoGroupEnabled: metadata.autoGroupEnabled,
+    autoGroupConfigId: metadata.autoGroupConfigId,
     autoGroupPresetIds: metadata.autoGroupPresetIds,
     autoGroupRules: metadata.autoGroupRules
   };
@@ -1366,6 +1790,7 @@ function toArchivedTabSnapshot(snapshot: StoredTabState, telemetry: RuntimeTabTe
             color: 'grey',
             collapsed: false,
             autoGroupEnabled: true,
+            autoGroupConfigId: null,
             autoGroupPresetIds: [],
             autoGroupRules: []
           }
@@ -1461,7 +1886,478 @@ export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
 }
 
 async function openDashboardTab(): Promise<void> {
-  await chrome.tabs.create({ url: chrome.runtime.getURL('/dashboard.html') });
+  const url = chrome.runtime.getURL('/dashboard.html');
+  const dashboardUrlPrefix = chrome.runtime.getURL('/dashboard.html');
+  const existingTabs = await chrome.tabs.query({});
+  const existingTab = existingTabs.find((tab) => tab.url?.startsWith(dashboardUrlPrefix));
+
+  if (existingTab?.id != null) {
+    await chrome.tabs.update(existingTab.id, { active: true, url });
+    if (existingTab.windowId != null) {
+      await chrome.windows.update(existingTab.windowId, { focused: true });
+    }
+    return;
+  }
+
+  await chrome.tabs.create({ url });
+}
+
+function createId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sessionDefaultTitle(scope: 'current-window' | 'all-windows' | 'auto', at = Date.now()): string {
+  if (scope === 'auto') return formatSessionTimeTitle(at);
+
+  const date = new Date(at);
+  const stamp = new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+  return scope === 'current-window' ? `Snapshot ${stamp}` : `All snapshots ${stamp}`;
+}
+
+function formatSessionTimeTitle(at = Date.now()): string {
+  const date = new Date(at);
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  return [
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  ].join(' ');
+}
+
+function isRestorableUrl(url: string | undefined): url is string {
+  if (!url) return false;
+  return /^(https?:|file:|chrome:|chrome-extension:)/.test(url);
+}
+
+function toSessionTabRecord(tab: chrome.tabs.Tab, groupMap: Map<number, TabGroupSnapshot>): SessionTabRecord | null {
+  const url = tab.url ?? tab.pendingUrl;
+  if (!isRestorableUrl(url)) return null;
+
+  const hostname = normalizeHostname(url);
+  const group = tab.groupId != null && tab.groupId >= 0 ? groupMap.get(tab.groupId) : null;
+
+  return {
+    url,
+    title: tab.title || hostname || url,
+    hostname,
+    favIconUrl: tab.favIconUrl ?? null,
+    pinned: Boolean(tab.pinned),
+    muted: Boolean(tab.mutedInfo?.muted),
+    group: group
+      ? {
+          key: `group:${group.id}`,
+          title: group.title || hostname || 'Group',
+          color: (group.color as TabGroupColor) || 'grey'
+        }
+      : null
+  };
+}
+
+function buildSessionStats(windows: SessionWindowRecord[]): SessionStats {
+  const groupKeys = new Set<string>();
+  const tabCount = windows.reduce((total, window) => {
+    window.tabs.forEach((tab) => {
+      if (tab.group) {
+        groupKeys.add(`${window.id}:${tab.group.key}`);
+      }
+    });
+    return total + window.tabs.length;
+  }, 0);
+
+  return {
+    windowCount: windows.length,
+    tabCount,
+    groupCount: groupKeys.size
+  };
+}
+
+function trimManualSessions(): void {
+  const manualSessions = Array.from(sessionRecords.values())
+    .filter((session) => session.source === 'manual')
+    .sort((left, right) => right.updatedAt - left.updatedAt);
+  const pinnedSessions = manualSessions.filter((session) => session.pinned);
+  const removableSessions = manualSessions.filter((session) => !session.pinned);
+  const removableLimit = Math.max(0, MAX_MANUAL_SESSIONS - pinnedSessions.length);
+
+  removableSessions.slice(removableLimit).forEach((session) => {
+    sessionRecords.delete(session.id);
+  });
+}
+
+function trimAutoSessions(): void {
+  const autoSessions = Array.from(sessionRecords.values())
+    .filter((session) => session.source === 'auto')
+    .sort((left, right) => right.updatedAt - left.updatedAt);
+  const now = Date.now();
+  const fineSessions = autoSessions
+    .filter((session) => now - session.updatedAt <= AUTO_SESSION_FINE_WINDOW_MS)
+    .slice(0, MAX_FINE_AUTO_SESSIONS);
+  const keptSessions = [...fineSessions];
+  const keptIds = new Set(fineSessions.map((session) => session.id));
+  let lastSparseSessionAt = fineSessions[fineSessions.length - 1]?.updatedAt ?? Number.POSITIVE_INFINITY;
+
+  for (const session of autoSessions) {
+    if (keptSessions.length >= MAX_AUTO_SESSIONS) break;
+    if (keptIds.has(session.id)) continue;
+    if (lastSparseSessionAt - session.updatedAt < AUTO_SESSION_SPARSE_INTERVAL_MS) continue;
+
+    keptSessions.push(session);
+    keptIds.add(session.id);
+    lastSparseSessionAt = session.updatedAt;
+  }
+
+  for (const session of autoSessions) {
+    if (keptSessions.length >= MAX_AUTO_SESSIONS) break;
+    if (keptIds.has(session.id)) continue;
+
+    keptSessions.push(session);
+    keptIds.add(session.id);
+  }
+
+  autoSessions.forEach((session) => {
+    if (!keptIds.has(session.id)) {
+      sessionRecords.delete(session.id);
+    }
+  });
+}
+
+function createAutoSessionSignature(windows: SessionWindowRecord[]): string {
+  return windows
+    .map((window) =>
+      window.tabs
+        .map((tab) =>
+          [
+            tab.url,
+            tab.pinned ? 'pinned' : '',
+            tab.muted ? 'muted' : '',
+            tab.group ? `${tab.group.key}:${tab.group.title}:${tab.group.color}` : ''
+          ].join('\u001f')
+        )
+        .join('\u001e')
+    )
+    .join('\u001d');
+}
+
+function getLatestAutoSession(): SessionRecord | null {
+  return Array.from(sessionRecords.values())
+    .filter((session) => session.source === 'auto')
+    .sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null;
+}
+
+async function captureSession(
+  scope: 'current-window' | 'all-windows',
+  title?: string,
+  options?: { id?: string; source?: SessionRecord['source'] }
+): Promise<SessionRecord> {
+  await ensureSessionsLoaded();
+
+  const now = Date.now();
+  const [tabs, groups] = await Promise.all([
+    chrome.tabs.query(scope === 'current-window' ? { currentWindow: true } : {}),
+    chrome.tabGroups.query({})
+  ]);
+  const groupMap = new Map(groups.map((group) => [group.id, toGroupSnapshot(group)]));
+  const windowsById = new Map<number, SessionTabRecord[]>();
+
+  tabs
+    .sort((left, right) => {
+      if (left.windowId !== right.windowId) return left.windowId - right.windowId;
+      return left.index - right.index;
+    })
+    .forEach((tab) => {
+      const sessionTab = toSessionTabRecord(tab, groupMap);
+      if (!sessionTab || tab.windowId == null) return;
+      const list = windowsById.get(tab.windowId) ?? [];
+      list.push(sessionTab);
+      windowsById.set(tab.windowId, list);
+    });
+
+  const windows: SessionWindowRecord[] = Array.from(windowsById.entries())
+    .filter(([, windowTabs]) => windowTabs.length > 0)
+    .map(([windowId, windowTabs], index) => ({
+      id: `window-${windowId}-${index}`,
+      title: windowTabs[0]?.title ?? `Window ${index + 1}`,
+      tabs: windowTabs
+    }));
+
+  if (windows.length === 0) {
+    throw new Error('No restorable tabs found in this session.');
+  }
+
+  if (options?.source === 'auto') {
+    const latestAutoSession = getLatestAutoSession();
+    if (
+      latestAutoSession &&
+      createAutoSessionSignature(latestAutoSession.windows) === createAutoSessionSignature(windows)
+    ) {
+      return latestAutoSession;
+    }
+  }
+
+  const session: SessionRecord = {
+    id: options?.id ?? createId('session'),
+    title: title?.trim() || sessionDefaultTitle(options?.source === 'auto' ? 'auto' : scope, now),
+    note: '',
+    tags: [],
+    pinned: false,
+    source: options?.source ?? 'manual',
+    createdAt: now,
+    updatedAt: now,
+    windows,
+    stats: buildSessionStats(windows)
+  };
+
+  sessionRecords.set(session.id, session);
+  if (session.source === 'manual') {
+    trimManualSessions();
+  } else {
+    trimAutoSessions();
+  }
+  if (session.source === 'manual') {
+    await persistSessionsNow();
+  } else {
+    scheduleSessionsPersist();
+  }
+  scheduleSessionsInvalidation();
+  return session;
+}
+
+async function captureAutoSessionSnapshot(): Promise<void> {
+  if (autoSessionCaptureInFlight) return;
+  autoSessionCaptureInFlight = true;
+
+  try {
+    const settings = await getSettings();
+    if (!settings.autoSnapshotsEnabled) return;
+
+    await captureSession('all-windows', undefined, {
+      source: 'auto'
+    });
+  } catch (error) {
+    console.warn('Failed to capture auto session snapshot.', error);
+  } finally {
+    autoSessionCaptureInFlight = false;
+  }
+}
+
+function scheduleAutoSessionSnapshot(delay = AUTO_SESSION_DEBOUNCE_MS): void {
+  if (autoSessionTimer != null) {
+    clearTimeout(autoSessionTimer);
+    autoSessionTimer = null;
+  }
+
+  void getSettings().then((settings) => {
+    if (!settings.autoSnapshotsEnabled) return;
+
+    autoSessionTimer = setTimeout(() => {
+      autoSessionTimer = null;
+      void captureAutoSessionSnapshot();
+    }, delay);
+  }).catch((error) => {
+    autoSessionTimer = null;
+    console.warn('Failed to check auto snapshots setting.', error);
+  });
+}
+
+function startAutoSessionSnapshots(): void {
+  scheduleAutoSessionSnapshot(0);
+}
+
+async function getSessions(): Promise<SessionsSnapshot> {
+  await ensureSessionsLoaded();
+  const sessions = Array.from(sessionRecords.values()).sort((left, right) => right.updatedAt - left.updatedAt);
+  return {
+    generatedAt: Date.now(),
+    sessions,
+    totalSessions: sessions.length
+  };
+}
+
+async function restoreSession(sessionId: string, mode: SessionRestoreMode = 'new-window'): Promise<SessionRestoreResult> {
+  await ensureSessionsLoaded();
+  const session = sessionRecords.get(sessionId);
+  if (!session) throw new Error('Session not found.');
+
+  const affectedTabIds: number[] = [];
+  let failedCount = 0;
+
+  const applyRestoredTabState = async (tabId: number, source: SessionTabRecord): Promise<void> => {
+    if (!source.muted) return;
+    await chrome.tabs.update(tabId, { muted: true });
+  };
+
+  const restoreTabIntoWindow = async (
+    windowId: number,
+    source: SessionTabRecord,
+    options?: { active?: boolean; index?: number; pinned?: boolean }
+  ): Promise<number | null> => {
+    try {
+      const tab = await chrome.tabs.create({
+        windowId,
+        index: options?.index,
+        url: source.url,
+        active: options?.active ?? false,
+        pinned: options?.pinned ?? source.pinned
+      });
+      if (tab.id == null) return null;
+      affectedTabIds.push(tab.id);
+      await applyRestoredTabState(tab.id, source).catch(() => {});
+      return tab.id;
+    } catch (error) {
+      failedCount += 1;
+      console.warn('Failed to restore session tab.', source.url, error);
+      return null;
+    }
+  };
+
+  const restoreGroups = async (
+    restoredTabIds: Array<number | null>,
+    sourceTabs: SessionTabRecord[],
+    keyPrefix = ''
+  ): Promise<void> => {
+    const groupBuckets = new Map<string, { group: NonNullable<SessionTabRecord['group']>; tabIds: number[] }>();
+
+    sourceTabs.forEach((sourceTab, index) => {
+      if (!sourceTab.group) return;
+      const restoredTabId = restoredTabIds[index];
+      if (!restoredTabId) return;
+      const key = `${keyPrefix}${sourceTab.group.key}`;
+      const bucket = groupBuckets.get(key) ?? { group: sourceTab.group, tabIds: [] };
+      bucket.tabIds.push(restoredTabId);
+      groupBuckets.set(key, bucket);
+    });
+
+    for (const bucket of groupBuckets.values()) {
+      const tabIds = asNonEmptyTabIds(bucket.tabIds);
+      if (!tabIds) continue;
+      try {
+        const groupId = await chrome.tabs.group({ tabIds });
+        await chrome.tabGroups.update(groupId, {
+          title: bucket.group.title,
+          color: bucket.group.color
+        });
+      } catch (error) {
+        console.warn('Failed to restore session group.', error);
+      }
+    }
+  };
+
+  if (mode === 'current-window') {
+    const currentWindow = await chrome.windows.getCurrent();
+    const currentWindowId = currentWindow.id;
+    if (currentWindowId == null) throw new Error('Current window not found.');
+
+    for (const [windowIndex, sessionWindow] of session.windows.entries()) {
+      let nextIndex = (await chrome.tabs.query({ windowId: currentWindowId })).length;
+      const restoredTabIds: Array<number | null> = [];
+      for (const tab of sessionWindow.tabs) {
+        const restoredTabId = await restoreTabIntoWindow(currentWindowId, tab, {
+          active: false,
+          index: nextIndex
+        });
+        if (restoredTabId != null) {
+          nextIndex += 1;
+        }
+        restoredTabIds.push(restoredTabId);
+      }
+
+      await restoreGroups(restoredTabIds, sessionWindow.tabs, `${windowIndex}:`);
+    }
+
+    return {
+      ...collectMutationOutcome(affectedTabIds),
+      failedCount
+    };
+  }
+
+  for (const [windowIndex, sessionWindow] of session.windows.entries()) {
+    const [firstTab, ...remainingTabs] = sessionWindow.tabs;
+    if (!firstTab) continue;
+
+    let createdWindow: chrome.windows.Window | undefined;
+    try {
+      createdWindow = await chrome.windows.create({
+        focused: windowIndex === 0,
+        url: firstTab.url
+      });
+    } catch (error) {
+      failedCount += 1;
+      console.warn('Failed to restore session window.', firstTab.url, error);
+      continue;
+    }
+    if (!createdWindow) continue;
+    const windowId = createdWindow.id;
+    if (windowId == null) continue;
+
+    const restoredTabIds: Array<number | null> = [];
+    const createdTabs = (createdWindow.tabs ?? []).filter((tab): tab is chrome.tabs.Tab => tab.id != null);
+    const firstCreatedTab = createdTabs[0];
+    if (firstCreatedTab?.id != null) {
+      affectedTabIds.push(firstCreatedTab.id);
+      restoredTabIds.push(firstCreatedTab.id);
+      if (firstTab.pinned || firstTab.muted) {
+        await chrome.tabs.update(firstCreatedTab.id, {
+          pinned: firstTab.pinned,
+          muted: firstTab.muted
+        }).catch(() => {});
+      }
+    } else {
+      restoredTabIds.push(null);
+    }
+
+    let nextIndex = 1;
+    for (const tab of remainingTabs) {
+      const restoredTabId = await restoreTabIntoWindow(windowId, tab, {
+        index: nextIndex
+      });
+      if (restoredTabId != null) {
+        nextIndex += 1;
+      }
+      restoredTabIds.push(restoredTabId);
+    }
+
+    await restoreGroups(restoredTabIds, sessionWindow.tabs);
+  }
+
+  return {
+    ...collectMutationOutcome(affectedTabIds),
+    failedCount
+  };
+}
+
+async function updateSession(sessionId: string, patch: SessionUpdatePatch): Promise<SessionRecord> {
+  await ensureSessionsLoaded();
+  const current = sessionRecords.get(sessionId);
+  if (!current) throw new Error('Session not found.');
+
+  const next: SessionRecord = {
+    ...current,
+    title: patch.title !== undefined ? patch.title.trim() || current.title : current.title,
+    note: patch.note !== undefined ? patch.note.trim() : current.note,
+    tags: patch.tags !== undefined ? patch.tags.map((tag) => tag.trim()).filter(Boolean) : current.tags,
+    pinned: patch.pinned !== undefined ? patch.pinned : current.pinned,
+    updatedAt: Date.now()
+  };
+
+  sessionRecords.set(sessionId, next);
+  await persistSessionsNow();
+  scheduleSessionsInvalidation();
+  return next;
+}
+
+async function deleteSession(sessionId: string): Promise<TabMutationResult> {
+  await ensureSessionsLoaded();
+  sessionRecords.delete(sessionId);
+  await persistSessionsNow();
+  scheduleSessionsInvalidation();
+  return collectMutationOutcome([]);
 }
 
 function toBookmarkNodeSnapshot(
@@ -1898,6 +2794,64 @@ async function moveTabsAfter(
   return collectMutationOutcome(orderedTabs.map((tab) => tab.id!));
 }
 
+async function moveGroup(
+  groupId: number,
+  target: { kind: 'group' | 'tab'; id: number },
+  position: 'before' | 'after'
+): Promise<TabMutationResult> {
+  const movingTabs = await chrome.tabs.query({ groupId });
+  if (movingTabs.length === 0) return collectMutationOutcome([]);
+
+  const orderedMovingTabs = movingTabs
+    .filter((tab) => tab.id != null)
+    .sort((left, right) => left.index - right.index);
+  const movingTabIds = orderedMovingTabs.map((tab) => tab.id!);
+  if (orderedMovingTabs.length === 0) return collectMutationOutcome([]);
+
+  const movingWindowId = orderedMovingTabs[0]!.windowId;
+  const getAdjustedTargetIndex = (
+    targetWindowId: number,
+    rawTargetIndex: number,
+    compareIndex: number
+  ): number => {
+    if (movingWindowId !== targetWindowId) return Math.max(0, rawTargetIndex);
+
+    const movingBeforeTarget = orderedMovingTabs.filter((tab) => tab.index < compareIndex).length;
+    return Math.max(0, rawTargetIndex - movingBeforeTarget);
+  };
+
+  if (target.kind === 'group') {
+    const targetGroup = await chrome.tabGroups.get(target.id);
+    const targetTabs = await chrome.tabs.query({ groupId: target.id });
+    if (targetTabs.length === 0) {
+      return collectMutationOutcome(movingTabIds);
+    }
+
+    const targetStartIndex = Math.min(...targetTabs.map((tab) => tab.index));
+    const targetEndIndex = Math.max(...targetTabs.map((tab) => tab.index));
+    await chrome.tabGroups.move(groupId, {
+      windowId: targetGroup.windowId,
+      index: getAdjustedTargetIndex(
+        targetGroup.windowId,
+        position === 'before' ? targetStartIndex : targetEndIndex + 1,
+        position === 'before' ? targetStartIndex : targetEndIndex
+      )
+    });
+    return collectMutationOutcome(movingTabIds);
+  } else {
+    const targetTab = await chrome.tabs.get(target.id);
+    await chrome.tabGroups.move(groupId, {
+      windowId: targetTab.windowId,
+      index: getAdjustedTargetIndex(
+        targetTab.windowId,
+        position === 'before' ? targetTab.index : targetTab.index + 1,
+        targetTab.index
+      )
+    });
+    return collectMutationOutcome(movingTabIds);
+  }
+}
+
 async function updateGroup(
   groupId: number,
   patch: TabGroupUpdatePatch
@@ -1912,11 +2866,13 @@ async function updateGroup(
 
   if (
     patch.autoGroupEnabled !== undefined ||
+    patch.autoGroupConfigId !== undefined ||
     patch.autoGroupPresetIds !== undefined ||
     patch.autoGroupRules !== undefined
   ) {
     setGroupMetadata(groupId, {
       autoGroupEnabled: patch.autoGroupEnabled,
+      autoGroupConfigId: patch.autoGroupConfigId,
       autoGroupPresetIds: patch.autoGroupPresetIds,
       autoGroupRules: patch.autoGroupRules
     });
@@ -1970,8 +2926,9 @@ async function smartGroupTabs(
         : (() => {
             const preset = matchDefaultAutoGroupPreset(tab);
             if (preset) return getDefaultAutoGroupPresetTitle(preset, settings.locale);
-            return settings.locale === 'en' ? 'Reference' : '参考';
+            return null;
           })();
+    if (!baseTitle) continue;
     const key = `${tab.windowId}:${baseTitle}`;
     const existing = buckets.get(key);
 
@@ -2004,9 +2961,14 @@ async function smartGroupTabs(
 
 export function installBackgroundService(): void {
   void seedRuntimeState();
+  startAutoSessionSnapshots();
   void maybeAutoGroupTabs().catch((error) => {
     console.warn('Failed to auto group tabs during startup.', error);
   });
+  void syncAutoCollapseInactiveGroupsAlarm().catch((error) => {
+    console.warn('Failed to schedule inactive group auto-collapse.', error);
+  });
+  scheduleAutoCollapseInactiveGroupsCheck();
   void refreshRedirectTrackingEnabled().catch((error) => {
     console.warn('Failed to initialize redirect tracking permission state.', error);
   });
@@ -2018,12 +2980,16 @@ export function installBackgroundService(): void {
 
     const state = ensureRuntimeTab(tab.id);
     state.openedAt = Date.now();
+    state.autoDeduplicationPendingFromCreate =
+      normalizeAutoDeduplicationUrl(tab.url ?? tab.pendingUrl ?? '') == null;
 
     if (tab.active) {
       startActiveSession(tab.windowId, tab.id);
     }
 
     scheduleOverviewInvalidation('created');
+    scheduleAutoSessionSnapshot();
+    scheduleAutoCollapseInactiveGroupsCheck();
     void trackTabHistory(tab, 'created');
     void maybeAutoGroupTab(tab).catch((error) => {
       console.warn('Failed to auto group created tab.', error);
@@ -2032,6 +2998,9 @@ export function installBackgroundService(): void {
 
   chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
     if (tab.id == null) return;
+    if (changeInfo.audible === true) {
+      ensureRuntimeTab(tab.id).lastAudibleAt = Date.now();
+    }
 
     const groupIdChanged = 'groupId' in changeInfo;
     const relevantUpdate =
@@ -2043,10 +3012,26 @@ export function installBackgroundService(): void {
       changeInfo.mutedInfo !== undefined ||
       changeInfo.discarded !== undefined ||
       groupIdChanged;
+    const snapshotRelevantUpdate =
+      changeInfo.url !== undefined ||
+      changeInfo.pinned !== undefined ||
+      changeInfo.mutedInfo !== undefined ||
+      groupIdChanged;
 
     if (!relevantUpdate) return;
     scheduleOverviewInvalidation('updated');
+    if (snapshotRelevantUpdate) {
+      scheduleAutoSessionSnapshot();
+    }
+    scheduleAutoCollapseInactiveGroupsCheck();
     void (async () => {
+      if (changeInfo.url !== undefined) {
+        const deduplicated = await maybeAutoDeduplicateTab(tab);
+        if (deduplicated) {
+          return;
+        }
+      }
+
       if (changeInfo.url !== undefined) {
         await ensureAutoGroupExemptionsLoaded();
         deleteAutoGroupExemption(tab.id!);
@@ -2077,14 +3062,20 @@ export function installBackgroundService(): void {
 
   chrome.tabs.onMoved.addListener(() => {
     scheduleOverviewInvalidation('updated');
+    scheduleAutoSessionSnapshot();
+    scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.tabs.onAttached.addListener(() => {
     scheduleOverviewInvalidation('updated');
+    scheduleAutoSessionSnapshot();
+    scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.tabs.onDetached.addListener(() => {
     scheduleOverviewInvalidation('updated');
+    scheduleAutoSessionSnapshot();
+    scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
@@ -2095,6 +3086,7 @@ export function installBackgroundService(): void {
 
     startActiveSession(windowId, tabId);
     scheduleOverviewInvalidation('activated');
+    scheduleAutoCollapseInactiveGroupsCheck();
     void chrome.tabs.get(tabId).then((tab) => trackTabHistory(tab, 'activated')).catch(() => {});
   });
 
@@ -2109,15 +3101,20 @@ export function installBackgroundService(): void {
     runtimeTabs.delete(tabId);
     deleteAutoGroupExemption(tabId);
     scheduleOverviewInvalidation('removed');
+    scheduleAutoSessionSnapshot();
+    scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.tabGroups.onUpdated.addListener(() => {
     scheduleOverviewInvalidation('updated');
+    scheduleAutoSessionSnapshot();
   });
 
   chrome.tabGroups.onRemoved.addListener((group) => {
     deleteGroupMetadata(group.id);
     scheduleOverviewInvalidation('updated');
+    scheduleAutoSessionSnapshot();
+    scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.windows.onFocusChanged.addListener(async (windowId) => {
@@ -2128,6 +3125,7 @@ export function installBackgroundService(): void {
         stopActiveSession(activeWindowId, now);
       }
       scheduleOverviewInvalidation('focused');
+      scheduleAutoCollapseInactiveGroupsCheck();
       return;
     }
 
@@ -2136,10 +3134,15 @@ export function installBackgroundService(): void {
       startActiveSession(windowId, activeTab.id, now);
     }
     scheduleOverviewInvalidation('focused');
+    scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'sync' && changes[SETTINGS_KEY]) {
+      void syncAutoCollapseInactiveGroupsAlarm().catch((error) => {
+        console.warn('Failed to reschedule inactive group auto-collapse.', error);
+      });
+      scheduleAutoCollapseInactiveGroupsCheck();
       void refreshRedirectTrackingEnabled().catch((error) => {
         console.warn('Failed to refresh redirect tracking permission state.', error);
       });
@@ -2164,6 +3167,11 @@ export function installBackgroundService(): void {
         console.warn('Failed to hydrate group metadata after storage change.', error);
       }
     }
+  });
+
+  chrome.alarms?.onAlarm?.addListener((alarm) => {
+    if (alarm.name !== AUTO_COLLAPSE_INACTIVE_GROUPS_ALARM) return;
+    scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.permissions?.onAdded?.addListener((permissions) => {
@@ -2211,6 +3219,8 @@ export function installBackgroundService(): void {
           | TabDetailSnapshot
           | BookmarkTreeSnapshot
           | BookmarkNodeSnapshot
+          | SessionsSnapshot
+          | SessionRecord
           | TabMutationResult
           | null
         >;
@@ -2224,6 +3234,33 @@ export function installBackgroundService(): void {
             break;
           case 'tab-manager/get-bookmarks':
             response = { ok: true, data: await getBookmarks() };
+            break;
+          case 'tab-manager/get-sessions':
+            response = { ok: true, data: await getSessions() };
+            break;
+          case 'tab-manager/save-current-window-session':
+            response = {
+              ok: true,
+              data: await captureSession('current-window', request.title)
+            };
+            break;
+          case 'tab-manager/save-all-windows-session':
+            response = {
+              ok: true,
+              data: await captureSession('all-windows', request.title)
+            };
+            break;
+          case 'tab-manager/restore-session':
+            response = { ok: true, data: await restoreSession(request.sessionId, request.mode) };
+            break;
+          case 'tab-manager/update-session':
+            response = {
+              ok: true,
+              data: await updateSession(request.sessionId, request.patch)
+            };
+            break;
+          case 'tab-manager/delete-session':
+            response = { ok: true, data: await deleteSession(request.sessionId) };
             break;
           case 'tab-manager/create-bookmark-folder':
             response = {
@@ -2316,6 +3353,12 @@ export function installBackgroundService(): void {
             response = {
               ok: true,
               data: await moveTabsAfter(request.tabIds, request.afterTabId)
+            };
+            break;
+          case 'tab-manager/move-group':
+            response = {
+              ok: true,
+              data: await moveGroup(request.groupId, request.target, request.position)
             };
             break;
           case 'tab-manager/update-group':

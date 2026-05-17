@@ -1,53 +1,48 @@
 import type { ReactNode } from 'react';
+import { SegmentedSwitch } from './SegmentedSwitch';
 
 interface SidepanelViewTabsProps {
-  activeView: 'tabs' | 'bookmarks';
+  activeView: 'tabs' | 'sessions' | 'bookmarks';
   tabsCount: number;
+  sessionsCount: number;
   bookmarksCount: number;
   bookmarksLabel: string;
+  label: string;
   meta?: string | null;
   bookmarksAction?: ReactNode;
-  onSwitch: (nextView: 'tabs' | 'bookmarks') => void;
+  onSwitch: (nextView: 'tabs' | 'sessions' | 'bookmarks') => void;
+  sessionsLabel: string;
   tabsLabel: string;
 }
 
 export function SidepanelViewTabs({
   activeView,
   tabsCount,
+  sessionsCount,
   bookmarksCount,
   bookmarksLabel,
+  label,
   meta,
   bookmarksAction,
   onSwitch,
+  sessionsLabel,
   tabsLabel
 }: SidepanelViewTabsProps) {
   return (
     <>
       <div className="tm-sidepanel-view-tabs-row">
-        <div className="tm-sidepanel-view-tabs" role="tablist" aria-label="Views">
-          <button
-            className="tm-sidepanel-view-tab"
-            data-active={activeView === 'tabs'}
-            onClick={() => onSwitch('tabs')}
-            role="tab"
-            aria-selected={activeView === 'tabs'}
-            type="button"
-          >
-            <span>{tabsLabel}</span>
-            <span className="tm-sidepanel-view-tab-count">{tabsCount}</span>
-          </button>
-          <button
-            className="tm-sidepanel-view-tab"
-            data-active={activeView === 'bookmarks'}
-            onClick={() => onSwitch('bookmarks')}
-            role="tab"
-            aria-selected={activeView === 'bookmarks'}
-            type="button"
-          >
-            <span>{bookmarksLabel}</span>
-            <span className="tm-sidepanel-view-tab-count">{bookmarksCount}</span>
-          </button>
-        </div>
+        <SegmentedSwitch
+          ariaLabel={label}
+          className="tm-sidepanel-view-tabs"
+          onChange={onSwitch}
+          optionClassName="tm-sidepanel-view-tab"
+          options={[
+            { value: 'tabs', label: tabsLabel, meta: tabsCount },
+            { value: 'sessions', label: sessionsLabel, meta: sessionsCount },
+            { value: 'bookmarks', label: bookmarksLabel, meta: bookmarksCount }
+          ]}
+          value={activeView}
+        />
         {bookmarksAction && activeView === 'bookmarks' ? (
           <div className="tm-sidepanel-view-tabs-actions">{bookmarksAction}</div>
         ) : null}

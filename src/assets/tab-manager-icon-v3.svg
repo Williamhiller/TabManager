@@ -1,0 +1,19 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Tab Manager icon upgrade - auto star</title>
+  <path
+    d="M5 37C5 26.5066 13.5066 18 24 18H53L64 30H103C113.493 30 122 38.5066 122 49V99C122 109.493 113.493 118 103 118H24C13.5066 118 5 109.493 5 99V37Z"
+    fill="#F59E0B"
+    stroke="#1C1917"
+    stroke-width="10"
+    stroke-linejoin="round"
+  />
+  <circle cx="35" cy="61" r="7.5" fill="#1C1917"/>
+  <rect x="52" y="55.5" width="27" height="11" rx="5.5" fill="#1C1917"/>
+  <circle cx="35" cy="85" r="7.5" fill="#451A03"/>
+  <rect x="52" y="79.5" width="50" height="11" rx="5.5" fill="#451A03"/>
+  <path
+    d="M98 34L104 52L122 58L104 64L98 82L92 64L74 58L92 52L98 34Z"
+    fill="#FAFAF9"
+    stroke-linejoin="round"
+  />
+</svg>

@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "TabWise - スマートタブ管理・整理"
+  },
+  "extDescription": {
+    "message": "タブを自動グループ化し、重複タブの削除、非アクティブタブの整理、検索、セッション復元を行えるスマートタブ管理ツール。"
+  },
+  "extActionTitle": {
+    "message": "TabWise - スマートタブ管理・整理"
+  }
+}

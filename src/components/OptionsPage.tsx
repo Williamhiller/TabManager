@@ -1,18 +1,31 @@
 import {
   RiArrowRightUpLine,
+  RiCloseCircleLine,
+  RiFileCopyLine,
+  RiFolderReduceLine,
   RiGlobalLine,
   RiMoonLine,
   RiSidebarUnfoldLine,
-  RiSunLine,
-  RiTranslate2
 } from '@remixicon/react';
 import { useEffect, useState } from 'react';
 
-import type { LocaleMode, ManagerSettings } from '../lib/contracts';
+import type {
+  AutoCloseInactiveTabsMinutes,
+  AutoCollapseInactiveGroupsMinutes,
+  AutoSleepInactiveTabsMinutes,
+  LocaleMode,
+  ManagerSettings,
+  ThemeMode
+} from '../lib/contracts';
 import { getErrorMessage } from '../lib/format';
 import { getMessages } from '../lib/i18n';
 import { openDashboardPage, openSidePanel } from '../lib/runtime-client';
-import { defaultSettings, getSettings, updateSettings } from '../lib/settings';
+import {
+  autoInactiveMinuteChoices,
+  defaultSettings,
+  getSettings,
+  updateSettings
+} from '../lib/settings';
 import { applyTheme } from '../lib/theme';
 
 const refreshChoices = [0, 15, 30, 60];
@@ -82,56 +95,34 @@ export function OptionsPage() {
           <div className="tm-panel tm-sidebar">
             <div className="tm-sidebar-section">
               <p className="tm-section-title">{t.theme}</p>
-              <button
-                className="tm-nav-button"
-                data-active={settings.theme === 'dark'}
-                onClick={() => void save({ theme: 'dark' })}
-                type="button"
+              <select
+                aria-label={t.theme}
+                className="tm-select tm-settings-select"
+                onChange={(event) => void save({ theme: event.target.value as ThemeMode })}
+                value={settings.theme}
               >
-                <span className="flex items-center gap-3">
-                  <RiMoonLine size={14} />
-                  {t.dark}
-                </span>
-              </button>
-              <button
-                className="tm-nav-button"
-                data-active={settings.theme === 'light'}
-                onClick={() => void save({ theme: 'light' })}
-                type="button"
-              >
-                <span className="flex items-center gap-3">
-                  <RiSunLine size={14} />
-                  {t.light}
-                </span>
-              </button>
+                <option value="system">{t.system}</option>
+                <option value="light">{t.light}</option>
+                <option value="dark">{t.dark}</option>
+              </select>
             </div>
 
             <div className="tm-sidebar-section">
               <p className="tm-section-title">{t.language}</p>
-              {(
-                [
-                  ['system', t.localeAuto],
-                  ['en', t.localeEnglish],
-                  ['zh-CN', t.localeChinese],
-                  ['ja', t.localeJapanese],
-                  ['fr', t.localeFrench],
-                  ['es', t.localeSpanish],
-                  ['ar', t.localeArabic]
-                ] as Array<[LocaleMode, string]>
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  className="tm-nav-button"
-                  data-active={settings.locale === value}
-                  onClick={() => void save({ locale: value })}
-                  type="button"
-                >
-                  <span className="flex items-center gap-3">
-                    <RiTranslate2 size={14} />
-                    {label}
-                  </span>
-                </button>
-              ))}
+              <select
+                aria-label={t.language}
+                className="tm-select tm-settings-select"
+                onChange={(event) => void save({ locale: event.target.value as LocaleMode })}
+                value={settings.locale}
+              >
+                <option value="system">{t.localeAuto}</option>
+                <option value="en">{t.localeEnglish}</option>
+                <option value="zh-CN">{t.localeChinese}</option>
+                <option value="ja">{t.localeJapanese}</option>
+                <option value="fr">{t.localeFrench}</option>
+                <option value="es">{t.localeSpanish}</option>
+                <option value="ar">{t.localeArabic}</option>
+              </select>
             </div>
 
             <div className="tm-sidebar-section">
@@ -182,6 +173,197 @@ export function OptionsPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="tm-panel-muted p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <RiFolderReduceLine size={14} />
+                    <h3 className="text-sm font-semibold">{t.autoCollapseInactiveGroups}</h3>
+                  </div>
+                  <p className="tm-subtle">{t.autoCollapseInactiveGroupsSub}</p>
+                  <select
+                    aria-label={t.autoCollapseInactiveGroups}
+                    className="tm-select tm-settings-select"
+                    onChange={(event) =>
+                      void save({
+                        autoCollapseInactiveGroupsMinutes: Number(
+                          event.target.value
+                        ) as AutoCollapseInactiveGroupsMinutes
+                      })
+                    }
+                    value={settings.autoCollapseInactiveGroupsMinutes}
+                  >
+                    {autoInactiveMinuteChoices.map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes === 0 ? t.never : `${minutes} ${t.minutesShort}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="tm-panel-muted p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <RiMoonLine size={14} />
+                    <h3 className="text-sm font-semibold">{t.autoSleepInactiveTabs}</h3>
+                  </div>
+                  <p className="tm-subtle">{t.autoSleepInactiveTabsSub}</p>
+                  <select
+                    aria-label={t.autoSleepInactiveTabs}
+                    className="tm-select tm-settings-select"
+                    onChange={(event) =>
+                      void save({
+                        autoSleepInactiveTabsMinutes: Number(
+                          event.target.value
+                        ) as AutoSleepInactiveTabsMinutes
+                      })
+                    }
+                    value={settings.autoSleepInactiveTabsMinutes}
+                  >
+                    {autoInactiveMinuteChoices.map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes === 0 ? t.never : `${minutes} ${t.minutesShort}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="tm-panel-muted p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <RiFileCopyLine size={14} />
+                    <h3 className="text-sm font-semibold">{t.autoDeduplicateTabs}</h3>
+                  </div>
+                  <p className="tm-subtle">{t.autoDeduplicateTabsSub}</p>
+                  <button
+                    aria-pressed={settings.autoDeduplicateTabs}
+                    className={settings.autoDeduplicateTabs ? 'tm-button-primary' : 'tm-button'}
+                    disabled={busy}
+                    onClick={() => void save({ autoDeduplicateTabs: !settings.autoDeduplicateTabs })}
+                    type="button"
+                  >
+                    {settings.autoDeduplicateTabs ? t.enabled : t.disabled}
+                  </button>
+                  {settings.autoDeduplicateTabs ? (
+                    <>
+                      <select
+                        aria-label={t.behavior}
+                        className="tm-select tm-settings-select"
+                        disabled={busy}
+                        onChange={(event) =>
+                          void save({
+                            autoDeduplicationScope: event.target.value as typeof settings.autoDeduplicationScope
+                          })
+                        }
+                        value={settings.autoDeduplicationScope}
+                      >
+                        <option value="global-except-listed">
+                          {t.autoDeduplicationModeGlobalExceptListed}
+                        </option>
+                        <option value="listed-only">{t.autoDeduplicationModeListedOnly}</option>
+                      </select>
+                      <textarea
+                        aria-label={
+                          settings.autoDeduplicationScope === 'listed-only'
+                            ? t.autoDeduplicationIncludedSites
+                            : t.autoDeduplicationExcludedSites
+                        }
+                        className="tm-select tm-settings-select min-h-[112px] resize-y py-3"
+                        defaultValue={settings.autoDeduplicationSites.join('\n')}
+                        key={`options-dedupe-sites:${settings.autoDeduplicationSites.join('|')}:${settings.autoDeduplicationScope}`}
+                        onBlur={(event) => {
+                          const entries = event.target.value
+                            .split('\n')
+                            .map((entry) => entry.trim())
+                            .filter(Boolean);
+                          const normalized = entries.join('\n');
+                          if (normalized !== event.target.value.trim()) {
+                            event.target.value = normalized;
+                          }
+                          void save({ autoDeduplicationSites: entries });
+                        }}
+                        placeholder={
+                          settings.autoDeduplicationScope === 'listed-only'
+                            ? t.autoDeduplicationIncludedSitesPlaceholder
+                            : t.autoDeduplicationExcludedSitesPlaceholder
+                        }
+                      />
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="tm-panel-muted p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <RiGlobalLine size={14} />
+                    <h3 className="text-sm font-semibold">{t.autoCleanupWhitelist}</h3>
+                  </div>
+                  <p className="tm-subtle">{t.autoCleanupWhitelistSub}</p>
+                  <textarea
+                    aria-label={t.autoCleanupWhitelist}
+                    className="tm-select tm-settings-select min-h-[112px] resize-y py-3"
+                    defaultValue={settings.autoCleanupWhitelist.join('\n')}
+                    key={`options-cleanup-whitelist:${settings.autoCleanupWhitelist.join('|')}`}
+                    onBlur={(event) => {
+                      const entries = event.target.value
+                        .split('\n')
+                        .map((entry) => entry.trim())
+                        .filter(Boolean);
+                      const normalized = entries.join('\n');
+                      if (normalized !== event.target.value.trim()) {
+                        event.target.value = normalized;
+                      }
+                      void save({ autoCleanupWhitelist: entries });
+                    }}
+                    placeholder={t.autoCleanupWhitelistPlaceholder}
+                  />
+                </div>
+              </div>
+
+              <div className="tm-panel-muted p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <RiCloseCircleLine size={14} />
+                    <h3 className="text-sm font-semibold">{t.autoCloseInactiveTabs}</h3>
+                  </div>
+                  <p className="tm-subtle">{t.autoCloseInactiveTabsSub}</p>
+                  <select
+                    aria-label={t.autoCloseInactiveTabs}
+                    className="tm-select tm-settings-select"
+                    onChange={(event) =>
+                      void save({
+                        autoCloseInactiveTabsMinutes: Number(
+                          event.target.value
+                        ) as AutoCloseInactiveTabsMinutes
+                      })
+                    }
+                    value={settings.autoCloseInactiveTabsMinutes}
+                  >
+                    {autoInactiveMinuteChoices.map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes === 0 ? t.never : `${minutes} ${t.minutesShort}`}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    aria-pressed={settings.autoCloseCondition === 'sleeping-only'}
+                    className={settings.autoCloseCondition === 'sleeping-only' ? 'tm-button-primary' : 'tm-button'}
+                    onClick={() =>
+                      void save({
+                        autoCloseCondition:
+                          settings.autoCloseCondition === 'sleeping-only' ? 'deep-idle' : 'sleeping-only'
+                      })
+                    }
+                    type="button"
+                  >
+                    {t.closeSleepingOnly}
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         </section>

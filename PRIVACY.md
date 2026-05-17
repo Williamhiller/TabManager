@@ -1,10 +1,10 @@
-# Privacy Policy - Auto Tab Groups - Tab & Bookmark Manager
+# Privacy Policy - TabWise
 
 Last updated: 2026-05-11
 
 ## Summary
 
-Auto Tab Groups - Tab & Bookmark Manager is designed to work locally in your browser.
+TabWise is designed to work locally in your browser.
 
 - No user account is required.
 - No analytics service is integrated.
@@ -40,7 +40,7 @@ Data is stored in browser-provided local/sync storage (`chrome.storage.local` an
 
 ## Data Sharing
 
-Auto Tab Groups - Tab & Bookmark Manager does not sell, transfer, or share your browsing data with third parties.
+TabWise does not sell, transfer, or share your browsing data with third parties.
 
 ## Contact
 

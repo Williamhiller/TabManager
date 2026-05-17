@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "TabWise - 智能标签页管理与整理器"
+  },
+  "extDescription": {
+    "message": "智能标签页管理器：自动分组、移除重复标签、清理不活跃标签、搜索标签并恢复会话。"
+  },
+  "extActionTitle": {
+    "message": "TabWise - 智能标签页管理与整理器"
+  }
+}

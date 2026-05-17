@@ -43,6 +43,11 @@ import { IconButton } from './IconButton';
 import { Tooltip } from './Tooltip';
 import { blockDrag } from './tab-tree-helpers';
 
+const SORTABLE_REORDER_TRANSITION = {
+  duration: 220,
+  easing: 'cubic-bezier(0.22, 1, 0.36, 1)'
+} as const;
+
 export function SortableTabRow({
   tab,
   labelMap,
@@ -92,11 +97,11 @@ export function SortableTabRow({
 }) {
   const sortable = useSortable({
     id: `tab:${tab.id}`,
-    transition: null,
-    animateLayoutChanges: (args) => (args.isSorting ? defaultAnimateLayoutChanges(args) : false)
+    transition: SORTABLE_REORDER_TRANSITION,
+    animateLayoutChanges: defaultAnimateLayoutChanges
   });
   const menuArrowRef = useRef<SVGSVGElement | null>(null);
-  const style = dragSortingLocked
+  const style = dragSortingLocked || dragPreview
     ? undefined
     : {
         transform: sortable.isDragging ? undefined : CSS.Transform.toString(sortable.transform),
@@ -145,7 +150,6 @@ export function SortableTabRow({
     if (event.target.closest('button, input, select, a, [data-tab-action-root="true"]')) return;
     void onFocus();
   };
-
   return (
     <div
       ref={sortable.setNodeRef}
@@ -156,6 +160,7 @@ export function SortableTabRow({
       data-compact={compact}
       data-active={tab.active}
       data-drop-id={`tab:${tab.id}`}
+      data-drag-overlay-id={`tab:${tab.id}`}
       data-depth={depth}
       data-dragging={dragPreview}
       data-menu-open={menuOpen}
@@ -165,54 +170,66 @@ export function SortableTabRow({
       style={style}
     >
       <div className="tm-tab-leading">
-        <div className="tm-tab-handle" title={labelMap.dragToReorder}>
-          <RiDragMove2Line size={14} />
+        <div className="tm-tab-sequence-slot">
+          <span aria-hidden="true" className="tm-tab-sequence">
+            {String(displayIndex).padStart(2, '0')}
+          </span>
+          <span aria-hidden="true" className="tm-tab-drag-indicator" title={labelMap.dragToReorder}>
+            <RiDragMove2Line size={14} />
+          </span>
         </div>
-        {selectable ? (
-          <div className="tm-tab-select-slot">
-            <span aria-hidden="true" className="tm-tab-sequence">
-              {String(displayIndex).padStart(2, '0')}
-            </span>
-            <input checked={selected} onChange={onToggleSelect} onPointerDown={blockDrag} type="checkbox" />
+      </div>
+      <div className="tm-tab-favicon-slot">
+        {tab.favIconUrl ? (
+          <img alt="" className="tm-favicon tm-favicon-small tm-tab-favicon" src={tab.favIconUrl} />
+        ) : (
+          <div className="tm-favicon tm-favicon-small tm-tab-favicon">
+            {(tab.hostname || tab.title).slice(0, 1).toUpperCase()}
           </div>
+        )}
+        <span aria-hidden="true" className="tm-tab-favicon-mask" />
+        {selectable ? (
+          <input
+            aria-label={labelMap.selectVisible}
+            checked={selected}
+            className="tm-tab-favicon-checkbox"
+            onChange={onToggleSelect}
+            onPointerDown={blockDrag}
+            type="checkbox"
+          />
         ) : null}
       </div>
-      {tab.favIconUrl ? (
-        <img alt="" className="tm-favicon tm-favicon-small" src={tab.favIconUrl} />
-      ) : (
-        <div className="tm-favicon tm-favicon-small">{(tab.hostname || tab.title).slice(0, 1).toUpperCase()}</div>
-      )}
 
       <div className="tm-tab-main">
         <div className="tm-tab-line">
+          <strong className="tm-tab-title">{tab.title}</strong>
           {(tab.pinned || tab.muted || tab.discarded || tab.frozen) ? (
             <span className="tm-tab-state-icons" aria-hidden="true">
               {tab.pinned ? (
-                <span className="tm-tab-state-icon" data-kind="pinned">
-                  <RiPushpin2Fill size={12} />
+                <span className="tm-tab-state-icon" data-kind="pinned" title={labelMap.pin}>
+                  <RiPushpin2Fill size={11} />
                 </span>
               ) : null}
               {tab.muted ? (
-                <span className="tm-tab-state-icon" data-kind="muted">
-                  <RiVolumeMuteFill size={12} />
+                <span className="tm-tab-state-icon" data-kind="muted" title={labelMap.mute}>
+                  <RiVolumeMuteFill size={11} />
                 </span>
               ) : null}
               {tab.discarded || tab.frozen ? (
-                <span className="tm-tab-state-icon" data-kind="sleeping">
-                  <RiMoonFill size={12} />
+                <span className="tm-tab-state-icon" data-kind="sleeping" title={labelMap.sleep}>
+                  <RiMoonFill size={11} />
                 </span>
               ) : null}
             </span>
           ) : null}
-          <strong className="tm-tab-title">{tab.title}</strong>
           {tab.audible ? (
-            <span className="tm-chip">
+            <span className="tm-tab-audio-pill" aria-label={tab.muted ? labelMap.mute : labelMap.audible} title={tab.muted ? labelMap.mute : labelMap.audible}>
               {tab.muted ? <RiVolumeMuteLine size={12} /> : <RiVolumeUpLine size={12} />}
             </span>
           ) : null}
         </div>
         <div className="tm-tab-subline">
-          <span className="tm-tab-subline-primary">{tab.hostname || tab.url}</span>
+          <span className="tm-tab-subline-primary" title={tab.url}>{tab.url}</span>
           <span aria-hidden="true">·</span>
           <span>{formatRelativeTime(tab.lastAccessed, locale)}</span>
           {!compact ? (

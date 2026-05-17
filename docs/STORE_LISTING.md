@@ -1,12 +1,12 @@
-# Auto Tab Groups - Chrome Web Store Listing Kit
+# TabWise - Chrome Web Store Listing Kit
 
 ## 1) Basic Info
 
-- Product name (recommended): `Auto Tab Groups - Tab & Bookmark Manager`
+- Product name (recommended): `TabWise - Smart Tab Manager & Organizer`
 - Alternative names:
-  - `Auto Group Tabs - Tab Manager`
-  - `Tab Manager: Auto Groups`
-  - `Smart Tab Groups - Tab Organizer`
+  - `TabWise Smart Tab Manager`
+  - `Tab Manager & Tab Organizer`
+  - `Smart Tab Manager for Chrome`
 - Category (recommended): `Productivity`
 - Language support: `English`, `简体中文`
 - Minimum Chrome version: `114`
@@ -17,13 +17,16 @@ Primary keyword focus:
 - `auto tab groups`
 - `tab groups`
 - `tab manager`
+- `tab organizer`
+- `duplicate tabs`
 - `organize tabs`
 - `smart tab grouping`
+- `restore tabs`
 
 Recommended Chrome Web Store field updates:
 
-- Name: `Auto Tab Groups - Tab & Bookmark Manager`
-- Short description: `Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.`
+- Name: `TabWise - Smart Tab Manager & Organizer`
+- Short description: `Smart tab manager to auto-group tabs, remove duplicate tabs, clean inactive tabs, search tabs, and restore sessions.`
 - First screenshot headline: `Auto-group messy Chrome tabs instantly`
 - Second screenshot headline: `Customize groups, websites, and rules`
 - Small promo tile message: `Auto-group Chrome tabs by website, topic, and custom rules`
@@ -33,15 +36,15 @@ Recommended Chrome Web Store field updates:
 Use this in the Chrome Web Store short description field (132 chars max).
 
 ### Chinese
-按网站类型、域名和自定义规则自动分组 Chrome 标签页，并支持搜索、清理和批量管理。
+智能标签页管理器：自动分组、移除重复标签、清理不活跃标签、搜索标签并恢复会话。
 
 ### English
-Automatically group Chrome tabs by website, topic, and custom rules. Search, clean up, and manage tabs faster.
+Smart tab manager to auto-group tabs, remove duplicate tabs, clean inactive tabs, search tabs, and restore sessions.
 
 ## 3) Detailed Description
 
 ### Chinese
-标签页太多、分组太麻烦？Auto Tab Groups - Tab & Bookmark Manager 可以自动帮你分组 Chrome 标签页。
+标签页太多、重复页面太乱、旧标签舍不得关？TabWise 可以帮你自动分组、移除重复标签、清理不活跃标签，并在需要时恢复会话。
 
 它可以按网站类型、主题、域名、自定义网站列表和规则自动分组，让工作、购物、社交、AI、开发、学习等标签自动归类。你也可以创建自己的分组，配置每个分组的网站列表、匹配规则和优先级，让标签页按照你的工作方式整理。
 
@@ -51,6 +54,9 @@ Automatically group Chrome tabs by website, topic, and custom rules. Search, cle
 - 自定义分组：创建自己的 group，设置名称、颜色、启用状态和匹配优先级
 - 网站列表：把 `github.com`、`openai.com`、`notion.so` 等网站直接加入指定分组
 - 自定义规则：按域名、URL 或标题匹配，支持 contains / equals 条件
+- 重复标签清理：自动移除重复标签，并支持全局模式、排除网站或仅指定网站
+- 自动清理：自动折叠不活跃分组、休眠不活跃标签、关闭不活跃标签，并支持白名单
+- 会话恢复：保存当前窗口或全部窗口，稍后恢复工作现场
 - 手动整理：支持按域名或网站类型一键智能分组
 - 全局搜索：按标题、网址、域名、分组名快速检索
 - 智能视图：快速筛选未分组、已分组、休眠、有声音、固定、长期未访问标签
@@ -69,7 +75,7 @@ Automatically group Chrome tabs by website, topic, and custom rules. Search, cle
 - 想保留标签历史并快速恢复
 
 ### English
-Too many Chrome tabs open? Auto Tab Groups - Tab & Bookmark Manager groups them automatically.
+Too many Chrome tabs, duplicate pages, and stale workspaces? TabWise helps auto-group tabs, remove duplicate tabs, clean inactive tabs, and restore sessions when you need them again.
 
 It automatically groups tabs by website, topic, domain, custom website lists, and matching rules, so work, shopping, social, AI, development, learning, and research tabs stay separated. You can also create custom groups, edit each group's websites and rules, and set match priority for your own workflow.
 
@@ -79,6 +85,9 @@ Key features:
 - Custom groups with name, color, enabled state, and priority
 - Website lists for routing domains like `github.com`, `openai.com`, or `notion.so` into a specific group
 - Custom rules that match by domain, URL, or title with contains / equals conditions
+- Duplicate tab cleanup with global mode, excluded sites, or listed-only sites
+- Automation for collapsing inactive groups, sleeping inactive tabs, closing inactive tabs, and keeping cleanup whitelists
+- Session snapshots for saving the current window or all windows and restoring them later
 - One-click smart grouping by domain or site type
 - Fast search across title, URL, hostname, and group title
 - Smart views for ungrouped, grouped, sleeping, audible, pinned, and stale tabs
@@ -103,18 +112,18 @@ Built for users who want tabs to organize themselves, while still keeping fast s
 ## 5) Single Purpose Statement
 
 ### Chinese
-Auto Tab Groups - Tab & Bookmark Manager 的唯一目的，是帮助用户在 Chrome 中自动分组、搜索、整理与回溯标签页，降低多标签工作场景下的切换成本和管理负担。
+TabWise 的唯一目的，是帮助用户在 Chrome 中自动分组、搜索、去重、清理、保存与恢复标签页，降低多标签工作场景下的切换成本和管理负担。
 
 ### English
-Auto Tab Groups - Tab & Bookmark Manager has one purpose: helping users automatically group, search, organize, and revisit browser tabs in Chrome.
+TabWise has one purpose: helping users automatically group, search, deduplicate, clean up, save, and restore browser tabs in Chrome.
 
 ## 6) Privacy Statement (For Listing Form)
 
 ### Chinese
-Auto Tab Groups - Tab & Bookmark Manager 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签、分组、自定义网站列表和规则信息。只有当用户主动开启 Redirect trace 并授权后，插件才会在本地记录导航/重定向历史。配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
+TabWise 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签、分组、自定义网站列表和规则信息。只有当用户主动开启 Redirect trace 并授权后，插件才会在本地记录导航/重定向历史。配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
 
 ### English
-Auto Tab Groups - Tab & Bookmark Manager does not send your tab data to external servers. Tab data, group data, custom website lists, and rules are processed locally. Navigation/redirect history is recorded locally only after the user enables Redirect trace and grants permission. Settings/history are stored in browser storage (`chrome.storage`) to provide core features.
+TabWise does not send your tab data to external servers. Tab data, group data, custom website lists, and rules are processed locally. Navigation/redirect history is recorded locally only after the user enables Redirect trace and grants permission. Settings/history are stored in browser storage (`chrome.storage`) to provide core features.
 
 ## 7) Privacy Policy URL (GitHub Pages)
 

@@ -2,10 +2,10 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 
 import '../../assets/base.css';
-import { OptionsPage } from '../../components/OptionsPage';
+import { DashboardPage } from '../../components/DashboardPage';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <OptionsPage />
+    <DashboardPage />
   </StrictMode>
 );

@@ -5,7 +5,6 @@ import type {
   DragOverEvent,
   DragStartEvent
 } from '@dnd-kit/core';
-import { DragOverlay } from '@dnd-kit/core';
 import type { ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -18,8 +17,14 @@ import { TabsTreeContent } from './TabsTreeContent';
 interface TabsWorkspaceViewProps<TEntry> {
   activeDragGroupColor?: TabGroupColor;
   activeDragGroupId: number | null;
-  activeDragTabId: number | null;
   collisionDetection: CollisionDetection;
+  dragOverlayState: {
+    activeId: string | null;
+    height: number;
+    left: number;
+    top: number;
+    width: number;
+  };
   entries: TEntry[];
   historyContent?: ReactNode;
   isSidepanel: boolean;
@@ -32,7 +37,7 @@ interface TabsWorkspaceViewProps<TEntry> {
   renderEntry: (entry: TEntry) => ReactNode;
   scrollRef: RefObject<HTMLElement | null>;
   sensors: ReturnType<typeof import('@dnd-kit/core').useSensors>;
-  showTools: boolean;
+  showCreateGroupDropZone: boolean;
   t: Messages;
   treeListScrollRef: RefObject<HTMLDivElement | null>;
   visibleTabs: TabSnapshot[];
@@ -41,8 +46,8 @@ interface TabsWorkspaceViewProps<TEntry> {
 export function TabsWorkspaceView<TEntry>({
   activeDragGroupColor,
   activeDragGroupId,
-  activeDragTabId,
   collisionDetection,
+  dragOverlayState,
   entries,
   historyContent,
   isSidepanel,
@@ -55,7 +60,7 @@ export function TabsWorkspaceView<TEntry>({
   renderEntry,
   scrollRef,
   sensors,
-  showTools,
+  showCreateGroupDropZone,
   t,
   treeListScrollRef,
   visibleTabs
@@ -79,23 +84,28 @@ export function TabsWorkspaceView<TEntry>({
         entries={entries}
         historyContent={historyContent}
         renderEntry={renderEntry}
-        showTools={showTools}
+        showCreateGroupDropZone={showCreateGroupDropZone}
         t={t}
       />
 
       {createPortal(
-        <DragOverlay dropAnimation={null}>
-          {activeDragTabId != null ? (
-            <div className={`tm-drag-frame ${isSidepanel ? 'tm-drag-frame-tab-compact' : 'tm-drag-frame-tab'}`} />
-          ) : activeDragGroupId != null ? (
-            <div
-              className={`tm-drag-frame ${isSidepanel ? 'tm-drag-frame-group-compact' : 'tm-drag-frame-group'}`}
-              style={{
-                borderColor: groupColorTokens[activeDragGroupColor ?? 'blue'].ring
-              }}
-            />
-          ) : null}
-        </DragOverlay>,
+        dragOverlayState.activeId ? (
+          <div
+            className="tm-dashboard-automation-overlay-frame"
+            style={{
+              borderColor:
+                activeDragGroupId != null
+                  ? groupColorTokens[activeDragGroupColor ?? 'blue'].ring
+                  : undefined,
+              height: dragOverlayState.height,
+              left: dragOverlayState.left,
+              position: 'fixed',
+              top: dragOverlayState.top,
+              width: dragOverlayState.width,
+              zIndex: 2400
+            }}
+          />
+        ) : null,
         document.body
       )}
     </TabsManagerView>

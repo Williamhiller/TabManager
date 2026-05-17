@@ -8,7 +8,6 @@ import {
   offset,
   safePolygon,
   shift,
-  useClick,
   useDismiss,
   useFocus,
   useFloating,
@@ -20,33 +19,27 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import {
   RiAddCircleLine,
   RiArrowDownSLine,
-  RiCloseLine,
   RiDeleteBinLine,
   RiDragMove2Line,
   RiFolderLine,
+  RiNodeTree,
   RiScissorsCutLine,
   RiSettings3Line
 } from '@remixicon/react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { MouseEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import type { DefaultAutoGroupPreset } from '../lib/auto-group-defaults';
-import { defaultAutoGroupPresets, getDefaultAutoGroupPresetTitle } from '../lib/auto-group-defaults';
-import type { AutoGroupRule, TabGroupColor, TabGroupSnapshot, TabSnapshot } from '../lib/contracts';
+import type { TabGroupColor, TabGroupSnapshot, TabSnapshot } from '../lib/contracts';
 import type { Messages } from '../lib/i18n';
 import { allGroupColors, groupColorTokens } from '../lib/theme';
 import { SortableTabRow } from './SortableTabRow';
 import { Tooltip } from './Tooltip';
-import {
-  blockDrag,
-  createAutoGroupRule,
-  groupChipStyle,
-  normalizeDraftRule
-} from './tab-tree-helpers';
+import { blockDrag } from './tab-tree-helpers';
 
 export function GroupTreeBlock({
   autoOpenEditMenu,
+  autoGroupSaved,
   group,
   tabs,
   compact,
@@ -63,8 +56,8 @@ export function GroupTreeBlock({
   onToggleExpand,
   onSaveGroup,
   onUpdateGroupColor,
-  onUpdateGroupAutoConfig,
   onAddTabToGroup,
+  onSaveAsAutoGroup,
   onUngroupGroup,
   onDeleteGroup,
   onAutoOpenEditMenuHandled,
@@ -80,6 +73,7 @@ export function GroupTreeBlock({
   onMoveSelectionHere
 }: {
   autoOpenEditMenu: boolean;
+  autoGroupSaved: boolean;
   group: TabGroupSnapshot;
   tabs: TabSnapshot[];
   compact: boolean;
@@ -96,12 +90,8 @@ export function GroupTreeBlock({
   onToggleExpand: () => void;
   onSaveGroup: (title: string) => void;
   onUpdateGroupColor: (color: TabGroupColor) => void;
-  onUpdateGroupAutoConfig: (patch: {
-    autoGroupEnabled?: boolean;
-    autoGroupPresetIds?: string[];
-    autoGroupRules?: AutoGroupRule[];
-  }) => void;
   onAddTabToGroup: () => void;
+  onSaveAsAutoGroup: () => void;
   onUngroupGroup: () => void;
   onDeleteGroup: () => void;
   onAutoOpenEditMenuHandled: () => void;
@@ -117,25 +107,21 @@ export function GroupTreeBlock({
   onMoveSelectionHere?: () => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: `group:${group.id}` });
+  const {
+    isOver: isTailOver,
+    setNodeRef: setTailDropRef
+  } = useDroppable({ id: `group-tail:${group.id}` });
+  const {
+    isOver: isAfterOver,
+    setNodeRef: setAfterDropRef
+  } = useDroppable({ id: `group-after:${group.id}` });
   const draggable = useDraggable({ id: `group-sort:${group.id}` });
   const [editMenuHoverOpen, setEditMenuHoverOpen] = useState(false);
   const [editMenuFocusWithin, setEditMenuFocusWithin] = useState(false);
   const [editMenuAutoOpen, setEditMenuAutoOpen] = useState(false);
-  const [modulePickerOpen, setModulePickerOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState(group.title);
-  const [autoGroupEnabledDraft, setAutoGroupEnabledDraft] = useState(group.autoGroupEnabled);
-  const [autoGroupPresetIdsDraft, setAutoGroupPresetIdsDraft] = useState(group.autoGroupPresetIds);
-  const [rulesDraft, setRulesDraft] = useState<AutoGroupRule[]>(group.autoGroupRules);
   const arrowRef = useRef<SVGSVGElement | null>(null);
-  const modulePickerArrowRef = useRef<SVGSVGElement | null>(null);
   const lastSubmittedTitleRef = useRef(group.title);
-  const lastSubmittedAutoConfigRef = useRef(
-    JSON.stringify({
-      autoGroupEnabled: group.autoGroupEnabled,
-      autoGroupPresetIds: group.autoGroupPresetIds,
-      autoGroupRules: group.autoGroupRules
-    })
-  );
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const editMenuOpen = editMenuHoverOpen || editMenuFocusWithin || editMenuAutoOpen;
   const { refs, floatingStyles, context, placement } = useFloating({
@@ -155,30 +141,6 @@ export function GroupTreeBlock({
   const dismiss = useDismiss(context);
   const role = useRole(context, { role: 'dialog' });
   const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss, role]);
-  const {
-    refs: modulePickerRefs,
-    floatingStyles: modulePickerStyles,
-    context: modulePickerContext,
-    placement: modulePickerPlacement
-  } = useFloating({
-    open: modulePickerOpen,
-    onOpenChange: setModulePickerOpen,
-    placement: 'bottom-start',
-    strategy: 'absolute',
-    transform: false,
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 }), arrow({ element: modulePickerArrowRef, padding: 8 })]
-  });
-  const modulePickerClick = useClick(modulePickerContext, { event: 'click' });
-  const modulePickerDismiss = useDismiss(modulePickerContext, {
-    outsidePress: true,
-    escapeKey: true
-  });
-  const modulePickerRole = useRole(modulePickerContext, { role: 'listbox' });
-  const {
-    getReferenceProps: getModulePickerReferenceProps,
-    getFloatingProps: getModulePickerFloatingProps
-  } = useInteractions([modulePickerClick, modulePickerDismiss, modulePickerRole]);
   const expandTransition = {
     height: {
       type: 'spring' as const,
@@ -196,6 +158,12 @@ export function GroupTreeBlock({
   };
   const activeDrop =
     (isOver || overDropId === `group:${group.id}`) && overDropPosition === 'inside';
+  const tailDropActive =
+    (isTailOver || overDropId === `group-tail:${group.id}`) &&
+    overDropPosition === 'inside';
+  const afterDropActive =
+    (isAfterOver || overDropId === `group-after:${group.id}`) &&
+    overDropPosition === 'after';
   const insertPosition =
     overDropId === `group:${group.id}` && overDropPosition !== 'inside'
       ? overDropPosition
@@ -212,66 +180,6 @@ export function GroupTreeBlock({
     setTitleDraft(group.title);
     lastSubmittedTitleRef.current = group.title;
   }, [editMenuFocusWithin, group.title]);
-
-  useEffect(() => {
-    if (editMenuFocusWithin) return;
-    setAutoGroupEnabledDraft(group.autoGroupEnabled);
-    setAutoGroupPresetIdsDraft(group.autoGroupPresetIds);
-    setRulesDraft(group.autoGroupRules.map(normalizeDraftRule));
-    lastSubmittedAutoConfigRef.current = JSON.stringify({
-      autoGroupEnabled: group.autoGroupEnabled,
-      autoGroupPresetIds: group.autoGroupPresetIds,
-      autoGroupRules: group.autoGroupRules.map(normalizeDraftRule)
-    });
-  }, [editMenuFocusWithin, group.autoGroupEnabled, group.autoGroupPresetIds, group.autoGroupRules]);
-
-  const normalizedRules = useMemo<AutoGroupRule[]>(
-    () => rulesDraft.map(normalizeDraftRule),
-    [rulesDraft]
-  );
-
-  const presetLabels = useMemo(
-    () =>
-      defaultAutoGroupPresets.map((preset: DefaultAutoGroupPreset) => ({
-        id: preset.id,
-        label: getDefaultAutoGroupPresetTitle(preset, locale === 'zh-CN' ? 'zh-CN' : 'en')
-      })),
-    [locale]
-  );
-  const modulePickerSummary = useMemo(() => {
-    if (autoGroupPresetIdsDraft.length === 0) return labelMap.selectModules;
-
-    const selectedLabels = presetLabels
-      .filter((preset) => autoGroupPresetIdsDraft.includes(preset.id))
-      .map((preset) => preset.label);
-
-    if (selectedLabels.length <= 2) return selectedLabels.join(' · ');
-
-    return locale === 'zh-CN' ? `已选 ${selectedLabels.length} 项` : `${selectedLabels.length} selected`;
-  }, [autoGroupPresetIdsDraft, labelMap.selectModules, locale, presetLabels]);
-
-  const saveGroupAutoConfig = (
-    nextEnabled = autoGroupEnabledDraft,
-    nextPresetIds = autoGroupPresetIdsDraft,
-    nextRules: AutoGroupRule[] = normalizedRules
-  ) => {
-    const normalizedNextRules: AutoGroupRule[] = nextRules.map(normalizeDraftRule);
-    const nextPayload = {
-      autoGroupEnabled: nextEnabled,
-      autoGroupPresetIds: nextPresetIds,
-      autoGroupRules: normalizedNextRules
-    };
-    const serializedPayload = JSON.stringify(nextPayload);
-    if (serializedPayload === lastSubmittedAutoConfigRef.current) return;
-
-    lastSubmittedAutoConfigRef.current = serializedPayload;
-    onUpdateGroupAutoConfig(nextPayload);
-  };
-
-  useEffect(() => {
-    if (editMenuFocusWithin) return;
-    setRulesDraft(group.autoGroupRules.map(normalizeDraftRule));
-  }, [editMenuFocusWithin, group.autoGroupRules]);
 
   useEffect(() => {
     if (!autoOpenEditMenu) return;
@@ -302,7 +210,6 @@ export function GroupTreeBlock({
     setEditMenuHoverOpen(false);
     setEditMenuFocusWithin(false);
     setEditMenuAutoOpen(false);
-    setModulePickerOpen(false);
   };
 
   const saveGroupTitle = (nextValue = titleDraft) => {
@@ -318,54 +225,14 @@ export function GroupTreeBlock({
     onSaveGroup(nextTitle);
   };
 
-  const updateRuleAt = (ruleId: string, patch: Partial<Pick<AutoGroupRule, 'value'>>) => {
-    setRulesDraft((current) => {
-      const nextRules = current.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule));
-      saveGroupAutoConfig(autoGroupEnabledDraft, autoGroupPresetIdsDraft, nextRules);
-      return nextRules;
-    });
-  };
-
-  const addRule = () => {
-    setRulesDraft((current) => {
-      const nextRules = [...current, createAutoGroupRule()];
-      saveGroupAutoConfig(autoGroupEnabledDraft, autoGroupPresetIdsDraft, nextRules);
-      return nextRules;
-    });
-  };
-
-  const removeRule = (ruleId: string) => {
-    setRulesDraft((current) => {
-      const nextRules = current.filter((rule) => rule.id !== ruleId);
-      saveGroupAutoConfig(autoGroupEnabledDraft, autoGroupPresetIdsDraft, nextRules);
-      return nextRules;
-    });
-  };
-
-  const toggleAutoGroupEnabled = () => {
-    setAutoGroupEnabledDraft((current) => {
-      const nextEnabled = !current;
-      saveGroupAutoConfig(nextEnabled, autoGroupPresetIdsDraft, rulesDraft);
-      return nextEnabled;
-    });
-    if (autoGroupEnabledDraft) {
-      setModulePickerOpen(false);
-    }
-  };
-
-  const toggleAutoGroupPreset = (presetId: string) => {
-    setAutoGroupPresetIdsDraft((current) => {
-      const nextPresetIds = current.includes(presetId)
-        ? current.filter((id) => id !== presetId)
-        : [...current, presetId];
-      saveGroupAutoConfig(autoGroupEnabledDraft, nextPresetIds, rulesDraft);
-      return nextPresetIds;
-    });
-  };
-
   const handleAddTabToGroup = () => {
     closeEditMenu();
     onAddTabToGroup();
+  };
+
+  const handleSaveAsAutoGroup = () => {
+    closeEditMenu();
+    onSaveAsAutoGroup();
   };
 
   const handleUngroupGroup = () => {
@@ -385,7 +252,16 @@ export function GroupTreeBlock({
   };
 
   return (
-    <section
+    <motion.section
+      layout
+      transition={{
+        layout: {
+          type: 'spring',
+          stiffness: 420,
+          damping: 34,
+          mass: 0.82
+        }
+      }}
       ref={setNodeRef}
       className="tm-section-block"
       data-active={activeDrop}
@@ -393,29 +269,16 @@ export function GroupTreeBlock({
       style={dragStyle}
     >
       <div
-        className="tm-group-header"
+        className={`tm-group-header${compact ? ' tm-group-header-dashboard-flat' : ''}`}
         data-compact={compact}
         data-active={activeDrop}
         data-drop-id={`group:${group.id}`}
+        data-drag-overlay-id={`group-sort:${group.id}`}
         data-over-position={insertPosition ?? undefined}
         onClick={handleGroupHeaderClick}
         ref={draggable.setNodeRef}
-        style={groupChipStyle(group.color as TabGroupColor)}
       >
         <div className="tm-group-header-leading">
-          <div className="tm-tab-handle tm-group-drag-handle" title={labelMap.dragToReorder}>
-            <button
-              aria-label={labelMap.dragToReorder}
-              className="tm-group-drag-button"
-              onClick={(event) => event.stopPropagation()}
-              onPointerDown={blockDrag}
-              type="button"
-              {...draggable.attributes}
-              {...draggable.listeners}
-            >
-              <RiDragMove2Line size={14} />
-            </button>
-          </div>
           <button className="tm-group-toggle" onClick={onToggleExpand} onPointerDown={blockDrag} title={expanded ? labelMap.collapseGroup : labelMap.expandGroup} type="button">
             <motion.span
               animate={{ rotate: expanded ? 0 : -90 }}
@@ -425,6 +288,20 @@ export function GroupTreeBlock({
               <RiArrowDownSLine size={14} />
             </motion.span>
           </button>
+          <div className="tm-group-kind-handle" title={labelMap.dragToReorder}>
+            <button
+              aria-label={labelMap.dragToReorder}
+              className="tm-group-drag-button"
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={blockDrag}
+              type="button"
+              {...draggable.attributes}
+              {...draggable.listeners}
+            >
+              <RiFolderLine aria-hidden="true" className="tm-group-kind-icon" size={14} />
+              <RiDragMove2Line aria-hidden="true" className="tm-group-drag-icon" size={14} />
+            </button>
+          </div>
         </div>
         <div className="min-w-0 flex-1">
           <div className="tm-group-title" title={group.title}>
@@ -493,9 +370,7 @@ export function GroupTreeBlock({
                   className="tm-group-edit-input"
                   onBlur={() => saveGroupTitle(titleDraft)}
                   onChange={(event) => {
-                    const nextValue = event.target.value;
-                    setTitleDraft(nextValue);
-                    saveGroupTitle(nextValue);
+                    setTitleDraft(event.target.value);
                   }}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
@@ -545,134 +420,14 @@ export function GroupTreeBlock({
                 </div>
               </div>
 
-              <div className="tm-group-edit-section tm-group-auto-section">
-                <div className="tm-group-auto-toolbar">
-                  <button
-                    className="tm-group-auto-inline-toggle"
-                    data-active={autoGroupEnabledDraft}
-                    onClick={toggleAutoGroupEnabled}
-                    type="button"
-                  >
-                    <span className="tm-group-auto-inline-label">{labelMap.autoGroup}</span>
-                    <span className="tm-group-auto-switch" data-active={autoGroupEnabledDraft}>
-                      <span className="tm-group-auto-switch-thumb" />
-                    </span>
-                  </button>
-
-                  {autoGroupEnabledDraft ? (
-                    <div className="tm-group-module-picker-root">
-                      <button
-                        ref={modulePickerRefs.setReference}
-                        className="tm-group-module-picker-trigger tm-group-module-picker-trigger-inline"
-                        data-open={modulePickerOpen}
-                        type="button"
-                        {...getModulePickerReferenceProps()}
-                      >
-                        <span className="tm-group-module-picker-summary">{modulePickerSummary}</span>
-                        <RiArrowDownSLine size={13} />
-                      </button>
-
-                      <AnimatePresence initial={false}>
-                        {modulePickerOpen ? (
-                          <motion.div
-                            ref={modulePickerRefs.setFloating}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            className="tm-group-module-picker-menu"
-                            data-side={modulePickerPlacement.split('-')[0]}
-                            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                            initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                            style={modulePickerStyles}
-                            transition={{ duration: 0.14, ease: 'easeOut' }}
-                            {...getModulePickerFloatingProps()}
-                          >
-                            {presetLabels.map((preset) => {
-                              const active = autoGroupPresetIdsDraft.includes(preset.id);
-
-                              return (
-                                <button
-                                  className="tm-group-module-picker-option"
-                                  data-active={active}
-                                  key={preset.id}
-                                  onClick={() => toggleAutoGroupPreset(preset.id)}
-                                  type="button"
-                                >
-                                  <span className="tm-group-module-picker-check" aria-hidden="true">
-                                    {active ? '✓' : ''}
-                                  </span>
-                                  <span className="tm-group-module-picker-label">{preset.label}</span>
-                                </button>
-                              );
-                            })}
-                            <FloatingArrow
-                              ref={modulePickerArrowRef}
-                              className="tm-group-module-picker-arrow"
-                              context={modulePickerContext}
-                              fill="var(--tm-group-edit-surface)"
-                              height={6}
-                              stroke="var(--tm-group-edit-border)"
-                              strokeWidth={1}
-                              tipRadius={2}
-                              width={12}
-                            />
-                          </motion.div>
-                        ) : null}
-                      </AnimatePresence>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              {autoGroupEnabledDraft ? (
-                <div className="tm-group-edit-section tm-group-rules-section">
-                  <div className="tm-group-rules-head">
-                    <strong>{labelMap.autoGroupRules}</strong>
-                    <span>{labelMap.matchAllRules}</span>
-                  </div>
-
-                  {rulesDraft.length > 0 ? (
-                    <div className="tm-group-rules-list">
-                      {rulesDraft.map((rule) => (
-                        <div className="tm-group-rule-row" key={rule.id}>
-                          <span className="tm-group-rule-token">{labelMap.ruleUrl}</span>
-                          <span className="tm-group-rule-separator" aria-hidden="true">
-                            ·
-                          </span>
-                          <span className="tm-group-rule-token">{labelMap.ruleContains}</span>
-                          <span className="tm-group-rule-separator" aria-hidden="true">
-                            ·
-                          </span>
-
-                          <input
-                            className="tm-group-rule-input"
-                            onChange={(event) => updateRuleAt(rule.id, { value: event.target.value })}
-                            placeholder={labelMap.ruleValuePlaceholder}
-                            value={rule.value}
-                          />
-
-                          <button
-                            aria-label={labelMap.removeCondition}
-                            className="tm-group-rule-remove"
-                            onClick={() => removeRule(rule.id)}
-                            type="button"
-                          >
-                            <RiCloseLine size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <button className="tm-group-rule-add" onClick={addRule} type="button">
-                    <RiAddCircleLine size={12} />
-                    <span>{labelMap.addCondition}</span>
-                  </button>
-                </div>
-              ) : null}
-
               <div className="tm-group-edit-actions">
                 <button className="tm-group-edit-action" onClick={handleAddTabToGroup} type="button">
                   <RiAddCircleLine size={12} />
                   <span>{labelMap.addTabToGroup}</span>
+                </button>
+                <button className="tm-group-edit-action" onClick={handleSaveAsAutoGroup} type="button">
+                  <RiNodeTree size={12} />
+                  <span>{autoGroupSaved ? labelMap.editAutoGroup : labelMap.saveAsAutoGroup}</span>
                 </button>
                 <button className="tm-group-edit-action" onClick={handleUngroupGroup} type="button">
                   <RiScissorsCutLine size={12} />
@@ -736,10 +491,22 @@ export function GroupTreeBlock({
                   onToggleSelect={() => onToggleSelect(tab.id)}
                 />
               ))}
+              <div
+                ref={setTailDropRef}
+                className="tm-group-tail-drop-zone"
+                data-active={tailDropActive}
+                data-drop-id={`group-tail:${group.id}`}
+              />
             </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </section>
+      <div
+        ref={setAfterDropRef}
+        className={`tm-group-after-drop-zone${compact ? ' tm-group-after-drop-zone-compact' : ''}`}
+        data-active={afterDropActive}
+        data-drop-id={`group-after:${group.id}`}
+      />
+    </motion.section>
   );
 }

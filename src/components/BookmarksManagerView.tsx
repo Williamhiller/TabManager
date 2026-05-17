@@ -17,7 +17,6 @@ import {
 } from '@floating-ui/react';
 import {
   DndContext,
-  DragOverlay,
   PointerSensor,
   closestCorners,
   pointerWithin,
@@ -42,6 +41,7 @@ import {
   RiFolderLine,
   RiLinksLine,
   RiMore2Line,
+  RiRefreshLine,
   RiStarLine
 } from '@remixicon/react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -56,7 +56,8 @@ import {
   moveBookmark,
   updateBookmark
 } from '../lib/runtime-client';
-import { formatRelativeTime, getErrorMessage } from '../lib/format';
+import { getErrorMessage } from '../lib/format';
+import type { ResolvedLocale } from '../lib/i18n';
 import { IconButton } from './IconButton';
 import { Tooltip } from './Tooltip';
 import { blockDrag } from './tab-tree-helpers';
@@ -68,7 +69,10 @@ interface BookmarksManagerViewProps {
   query: string;
   refreshBookmarks: () => Promise<void>;
   scrollRef?: Ref<HTMLElement>;
+  surface?: 'default' | 'dashboard';
 }
+
+type BookmarkSurface = NonNullable<BookmarksManagerViewProps['surface']>;
 
 type BookmarkDialogState =
   | {
@@ -76,6 +80,11 @@ type BookmarkDialogState =
       node: BookmarkNodeSnapshot;
       title: string;
       url: string;
+    }
+  | {
+      kind: 'new-folder';
+      parentId: string;
+      title: string;
     };
 
 type BookmarkDropPosition = 'before' | 'after' | 'inside';
@@ -98,10 +107,25 @@ interface FilterResult {
 }
 
 const ROOT_ORDER = ['1', '2', '3'];
+const EMPTY_DRAG_OVERLAY_STATE = {
+  activeId: null as string | null,
+  height: 0,
+  left: 0,
+  maxTop: 0,
+  minTop: 0,
+  originTop: 0,
+  top: 0,
+  width: 0
+};
+
 const collisionDetectionStrategy: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
   return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
 };
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function buildBookmarkFaviconUrl(url: string | null): string | null {
   const trimmedUrl = url?.trim();
@@ -204,22 +228,47 @@ function getBookmarkPrimaryLabel(node: BookmarkNodeSnapshot): string {
   return node.title || (node.url ? getDomainLabel(node.url) || node.url : 'Untitled');
 }
 
-function getRootLabel(node: BookmarkNodeSnapshot, locale: string): string {
-  if (node.folderType === 'bookmarks-bar') {
-    return locale === 'zh-CN' ? '书签栏' : 'Bookmarks bar';
-  }
-  if (node.folderType === 'other') {
-    return locale === 'zh-CN' ? '其他书签' : 'Other bookmarks';
-  }
-  if (node.folderType === 'mobile') {
-    return locale === 'zh-CN' ? '移动设备书签' : 'Mobile bookmarks';
-  }
-  return getBookmarkPrimaryLabel(node);
-}
-
-function getBookmarkLabels(locale: string) {
-  return locale === 'zh-CN'
-    ? {
+const bookmarkLabelMap = {
+  en: {
+    addCurrentTab: 'Add current tab',
+    bookmarksWorkspace: 'Bookmarks workspace',
+    creatingFolder: 'Creating folder…',
+    deleteLabel: 'Delete',
+    deleting: 'Deleting…',
+    drag: 'Drag to reorder',
+    edit: 'Edit',
+    editBookmark: 'Edit bookmark',
+    editNamePrompt: 'Rename',
+    editUrlPrompt: 'Edit URL',
+    empty: 'No matching bookmarks.',
+    emptyHint: 'Clear the search or switch location.',
+    folderNamePrompt: 'New folder name',
+    items: 'items',
+    matchedSuffix: 'matched',
+    more: 'More actions',
+    move: 'Moving bookmark…',
+    name: 'Name',
+    newFolder: 'New folder',
+    open: 'Open',
+    openInNewTab: 'Open in new tab',
+    refresh: 'Refresh bookmarks',
+    rename: 'Rename',
+    renameFolder: 'Rename folder',
+    rootLocal: 'Local',
+    rootMetaLocal: 'Local',
+    rootMetaSync: 'Account',
+    rootSync: 'Account',
+    rootMobile: 'Mobile bookmarks',
+    rootOther: 'Other bookmarks',
+    rootToolbar: 'Bookmarks bar',
+    savingCurrentTab: 'Saving current tab…',
+    save: 'Save',
+    cancel: 'Cancel',
+    updatingBookmark: 'Updating bookmark…',
+    updatingFolder: 'Updating folder…',
+    url: 'URL'
+  },
+  'zh-CN': {
         addCurrentTab: '添加当前标签页',
         bookmarksWorkspace: '书签空间',
         creatingFolder: '创建文件夹…',
@@ -227,17 +276,23 @@ function getBookmarkLabels(locale: string) {
         deleting: '删除中…',
         drag: '拖拽排序',
         edit: '编辑',
+        editBookmark: '编辑书签',
         editNamePrompt: '修改名称',
         editUrlPrompt: '修改链接',
+        empty: '当前没有匹配的书签。',
+        emptyHint: '清空搜索或切换位置。',
+        folderNamePrompt: '新建文件夹名称',
         items: '项',
         matchedSuffix: '项匹配',
         more: '更多操作',
         move: '移动书签…',
+        name: '名称',
         newFolder: '新建文件夹',
         open: '打开',
         openInNewTab: '在新标签打开',
         refresh: '刷新书签',
         rename: '重命名',
+        renameFolder: '重命名文件夹',
         rootLocal: '本地',
         rootMetaLocal: '本地',
         rootMetaSync: '账号',
@@ -246,42 +301,182 @@ function getBookmarkLabels(locale: string) {
         rootOther: '其他书签',
         rootToolbar: '书签栏',
         savingCurrentTab: '添加当前标签页…',
+        save: '保存',
+        cancel: '取消',
         updatingBookmark: '更新书签…',
-        updatingFolder: '更新文件夹…'
-      }
-    : {
-        addCurrentTab: 'Add current tab',
-        bookmarksWorkspace: 'Bookmarks workspace',
-        creatingFolder: 'Creating folder…',
-        deleteLabel: 'Delete',
-        deleting: 'Deleting…',
-        drag: 'Drag to reorder',
-        edit: 'Edit',
-        editNamePrompt: 'Rename',
-        editUrlPrompt: 'Edit URL',
-        items: 'items',
-        matchedSuffix: 'matched',
-        more: 'More actions',
-        move: 'Moving bookmark…',
-        newFolder: 'New folder',
-        open: 'Open',
-        openInNewTab: 'Open in new tab',
-        refresh: 'Refresh bookmarks',
-        rename: 'Rename',
-        rootLocal: 'Local',
-        rootMetaLocal: 'Local',
-        rootMetaSync: 'Account',
-        rootSync: 'Account',
-        rootMobile: 'Mobile bookmarks',
-        rootOther: 'Other bookmarks',
-        rootToolbar: 'Bookmarks bar',
-        savingCurrentTab: 'Saving current tab…',
-        updatingBookmark: 'Updating bookmark…',
-        updatingFolder: 'Updating folder…'
-      };
+        updatingFolder: '更新文件夹…',
+        url: '网址'
+  },
+  ja: {
+    addCurrentTab: '現在のタブを追加',
+    bookmarksWorkspace: 'ブックマーク',
+    creatingFolder: 'フォルダーを作成中…',
+    deleteLabel: '削除',
+    deleting: '削除中…',
+    drag: 'ドラッグして並べ替え',
+    edit: '編集',
+    editBookmark: 'ブックマークを編集',
+    editNamePrompt: '名前を変更',
+    editUrlPrompt: 'URLを編集',
+    empty: '一致するブックマークはありません。',
+    emptyHint: '検索をクリアするか場所を切り替えてください。',
+    folderNamePrompt: '新しいフォルダー名',
+    items: '項目',
+    matchedSuffix: '一致',
+    more: 'その他の操作',
+    move: 'ブックマークを移動中…',
+    name: '名前',
+    newFolder: '新しいフォルダー',
+    open: '開く',
+    openInNewTab: '新しいタブで開く',
+    refresh: 'ブックマークを更新',
+    rename: '名前を変更',
+    renameFolder: 'フォルダー名を変更',
+    rootLocal: 'ローカル',
+    rootMetaLocal: 'ローカル',
+    rootMetaSync: 'アカウント',
+    rootSync: 'アカウント',
+    rootMobile: 'モバイルのブックマーク',
+    rootOther: 'その他のブックマーク',
+    rootToolbar: 'ブックマークバー',
+    savingCurrentTab: '現在のタブを追加中…',
+    save: '保存',
+    cancel: 'キャンセル',
+    updatingBookmark: 'ブックマークを更新中…',
+    updatingFolder: 'フォルダーを更新中…',
+    url: 'URL'
+  },
+  fr: {
+    addCurrentTab: 'Ajouter l’onglet actuel',
+    bookmarksWorkspace: 'Favoris',
+    creatingFolder: 'Création du dossier…',
+    deleteLabel: 'Supprimer',
+    deleting: 'Suppression…',
+    drag: 'Glisser pour réordonner',
+    edit: 'Modifier',
+    editBookmark: 'Modifier le favori',
+    editNamePrompt: 'Renommer',
+    editUrlPrompt: 'Modifier l’URL',
+    empty: 'Aucun favori correspondant.',
+    emptyHint: 'Effacez la recherche ou changez d’emplacement.',
+    folderNamePrompt: 'Nom du nouveau dossier',
+    items: 'éléments',
+    matchedSuffix: 'correspondants',
+    more: 'Plus d’actions',
+    move: 'Déplacement du favori…',
+    name: 'Nom',
+    newFolder: 'Nouveau dossier',
+    open: 'Ouvrir',
+    openInNewTab: 'Ouvrir dans un nouvel onglet',
+    refresh: 'Actualiser les favoris',
+    rename: 'Renommer',
+    renameFolder: 'Renommer le dossier',
+    rootLocal: 'Local',
+    rootMetaLocal: 'Local',
+    rootMetaSync: 'Compte',
+    rootSync: 'Compte',
+    rootMobile: 'Favoris mobiles',
+    rootOther: 'Autres favoris',
+    rootToolbar: 'Barre de favoris',
+    savingCurrentTab: 'Ajout de l’onglet actuel…',
+    save: 'Enregistrer',
+    cancel: 'Annuler',
+    updatingBookmark: 'Mise à jour du favori…',
+    updatingFolder: 'Mise à jour du dossier…',
+    url: 'URL'
+  },
+  es: {
+    addCurrentTab: 'Añadir pestaña actual',
+    bookmarksWorkspace: 'Marcadores',
+    creatingFolder: 'Creando carpeta…',
+    deleteLabel: 'Eliminar',
+    deleting: 'Eliminando…',
+    drag: 'Arrastra para reordenar',
+    edit: 'Editar',
+    editBookmark: 'Editar marcador',
+    editNamePrompt: 'Renombrar',
+    editUrlPrompt: 'Editar URL',
+    empty: 'No hay marcadores coincidentes.',
+    emptyHint: 'Limpia la búsqueda o cambia de ubicación.',
+    folderNamePrompt: 'Nombre de carpeta nueva',
+    items: 'elementos',
+    matchedSuffix: 'coincidentes',
+    more: 'Más acciones',
+    move: 'Moviendo marcador…',
+    name: 'Nombre',
+    newFolder: 'Carpeta nueva',
+    open: 'Abrir',
+    openInNewTab: 'Abrir en pestaña nueva',
+    refresh: 'Actualizar marcadores',
+    rename: 'Renombrar',
+    renameFolder: 'Renombrar carpeta',
+    rootLocal: 'Local',
+    rootMetaLocal: 'Local',
+    rootMetaSync: 'Cuenta',
+    rootSync: 'Cuenta',
+    rootMobile: 'Marcadores móviles',
+    rootOther: 'Otros marcadores',
+    rootToolbar: 'Barra de marcadores',
+    savingCurrentTab: 'Añadiendo pestaña actual…',
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    updatingBookmark: 'Actualizando marcador…',
+    updatingFolder: 'Actualizando carpeta…',
+    url: 'URL'
+  },
+  ar: {
+    addCurrentTab: 'إضافة التبويب الحالي',
+    bookmarksWorkspace: 'الإشارات',
+    creatingFolder: 'جار إنشاء المجلد…',
+    deleteLabel: 'حذف',
+    deleting: 'جار الحذف…',
+    drag: 'اسحب لإعادة الترتيب',
+    edit: 'تعديل',
+    editBookmark: 'تعديل الإشارة',
+    editNamePrompt: 'إعادة تسمية',
+    editUrlPrompt: 'تعديل الرابط',
+    empty: 'لا توجد إشارات مطابقة.',
+    emptyHint: 'امسح البحث أو غيّر الموقع.',
+    folderNamePrompt: 'اسم المجلد الجديد',
+    items: 'عناصر',
+    matchedSuffix: 'مطابقة',
+    more: 'إجراءات إضافية',
+    move: 'جار نقل الإشارة…',
+    name: 'الاسم',
+    newFolder: 'مجلد جديد',
+    open: 'فتح',
+    openInNewTab: 'فتح في تبويب جديد',
+    refresh: 'تحديث الإشارات',
+    rename: 'إعادة تسمية',
+    renameFolder: 'إعادة تسمية المجلد',
+    rootLocal: 'محلي',
+    rootMetaLocal: 'محلي',
+    rootMetaSync: 'الحساب',
+    rootSync: 'الحساب',
+    rootMobile: 'إشارات الجوال',
+    rootOther: 'إشارات أخرى',
+    rootToolbar: 'شريط الإشارات',
+    savingCurrentTab: 'جار إضافة التبويب الحالي…',
+    save: 'حفظ',
+    cancel: 'إلغاء',
+    updatingBookmark: 'جار تحديث الإشارة…',
+    updatingFolder: 'جار تحديث المجلد…',
+    url: 'الرابط'
+  }
+} satisfies Record<ResolvedLocale, Record<string, string>>;
+
+function getRootLabel(node: BookmarkNodeSnapshot, labels: ReturnType<typeof getBookmarkLabels>): string {
+  if (node.folderType === 'bookmarks-bar') return labels.rootToolbar;
+  if (node.folderType === 'other') return labels.rootOther;
+  if (node.folderType === 'mobile') return labels.rootMobile;
+  return getBookmarkPrimaryLabel(node);
 }
 
-function getRootDisplay(node: BookmarkNodeSnapshot, labels: ReturnType<typeof getBookmarkLabels>, locale: string): { title: string; meta: string } {
+function getBookmarkLabels(locale: string) {
+  return bookmarkLabelMap[locale as ResolvedLocale] ?? bookmarkLabelMap.en;
+}
+
+function getRootDisplay(node: BookmarkNodeSnapshot, labels: ReturnType<typeof getBookmarkLabels>): { title: string; meta: string } {
   const baseTitle =
     node.folderType === 'bookmarks-bar'
       ? labels.rootToolbar
@@ -289,11 +484,11 @@ function getRootDisplay(node: BookmarkNodeSnapshot, labels: ReturnType<typeof ge
         ? labels.rootOther
         : node.folderType === 'mobile'
           ? labels.rootMobile
-          : getRootLabel(node, locale);
+          : getRootLabel(node, labels);
   const sourceLabel = node.syncing ? labels.rootSync : labels.rootLocal;
 
   return {
-    title: locale === 'zh-CN' ? `${sourceLabel}·${baseTitle}` : `${sourceLabel} · ${baseTitle}`,
+    title: `${sourceLabel} · ${baseTitle}`,
     meta: node.syncing ? labels.rootMetaSync : labels.rootMetaLocal
   };
 }
@@ -408,7 +603,8 @@ function BookmarkRow({
   over,
   overPosition,
   rowId,
-  sortable
+  sortable,
+  surface = 'default'
 }: {
   active?: boolean;
   children: ReactNode;
@@ -421,8 +617,9 @@ function BookmarkRow({
   overPosition: BookmarkDropPosition | null;
   rowId: string;
   sortable: ReturnType<typeof useSortable>;
+  surface?: BookmarkSurface;
 }) {
-  const style = dragSortingLocked
+  const style = dragSortingLocked || dragPreview
     ? undefined
     : {
         transform: sortable.isDragging ? undefined : CSS.Transform.toString(sortable.transform),
@@ -434,13 +631,14 @@ function BookmarkRow({
       ref={sortable.setNodeRef}
       {...sortable.attributes}
       {...sortable.listeners}
-      className="tm-tab-row tm-bookmark-row"
+      className={`tm-tab-row tm-bookmark-row${surface === 'dashboard' ? ' tm-bookmark-row-dashboard' : ''}`}
       data-active={active}
       data-bookmark-kind="item"
       data-compact={compact}
       data-depth={depth}
       data-dragging={dragPreview}
       data-drop-id={rowId}
+      data-drag-overlay-id={rowId}
       data-menu-open={menuOpen}
       data-over={over}
       data-over-position={overPosition ?? undefined}
@@ -455,8 +653,8 @@ function BookmarkRow({
 function BookmarkLeafRow({
   dragSortingLocked,
   dragPreview,
+  index,
   labels,
-  locale,
   menuOpen,
   node,
   onDelete,
@@ -465,12 +663,13 @@ function BookmarkLeafRow({
   onOpenNewTab,
   onSetMoreOpen,
   overDropId,
-  overDropPosition
+  overDropPosition,
+  surface = 'default'
 }: {
   dragSortingLocked: boolean;
   dragPreview: boolean;
+  index: number;
   labels: ReturnType<typeof getBookmarkLabels>;
-  locale: string;
   menuOpen: boolean;
   node: BookmarkNodeSnapshot;
   onDelete: () => void;
@@ -480,6 +679,7 @@ function BookmarkLeafRow({
   onSetMoreOpen: (open: boolean) => void;
   overDropId: string | null;
   overDropPosition: BookmarkDropPosition | null;
+  surface?: BookmarkSurface;
 }) {
   const sortable = useSortable({
     id: `bookmark-node:${node.id}`,
@@ -511,26 +711,37 @@ function BookmarkLeafRow({
 
   const rowId = `bookmark-node:${node.id}`;
   const domain = getDomainLabel(node.url);
-  const timeLabel = formatRelativeTime(node.dateAdded, locale);
   const faviconUrl = buildBookmarkFaviconUrl(node.url);
 
   return (
     <BookmarkRow
       active={false}
-      compact={false}
-      depth={0}
+      compact={surface === 'dashboard'}
+      depth={surface === 'dashboard' ? 1 : 0}
       dragSortingLocked={dragSortingLocked}
       dragPreview={dragPreview}
       menuOpen={menuOpen}
       over={overDropId === rowId}
       overPosition={overDropId === rowId ? overDropPosition : null}
       rowId={rowId}
+      surface={surface}
       sortable={sortable}
     >
       <div className="tm-tab-leading">
-        <div className="tm-tab-handle" title={labels.drag}>
-          <RiDragMove2Line size={14} />
-        </div>
+        {surface === 'dashboard' ? (
+          <div className="tm-tab-sequence-slot">
+            <span aria-hidden="true" className="tm-tab-sequence">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span aria-hidden="true" className="tm-tab-drag-indicator" title={labels.drag}>
+              <RiDragMove2Line size={14} />
+            </span>
+          </div>
+        ) : (
+          <div className="tm-tab-handle" title={labels.drag}>
+            <RiDragMove2Line size={14} />
+          </div>
+        )}
       </div>
       {faviconUrl ? (
         <img alt="" className="tm-favicon tm-favicon-small" src={faviconUrl} />
@@ -544,11 +755,15 @@ function BookmarkLeafRow({
           <div className="tm-tab-line">
             <strong className="tm-tab-title">{getBookmarkPrimaryLabel(node)}</strong>
           </div>
-          <div className="tm-tab-subline">
-            <span className="tm-tab-subline-primary">{domain || node.url || ''}</span>
-            <span aria-hidden="true">·</span>
-            <span>{timeLabel}</span>
-          </div>
+          {surface === 'dashboard' ? (
+            <span className="tm-tab-subline tm-tab-subline-inline">
+              <span className="tm-tab-subline-primary">{domain || node.url || ''}</span>
+            </span>
+          ) : (
+            <div className="tm-tab-subline">
+              <span className="tm-tab-subline-primary">{domain || node.url || ''}</span>
+            </div>
+          )}
         </button>
       </div>
       <div className="tm-row-actions-overlay" data-tab-action-root="true">
@@ -626,7 +841,8 @@ function BookmarkFolderRow({
   onSetExpanded,
   onSetMoreOpen,
   overDropId,
-  overDropPosition
+  overDropPosition,
+  surface = 'default'
 }: {
   children?: ReactNode;
   dragSortingLocked: boolean;
@@ -643,6 +859,7 @@ function BookmarkFolderRow({
   onSetMoreOpen: (open: boolean) => void;
   overDropId: string | null;
   overDropPosition: BookmarkDropPosition | null;
+  surface?: BookmarkSurface;
 }) {
   const sortable = useSortable({
     id: `bookmark-node:${node.id}`,
@@ -690,16 +907,18 @@ function BookmarkFolderRow({
 
   return (
     <section
-      className="tm-section-block tm-bookmark-folder-section"
+      className={`tm-section-block tm-bookmark-folder-section${surface === 'dashboard' ? ' tm-bookmark-folder-section-dashboard' : ''}`}
       data-active={activeDrop}
       data-menu-open={menuOpen}
       ref={sortable.setNodeRef}
       style={dragStyle}
     >
       <div
-        className="tm-group-header tm-bookmark-folder-header"
+        className={`tm-group-header tm-bookmark-folder-header${surface === 'dashboard' ? ' tm-bookmark-folder-header-dashboard' : ''}`}
+        data-compact={surface === 'dashboard'}
         data-active={activeDrop}
         data-drop-id={rowId}
+        data-drag-overlay-id={rowId}
         data-over-position={insertPosition ?? undefined}
         onClick={handleFolderHeaderClick}
         ref={sortable.setActivatorNodeRef}
@@ -811,7 +1030,9 @@ function BookmarkFolderRow({
               }
             }}
           >
-            <div className="tm-section-children tm-section-children-group tm-bookmark-children">
+            <div
+              className={`tm-section-children tm-section-children-group tm-bookmark-children${surface === 'dashboard' ? ' tm-bookmark-children-dashboard' : ''}`}
+            >
               {children}
             </div>
           </motion.div>
@@ -837,7 +1058,8 @@ function BookmarksTree({
   onSetExpanded,
   onSetMenuId,
   overDropId,
-  overDropPosition
+  overDropPosition,
+  surface = 'default'
 }: {
   activeMenuId: string | null;
   activeDragNodeId: string | null;
@@ -855,9 +1077,10 @@ function BookmarksTree({
   onSetMenuId: (id: string | null) => void;
   overDropId: string | null;
   overDropPosition: BookmarkDropPosition | null;
+  surface?: BookmarkSurface;
 }) {
   return (
-    <div className="tm-bookmark-tree">
+    <div className={`tm-bookmark-tree${surface === 'dashboard' ? ' tm-bookmark-tree-dashboard' : ''}`}>
       {nodes.map((node) => {
         const expanded = expandedIds.has(node.id);
         const menuOpen = activeMenuId === node.id;
@@ -883,6 +1106,7 @@ function BookmarksTree({
                 onSetMoreOpen={(open) => onSetMenuId(open ? node.id : null)}
                 overDropId={overDropId}
                 overDropPosition={overDropPosition}
+                surface={surface}
               >
                 <BookmarksTree
                   activeMenuId={activeMenuId}
@@ -901,14 +1125,15 @@ function BookmarksTree({
                   onSetMenuId={onSetMenuId}
                   overDropId={overDropId}
                   overDropPosition={overDropPosition}
+                  surface={surface}
                 />
               </BookmarkFolderRow>
             ) : (
               <BookmarkLeafRow
                 dragSortingLocked={dragSortingLocked}
                 dragPreview={dragPreview}
+                index={nodes.findIndex((entry) => entry.id === node.id)}
                 labels={labels}
-                locale={locale}
                 menuOpen={menuOpen}
                 node={node}
                 onDelete={() => onDeleteNode(node)}
@@ -918,6 +1143,7 @@ function BookmarksTree({
                 onSetMoreOpen={(open) => onSetMenuId(open ? node.id : null)}
                 overDropId={overDropId}
                 overDropPosition={overDropPosition}
+                surface={surface}
               />
             )}
           </div>
@@ -933,30 +1159,37 @@ function BookmarkRootSection({
   count,
   expanded,
   label,
-  locale,
+  labels,
   onAddBookmark,
   onAddFolder,
   onToggleExpand,
-  rootId
+  rootId,
+  surface = 'default'
 }: {
   active: boolean;
   children: ReactNode;
   count: number;
   expanded: boolean;
   label: string;
-  locale: string;
+  labels: ReturnType<typeof getBookmarkLabels>;
   onAddBookmark: () => void;
   onAddFolder: () => void;
   onToggleExpand: () => void;
   rootId: string;
+  surface?: BookmarkSurface;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `bookmark-root:${rootId}` });
   return (
-    <section className="tm-section-block tm-bookmark-root-section" data-active={active || isOver}>
+    <section
+      className={`tm-section-block tm-bookmark-root-section${surface === 'dashboard' ? ' tm-bookmark-root-section-dashboard' : ''}`}
+      data-active={active || isOver}
+    >
       <div
         ref={setNodeRef}
-        className="tm-group-header tm-bookmark-root-header"
+        className={`tm-group-header tm-bookmark-root-header${surface === 'dashboard' ? ' tm-bookmark-root-header-dashboard' : ''}`}
+        data-compact={surface === 'dashboard'}
         data-active={active || isOver}
+        data-drop-id={`bookmark-root:${rootId}`}
         onClick={(event) => {
           if (!(event.target instanceof HTMLElement)) return;
           if (event.target.closest('button, input, select, a, [data-tab-action-root="true"]')) return;
@@ -976,18 +1209,18 @@ function BookmarkRootSection({
           <span className="tm-group-count">{count}</span>
         </div>
         <div className="tm-group-actions" data-tab-action-root="true">
-          <Tooltip content={locale === 'zh-CN' ? '新建文件夹' : 'New folder'}>
+          <Tooltip content={labels.newFolder}>
             <IconButton
               icon={RiFolderAddLine}
-              label={locale === 'zh-CN' ? '新建文件夹' : 'New folder'}
+              label={labels.newFolder}
               nativeTitle={false}
               onClick={onAddFolder}
             />
           </Tooltip>
-          <Tooltip content={locale === 'zh-CN' ? '添加当前标签页' : 'Add current tab'}>
+          <Tooltip content={labels.addCurrentTab}>
             <IconButton
               icon={RiStarLine}
-              label={locale === 'zh-CN' ? '添加当前标签页' : 'Add current tab'}
+              label={labels.addCurrentTab}
               nativeTitle={false}
               onClick={onAddBookmark}
             />
@@ -1017,7 +1250,9 @@ function BookmarkRootSection({
               }
             }}
           >
-            <div className="tm-section-children tm-section-children-root tm-bookmark-root-body">
+            <div
+              className={`tm-section-children tm-section-children-root tm-bookmark-root-body${surface === 'dashboard' ? ' tm-bookmark-root-body-dashboard' : ''}`}
+            >
               {children}
             </div>
           </motion.div>
@@ -1033,18 +1268,21 @@ export function BookmarksManagerView({
   locale,
   query,
   refreshBookmarks,
-  scrollRef
+  scrollRef,
+  surface = 'default'
 }: BookmarksManagerViewProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(ROOT_ORDER));
   const [expandedRootIds, setExpandedRootIds] = useState<Set<string>>(new Set(ROOT_ORDER));
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null);
+  const [dragOverlayState, setDragOverlayState] = useState(EMPTY_DRAG_OVERLAY_STATE);
   const [dialogState, setDialogState] = useState<BookmarkDialogState | null>(null);
   const [overDropId, setOverDropId] = useState<string | null>(null);
   const [overDropPosition, setOverDropPosition] = useState<BookmarkDropPosition | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const dragPointerYRef = useRef<number | null>(null);
+  const treeListRef = useRef<HTMLDivElement | null>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const labels = useMemo(() => getBookmarkLabels(locale), [locale]);
   const filtered = useMemo(() => filterBookmarkNodes(bookmarks, normalizedQuery), [bookmarks, normalizedQuery]);
@@ -1117,15 +1355,10 @@ export function BookmarksManagerView({
   };
 
   const handleAddFolder = (parentId: string) => {
-    const title = window.prompt(locale === 'zh-CN' ? '新建文件夹名称' : 'New folder name');
-    if (title == null) return;
-    const trimmed = title.trim();
-    if (!trimmed) return;
-
-    void execute(labels.creatingFolder, async () => {
-      await createBookmarkFolder(parentId, trimmed);
-      setExpandedIds((current) => new Set(current).add(parentId));
-      await refreshBookmarks();
+    setDialogState({
+      kind: 'new-folder',
+      parentId,
+      title: ''
     });
   };
 
@@ -1142,6 +1375,16 @@ export function BookmarksManagerView({
 
     const trimmedTitle = dialogState.title.trim();
     if (!trimmedTitle) return;
+
+    if (dialogState.kind === 'new-folder') {
+      void execute(labels.creatingFolder, async () => {
+        await createBookmarkFolder(dialogState.parentId, trimmedTitle);
+        setExpandedIds((current) => new Set(current).add(dialogState.parentId));
+        setDialogState(null);
+        await refreshBookmarks();
+      });
+      return;
+    }
 
     if (dialogState.node.url) {
       const trimmedUrl = dialogState.url.trim();
@@ -1256,10 +1499,42 @@ export function BookmarksManagerView({
     dragPointerYRef.current = extractClientY(event.activatorEvent);
     setActiveMenuId(null);
     const active = parseDropId(event.active.id as string);
+    const activeId = typeof event.active.id === 'string' ? event.active.id : null;
+    const escapedActiveId = activeId
+      ? globalThis.CSS?.escape?.(activeId) ?? activeId.replace(/["\\]/g, '\\$&')
+      : null;
+    const activeElement = escapedActiveId
+      ? document.querySelector<HTMLElement>(`[data-drag-overlay-id="${escapedActiveId}"]`)
+      : null;
+    const listRect = treeListRef.current?.getBoundingClientRect();
+    const activeRect = activeElement?.getBoundingClientRect();
+
+    setDragOverlayState(
+      activeId && listRect && activeRect
+        ? {
+            activeId,
+            height: activeRect.height,
+            left: listRect.left,
+            maxTop: Math.max(listRect.bottom - activeRect.height, listRect.top),
+            minTop: listRect.top,
+            originTop: activeRect.top,
+            top: activeRect.top,
+            width: listRect.width
+          }
+        : EMPTY_DRAG_OVERLAY_STATE
+    );
     setActiveDragNodeId(active?.kind === 'node' ? active.id : null);
   };
 
   const handleDragMove = (event: DragMoveEvent) => {
+    setDragOverlayState((current) =>
+      current.activeId
+        ? {
+            ...current,
+            top: clamp(current.originTop + event.delta.y, current.minTop, current.maxTop)
+          }
+        : current
+    );
     updateDragTarget(event);
   };
 
@@ -1270,6 +1545,7 @@ export function BookmarksManagerView({
   const handleDragEnd = (event: DragEndEvent) => {
     dragPointerYRef.current = null;
     setActiveDragNodeId(null);
+    setDragOverlayState(EMPTY_DRAG_OVERLAY_STATE);
     updateDragTarget(event);
     const activeId = typeof event.active.id === 'string' ? event.active.id : null;
     const overId = typeof event.over?.id === 'string' ? event.over.id : null;
@@ -1296,12 +1572,16 @@ export function BookmarksManagerView({
   };
 
   return (
-    <section className="tm-panel tm-tree-shell" ref={isSidepanel ? scrollRef : undefined}>
+    <section
+      className={`${surface === 'dashboard' ? 'tm-tree-shell' : 'tm-panel tm-tree-shell'} tm-bookmark-manager${surface === 'dashboard' ? ' tm-bookmark-manager-dashboard' : ''}`}
+      ref={isSidepanel ? scrollRef : undefined}
+    >
       <DndContext
         collisionDetection={collisionDetectionStrategy}
         onDragCancel={() => {
           dragPointerYRef.current = null;
           setActiveDragNodeId(null);
+          setDragOverlayState(EMPTY_DRAG_OVERLAY_STATE);
           setOverDropId(null);
           setOverDropPosition(null);
         }}
@@ -1312,7 +1592,10 @@ export function BookmarksManagerView({
         sensors={sensors}
       >
         <SortableContext items={rootItemIds} strategy={verticalListSortingStrategy}>
-          <div className={`tm-tree-list${isSidepanel ? ' tm-tree-list-sidepanel' : ' tm-scrollbar'}`}>
+          <div
+            className={`tm-tree-list${isSidepanel ? ' tm-tree-list-sidepanel' : ' tm-scrollbar'}${surface === 'dashboard' ? ' tm-bookmark-tree-list-dashboard' : ''}`}
+            ref={treeListRef}
+          >
             {status ? <div className="tm-bookmark-status">{status}</div> : null}
 
             {orderedRoots.length === 0 ? (
@@ -1320,17 +1603,17 @@ export function BookmarksManagerView({
                 <RiBookmarkLine size={16} />
                 <div>
                   <div className="font-medium">
-                    {locale === 'zh-CN' ? '当前没有匹配的书签。' : 'No matching bookmarks.'}
+                    {labels.empty}
                   </div>
                   <div className="tm-subtle">
-                    {locale === 'zh-CN' ? '清空搜索或切换位置。' : 'Clear the search or switch location.'}
+                    {labels.emptyHint}
                   </div>
                 </div>
               </div>
             ) : (
               orderedRoots.map((root) => (
                 (() => {
-                  const display = getRootDisplay(root, labels, locale);
+                  const display = getRootDisplay(root, labels);
                   return (
                     <BookmarkRootSection
                       key={root.id}
@@ -1338,7 +1621,7 @@ export function BookmarksManagerView({
                       count={countBookmarksOnly(root)}
                       expanded={expandedRootIds.has(root.id)}
                       label={display.title}
-                      locale={locale}
+                      labels={labels}
                       onAddBookmark={() => handleAddBookmark(root.id)}
                       onAddFolder={() => handleAddFolder(root.id)}
                       onToggleExpand={() =>
@@ -1350,6 +1633,7 @@ export function BookmarksManagerView({
                         })
                       }
                       rootId={root.id}
+                      surface={surface}
                     >
                       <BookmarksTree
                         activeMenuId={activeMenuId}
@@ -1378,6 +1662,7 @@ export function BookmarksManagerView({
                         onSetMenuId={setActiveMenuId}
                         overDropId={overDropId}
                         overDropPosition={overDropPosition}
+                        surface={surface}
                       />
                     </BookmarkRootSection>
                   );
@@ -1387,11 +1672,34 @@ export function BookmarksManagerView({
           </div>
         </SortableContext>
 
+        {surface !== 'dashboard' && !isSidepanel ? (
+          <div className="tm-bookmark-floating-refresh">
+            <Tooltip content={labels.refresh}>
+              <IconButton
+                icon={RiRefreshLine}
+                label={labels.refresh}
+                nativeTitle={false}
+                onClick={() => void refreshBookmarks()}
+              />
+            </Tooltip>
+          </div>
+        ) : null}
+
         {createPortal(
           <>
-            <DragOverlay dropAnimation={null}>
-              {activeDragNodeId != null ? <div className={`tm-drag-frame ${isSidepanel ? 'tm-drag-frame-tab-compact' : 'tm-drag-frame-tab'}`} /> : null}
-            </DragOverlay>
+            {dragOverlayState.activeId ? (
+              <div
+                className="tm-dashboard-automation-overlay-frame"
+                style={{
+                  height: dragOverlayState.height,
+                  left: dragOverlayState.left,
+                  position: 'fixed',
+                  top: dragOverlayState.top,
+                  width: dragOverlayState.width,
+                  zIndex: 2400
+                }}
+              />
+            ) : null}
 
             <AnimatePresence initial={false}>
               {dialogState ? (
@@ -1406,17 +1714,15 @@ export function BookmarksManagerView({
                   >
                     <div className="tm-group-edit-section">
                       <div className="tm-bookmark-dialog-title">
-                        {dialogState.node.url
-                          ? locale === 'zh-CN'
-                            ? '编辑书签'
-                            : 'Edit bookmark'
-                          : locale === 'zh-CN'
-                            ? '重命名文件夹'
-                            : 'Rename folder'}
+                        {dialogState.kind === 'new-folder'
+                          ? labels.newFolder
+                          : dialogState.node.url
+                            ? labels.editBookmark
+                            : labels.renameFolder}
                       </div>
 
                       <label className="tm-bookmark-dialog-field">
-                        <span>{locale === 'zh-CN' ? '名称' : 'Name'}</span>
+                        <span>{labels.name}</span>
                         <input
                           className="tm-group-edit-input"
                           onChange={(event) =>
@@ -1427,9 +1733,9 @@ export function BookmarksManagerView({
                           value={dialogState.title}
                         />
                       </label>
-                      {dialogState.node.url ? (
+                      {dialogState.kind === 'edit' && dialogState.node.url ? (
                         <label className="tm-bookmark-dialog-field">
-                          <span>{locale === 'zh-CN' ? '网址' : 'URL'}</span>
+                          <span>{labels.url}</span>
                           <input
                             className="tm-group-edit-input"
                             onChange={(event) =>
@@ -1445,10 +1751,10 @@ export function BookmarksManagerView({
 
                     <div className="tm-group-edit-actions tm-bookmark-dialog-actions">
                       <button className="tm-button" onClick={() => setDialogState(null)} type="button">
-                        {locale === 'zh-CN' ? '取消' : 'Cancel'}
+                        {labels.cancel}
                       </button>
                       <button className="tm-button-primary" onClick={handleDialogSubmit} type="button">
-                        {locale === 'zh-CN' ? '保存' : 'Save'}
+                        {labels.save}
                       </button>
                     </div>
                   </motion.div>

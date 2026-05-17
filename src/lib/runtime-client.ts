@@ -11,6 +11,12 @@ import type {
   OverviewInvalidatedMessage,
   OverviewSnapshot,
   RedirectTrackingPermissionState,
+  SessionRecord,
+  SessionRestoreMode,
+  SessionRestoreResult,
+  SessionsInvalidatedMessage,
+  SessionsSnapshot,
+  SessionUpdatePatch,
   SmartGroupStrategy,
   TabDetailSnapshot,
   TabGroupUpdatePatch,
@@ -72,6 +78,26 @@ export function subscribeToBookmarksUpdates(
   return () => chrome.runtime.onMessage.removeListener(handleMessage);
 }
 
+export function subscribeToSessionsUpdates(
+  listener: (message: SessionsInvalidatedMessage) => void
+): () => void {
+  const handleMessage = (message: unknown) => {
+    const payload = message as Partial<SessionsInvalidatedMessage> | null;
+    if (
+      !payload ||
+      payload.type !== 'tab-manager/sessions-invalidated' ||
+      typeof payload.at !== 'number'
+    ) {
+      return;
+    }
+
+    listener(payload as SessionsInvalidatedMessage);
+  };
+
+  chrome.runtime.onMessage.addListener(handleMessage);
+  return () => chrome.runtime.onMessage.removeListener(handleMessage);
+}
+
 export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
   const response = await sendRequest<TabDetailSnapshot>({
     type: 'tab-manager/get-tab-detail',
@@ -85,6 +111,15 @@ export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
 export async function getBookmarks(): Promise<BookmarkTreeSnapshot> {
   const response = await sendRequest<BookmarkTreeSnapshot>({
     type: 'tab-manager/get-bookmarks'
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+export async function getSessions(): Promise<SessionsSnapshot> {
+  const response = await sendRequest<SessionsSnapshot>({
+    type: 'tab-manager/get-sessions'
   });
 
   if (!response.ok) throw new Error(response.error);
@@ -130,8 +165,33 @@ export async function requestOpenDashboard(): Promise<void> {
   if (!response.ok) throw new Error(response.error);
 }
 
-export async function openDashboardPage(): Promise<void> {
-  await chrome.tabs.create({ url: chrome.runtime.getURL('/dashboard.html') });
+export async function openDashboardPage(
+  view?: string,
+  params: Record<string, string | undefined> = {}
+): Promise<void> {
+  const searchParams = new URLSearchParams();
+  if (view) searchParams.set('view', view);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) searchParams.set(key, value);
+  });
+
+  const query = searchParams.toString();
+  const path = query ? `/dashboard.html?${query}` : '/dashboard.html';
+  const url = chrome.runtime.getURL(path);
+  const dashboardUrlPrefix = chrome.runtime.getURL('/dashboard.html');
+  const existingTabs = await chrome.tabs.query({});
+  const existingTab = existingTabs.find((tab) => tab.url?.startsWith(dashboardUrlPrefix));
+
+  if (existingTab?.id != null) {
+    await chrome.tabs.update(existingTab.id, { active: true, url });
+    if (existingTab.windowId != null) {
+      await chrome.windows.update(existingTab.windowId, { focused: true });
+    }
+    return;
+  }
+
+  await chrome.tabs.create({ url });
 }
 
 export async function openSidePanel(): Promise<boolean> {
@@ -170,6 +230,8 @@ async function sendMutation(
     | Extract<ExtensionRequest, { type: 'tab-manager/update-bookmark' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/delete-bookmark' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/move-bookmark' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/restore-session' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/delete-session' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/close-tabs' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/pin-tabs' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/mute-tabs' }>
@@ -180,10 +242,22 @@ async function sendMutation(
     | Extract<ExtensionRequest, { type: 'tab-manager/move-tab-after' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/move-tabs-before' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/move-tabs-after' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/move-group' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/update-group' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/smart-group-tabs' }>
 ): Promise<TabMutationResult> {
   const response = await sendRequest<TabMutationResult>(request);
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+async function sendSessionRequest(
+  request:
+    | Extract<ExtensionRequest, { type: 'tab-manager/save-current-window-session' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/save-all-windows-session' }>
+    | Extract<ExtensionRequest, { type: 'tab-manager/update-session' }>
+): Promise<SessionRecord> {
+  const response = await sendRequest<SessionRecord>(request);
   if (!response.ok) throw new Error(response.error);
   return response.data;
 }
@@ -260,6 +334,14 @@ export async function moveTabsAfter(
   return sendMutation({ type: 'tab-manager/move-tabs-after', tabIds, afterTabId });
 }
 
+export async function moveGroup(
+  groupId: number,
+  target: { kind: 'group' | 'tab'; id: number },
+  position: 'before' | 'after'
+): Promise<TabMutationResult> {
+  return sendMutation({ type: 'tab-manager/move-group', groupId, target, position });
+}
+
 export async function updateGroup(
   groupId: number,
   patch: TabGroupUpdatePatch
@@ -319,4 +401,36 @@ export async function moveBookmark(
   index?: number
 ): Promise<TabMutationResult> {
   return sendMutation({ type: 'tab-manager/move-bookmark', bookmarkId, parentId, index });
+}
+
+export async function saveCurrentWindowSession(title?: string): Promise<SessionRecord> {
+  return sendSessionRequest({ type: 'tab-manager/save-current-window-session', title });
+}
+
+export async function saveAllWindowsSession(title?: string): Promise<SessionRecord> {
+  return sendSessionRequest({ type: 'tab-manager/save-all-windows-session', title });
+}
+
+export async function restoreSession(
+  sessionId: string,
+  mode: SessionRestoreMode = 'new-window'
+): Promise<SessionRestoreResult> {
+  const response = await sendRequest<SessionRestoreResult>({
+    type: 'tab-manager/restore-session',
+    sessionId,
+    mode
+  });
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+export async function updateSession(
+  sessionId: string,
+  patch: SessionUpdatePatch
+): Promise<SessionRecord> {
+  return sendSessionRequest({ type: 'tab-manager/update-session', sessionId, patch });
+}
+
+export async function deleteSession(sessionId: string): Promise<TabMutationResult> {
+  return sendMutation({ type: 'tab-manager/delete-session', sessionId });
 }

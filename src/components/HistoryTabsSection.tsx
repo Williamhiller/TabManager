@@ -10,25 +10,32 @@ import { Tooltip } from './Tooltip';
 
 export function HistoryTabsSection({
   historyTabs,
+  defaultExpanded = true,
+  collapsible = true,
   locale,
   t,
   onOpenDetail,
   onOpenTab
 }: {
   historyTabs: HistoryTabSnapshot[];
+  defaultExpanded?: boolean;
+  collapsible?: boolean;
   locale: ResolvedLocale;
   t: Messages;
   onOpenDetail: (historyTab: HistoryTabSnapshot) => void;
   onOpenTab: (historyTab: HistoryTabSnapshot) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const contentVisible = collapsible ? expanded : true;
 
   return (
     <section className="tm-section-block tm-history-section">
       <button
         className="tm-group-header tm-history-header"
-        data-active={expanded}
-        onClick={() => setExpanded((current) => !current)}
+        data-active={contentVisible}
+        onClick={() => {
+          if (collapsible) setExpanded((current) => !current);
+        }}
         type="button"
       >
         <div className="tm-group-title">
@@ -37,14 +44,16 @@ export function HistoryTabsSection({
         </div>
         <div className="tm-history-header-meta">
           <span className="tm-subtle">{`${historyTabs.length}`}</span>
-          <span className="tm-group-toggle tm-history-toggle" aria-hidden="true">
-            <RiArrowDownSLine size={16} style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
-          </span>
+          {collapsible ? (
+            <span className="tm-group-toggle tm-history-toggle" aria-hidden="true">
+              <RiArrowDownSLine size={16} style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
+            </span>
+          ) : null}
         </div>
       </button>
 
       <AnimatePresence initial={false}>
-        {expanded ? (
+        {contentVisible ? (
           <motion.div
             animate={{ height: 'auto', opacity: 1 }}
             className="overflow-hidden"

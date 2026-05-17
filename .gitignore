@@ -9,6 +9,7 @@ output/
 .DS_Store
 .env
 .env.*
+.serena/
 
 # logs
 npm-debug.log*

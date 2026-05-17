@@ -1,5 +1,10 @@
 import { defaultAutoGroupPresets } from './auto-group-defaults';
 import type {
+  AutoCloseCondition,
+  AutoCloseInactiveTabsMinutes,
+  AutoCollapseInactiveGroupsMinutes,
+  AutoDeduplicationScope,
+  AutoSleepInactiveTabsMinutes,
   AutoGroupConfig,
   AutoGroupRule,
   AutoGroupRuleField,
@@ -13,6 +18,21 @@ import type {
 
 const validLaunchSurfaces: readonly LaunchSurface[] = ['sidepanel', 'dashboard'];
 const validRefreshIntervals = new Set([0, 15, 30, 60]);
+export const autoInactiveMinuteChoices = [0, 5, 10, 30, 60, 120] as const;
+const validAutoCollapseInactiveGroupMinutes = new Set<AutoCollapseInactiveGroupsMinutes>(
+  autoInactiveMinuteChoices
+);
+const validAutoSleepInactiveTabsMinutes = new Set<AutoSleepInactiveTabsMinutes>(
+  autoInactiveMinuteChoices
+);
+const validAutoCloseInactiveTabsMinutes = new Set<AutoCloseInactiveTabsMinutes>(
+  autoInactiveMinuteChoices
+);
+const validAutoCloseConditions: readonly AutoCloseCondition[] = ['sleeping-only', 'deep-idle'];
+const validAutoDeduplicationScopes: readonly AutoDeduplicationScope[] = [
+  'global-except-listed',
+  'listed-only'
+];
 const validThemes: readonly ThemeMode[] = ['light', 'dark', 'system'];
 const validLocales: readonly LocaleMode[] = ['system', 'en', 'zh-CN', 'ja', 'fr', 'es', 'ar'];
 const validRuleFields: readonly AutoGroupRuleField[] = ['hostname', 'url', 'title'];
@@ -32,7 +52,16 @@ const validGroupColors: readonly TabGroupColor[] = [
 export const defaultSettings: ManagerSettings = {
   launchSurface: 'sidepanel',
   autoRefreshSeconds: 15,
+  autoCollapseInactiveGroupsMinutes: 10,
+  autoSleepInactiveTabsMinutes: 0,
+  autoCloseInactiveTabsMinutes: 0,
+  autoCloseCondition: 'sleeping-only',
+  autoCleanupWhitelist: [],
+  autoDeduplicateTabs: false,
+  autoDeduplicationScope: 'global-except-listed',
+  autoDeduplicationSites: [],
   autoGroupEnabled: true,
+  autoSnapshotsEnabled: true,
   redirectTrackingEnabled: false,
   autoGroupPresetIds: defaultAutoGroupPresets.map((preset) => preset.id),
   autoGroupConfigs: defaultAutoGroupPresets.map((preset) => ({
@@ -49,6 +78,7 @@ export const defaultSettings: ManagerSettings = {
 };
 
 export const SETTINGS_KEY = 'manager-settings';
+let settingsUpdateQueue: Promise<ManagerSettings> = Promise.resolve(defaultSettings);
 
 function normalizeLaunchSurface(value: unknown): LaunchSurface {
   return validLaunchSurfaces.includes(value as LaunchSurface)
@@ -60,6 +90,69 @@ function normalizeAutoRefreshSeconds(value: unknown): number {
   return typeof value === 'number' && validRefreshIntervals.has(value)
     ? value
     : defaultSettings.autoRefreshSeconds;
+}
+
+function normalizeAutoCollapseInactiveGroupsMinutes(
+  value: unknown
+): AutoCollapseInactiveGroupsMinutes {
+  return typeof value === 'number' &&
+    validAutoCollapseInactiveGroupMinutes.has(value as AutoCollapseInactiveGroupsMinutes)
+    ? (value as AutoCollapseInactiveGroupsMinutes)
+    : defaultSettings.autoCollapseInactiveGroupsMinutes;
+}
+
+function normalizeAutoSleepInactiveTabsMinutes(value: unknown): AutoSleepInactiveTabsMinutes {
+  return typeof value === 'number' &&
+    validAutoSleepInactiveTabsMinutes.has(value as AutoSleepInactiveTabsMinutes)
+    ? (value as AutoSleepInactiveTabsMinutes)
+    : defaultSettings.autoSleepInactiveTabsMinutes;
+}
+
+function normalizeAutoCloseInactiveTabsMinutes(value: unknown): AutoCloseInactiveTabsMinutes {
+  return typeof value === 'number' &&
+    validAutoCloseInactiveTabsMinutes.has(value as AutoCloseInactiveTabsMinutes)
+    ? (value as AutoCloseInactiveTabsMinutes)
+    : defaultSettings.autoCloseInactiveTabsMinutes;
+}
+
+function normalizeAutoCloseCondition(value: unknown): AutoCloseCondition {
+  return validAutoCloseConditions.includes(value as AutoCloseCondition)
+    ? (value as AutoCloseCondition)
+    : defaultSettings.autoCloseCondition;
+}
+
+function normalizeAutoCleanupWhitelist(value: unknown): string[] {
+  if (!Array.isArray(value)) return defaultSettings.autoCleanupWhitelist;
+
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const next = item.trim();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    normalized.push(next);
+  }
+
+  return normalized;
+}
+
+function normalizeAutoDeduplicationSites(value: unknown): string[] {
+  if (!Array.isArray(value)) return defaultSettings.autoDeduplicationSites;
+
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const next = item.trim();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    normalized.push(next);
+  }
+
+  return normalized;
 }
 
 function normalizeTheme(value: unknown): ThemeMode {
@@ -78,8 +171,22 @@ function normalizeAutoGroupEnabled(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.autoGroupEnabled;
 }
 
+function normalizeAutoSnapshotsEnabled(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : defaultSettings.autoSnapshotsEnabled;
+}
+
 function normalizeRedirectTrackingEnabled(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.redirectTrackingEnabled;
+}
+
+function normalizeAutoDeduplicateTabs(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : defaultSettings.autoDeduplicateTabs;
+}
+
+function normalizeAutoDeduplicationScope(value: unknown): AutoDeduplicationScope {
+  return validAutoDeduplicationScopes.includes(value as AutoDeduplicationScope)
+    ? (value as AutoDeduplicationScope)
+    : defaultSettings.autoDeduplicationScope;
 }
 
 function normalizeRule(raw: unknown): AutoGroupRule | null {
@@ -113,7 +220,8 @@ function normalizeAutoGroupConfigs(
   value: unknown,
   selectedPresetIds: string[]
 ): AutoGroupConfig[] {
-  const rawItems = Array.isArray(value) ? value : [];
+  const hasStoredConfigs = Array.isArray(value);
+  const rawItems = hasStoredConfigs ? value : [];
   const items = rawItems
     .map((raw): AutoGroupConfig | null => {
       if (!raw || typeof raw !== 'object') return null;
@@ -149,7 +257,7 @@ function normalizeAutoGroupConfigs(
     })
     .filter((item): item is AutoGroupConfig => item !== null);
 
-  if (items.length === 0) {
+  if (!hasStoredConfigs) {
     return defaultAutoGroupPresets.map((preset) => ({
       id: `preset:${preset.id}`,
       presetId: preset.id,
@@ -170,21 +278,6 @@ function normalizeAutoGroupConfigs(
     seenIds.add(item.id);
   }
 
-  for (const preset of defaultAutoGroupPresets) {
-    const id = `preset:${preset.id}`;
-    if (seenIds.has(id)) continue;
-
-    next.push({
-      id,
-      presetId: preset.id,
-      title: preset.titles.en,
-      color: preset.color,
-      enabled: selectedPresetIds.includes(preset.id),
-      websites: [],
-      rules: []
-    });
-  }
-
   return next;
 }
 
@@ -195,7 +288,22 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
   return {
     launchSurface: normalizeLaunchSurface(raw?.launchSurface),
     autoRefreshSeconds: normalizeAutoRefreshSeconds(raw?.autoRefreshSeconds),
+    autoCollapseInactiveGroupsMinutes: normalizeAutoCollapseInactiveGroupsMinutes(
+      raw?.autoCollapseInactiveGroupsMinutes
+    ),
+    autoSleepInactiveTabsMinutes: normalizeAutoSleepInactiveTabsMinutes(
+      raw?.autoSleepInactiveTabsMinutes
+    ),
+    autoCloseInactiveTabsMinutes: normalizeAutoCloseInactiveTabsMinutes(
+      raw?.autoCloseInactiveTabsMinutes
+    ),
+    autoCloseCondition: normalizeAutoCloseCondition(raw?.autoCloseCondition),
+    autoCleanupWhitelist: normalizeAutoCleanupWhitelist(raw?.autoCleanupWhitelist),
+    autoDeduplicateTabs: normalizeAutoDeduplicateTabs(raw?.autoDeduplicateTabs),
+    autoDeduplicationScope: normalizeAutoDeduplicationScope(raw?.autoDeduplicationScope),
+    autoDeduplicationSites: normalizeAutoDeduplicationSites(raw?.autoDeduplicationSites),
     autoGroupEnabled: normalizeAutoGroupEnabled(raw?.autoGroupEnabled),
+    autoSnapshotsEnabled: normalizeAutoSnapshotsEnabled(raw?.autoSnapshotsEnabled),
     redirectTrackingEnabled: normalizeRedirectTrackingEnabled(raw?.redirectTrackingEnabled),
     autoGroupPresetIds: autoGroupConfigs
       .filter((config) => config.presetId && config.enabled)
@@ -216,11 +324,18 @@ export async function getSettings(): Promise<ManagerSettings> {
 export async function updateSettings(
   patch: Partial<ManagerSettings>
 ): Promise<ManagerSettings> {
-  const next = normalizeSettings({
-    ...(await getSettings()),
-    ...patch
-  });
+  const nextUpdate = settingsUpdateQueue
+    .catch(() => getSettings())
+    .then(async () => {
+      const next = normalizeSettings({
+        ...(await getSettings()),
+        ...patch
+      });
 
-  await chrome.storage.sync.set({ [SETTINGS_KEY]: next });
-  return next;
+      await chrome.storage.sync.set({ [SETTINGS_KEY]: next });
+      return next;
+    });
+
+  settingsUpdateQueue = nextUpdate;
+  return nextUpdate;
 }

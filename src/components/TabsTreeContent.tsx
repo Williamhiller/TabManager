@@ -7,7 +7,7 @@ interface TabsTreeContentProps<TEntry> {
   entries: TEntry[];
   historyContent?: ReactNode;
   renderEntry: (entry: TEntry) => ReactNode;
-  showTools: boolean;
+  showCreateGroupDropZone: boolean;
   t: Messages;
 }
 
@@ -15,12 +15,12 @@ export function TabsTreeContent<TEntry>({
   entries,
   historyContent,
   renderEntry,
-  showTools,
+  showCreateGroupDropZone,
   t
 }: TabsTreeContentProps<TEntry>) {
   return (
     <>
-      {showTools ? (
+      {showCreateGroupDropZone ? (
         <DropZoneRow id="new-group-drop" icon={RiAddCircleLine} label={t.dropToCreateGroup} />
       ) : null}
 

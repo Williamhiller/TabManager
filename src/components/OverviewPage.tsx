@@ -10,22 +10,7 @@ import {
   useSensor,
   useSensors
 } from '@dnd-kit/core';
-import {
-  FloatingArrow,
-  FloatingPortal,
-  arrow,
-  autoUpdate,
-  flip,
-  offset,
-  safePolygon,
-  shift,
-  useClick,
-  useDismiss,
-  useFloating,
-  useHover,
-  useInteractions,
-  useRole
-} from '@floating-ui/react';
+import { FloatingArrow, FloatingPortal, arrow, autoUpdate, flip, offset, safePolygon, shift, useClick, useDismiss, useFloating, useHover, useInteractions, useRole } from '@floating-ui/react';
 import {
   RiAddCircleLine,
   RiArrowDownSLine,
@@ -33,20 +18,18 @@ import {
   RiBrushLine,
   RiCloseLine,
   RiFilter3Line,
+  RiFileCopyLine,
   RiFolderLine,
   RiGlobalLine,
+  RiDashboardLine,
   RiLayoutGridLine,
-  RiMoonLine,
-  RiPaletteLine,
   RiPriceTag3Line,
-  RiRouteLine,
   RiPushpin2Line,
   RiRefreshLine,
   RiSearchLine,
   RiSettings3Line,
   RiShining2Line,
   RiSoundModuleLine,
-  RiSunLine,
   RiTimeLine,
   RiVolumeMuteLine,
   type RemixiconComponentType
@@ -63,11 +46,12 @@ import {
 
 import { Tooltip } from './Tooltip';
 import { BookmarksManagerView } from './BookmarksManagerView';
-import { AutoGroupsManagerView } from './AutoGroupsManagerView';
 import { GroupTreeBlock } from './GroupTreeBlock';
 import { HistoryTabsSection } from './HistoryTabsSection';
 import { IconButton } from './IconButton';
 import { SidepanelViewTabs } from './SidepanelViewTabs';
+import { SessionsManagerView } from './SessionsManagerView';
+import { SegmentedSwitch } from './SegmentedSwitch';
 import { SortableTabRow } from './SortableTabRow';
 import { TabDetailModal } from './TabDetailModal';
 import { TabsWorkspaceView } from './TabsWorkspaceView';
@@ -78,26 +62,20 @@ import {
   type GroupedEntry,
   type UngroupedEntry
 } from './TabsEntrySections';
-import {
-  createAutoGroupRule,
-} from './tab-tree-helpers';
 import type {
-  AutoGroupConfig,
   HistoryTabSnapshot,
   BookmarkNodeSnapshot,
   BookmarkTreeSnapshot,
   ManagerSettings,
   OverviewSnapshot,
+  SessionsSnapshot,
   SmartGroupStrategy,
   TabDetailSnapshot,
   TabGroupColor,
   TabGroupSnapshot,
   TabSnapshot
 } from '../lib/contracts';
-import {
-  defaultAutoGroupPresets,
-  getDefaultAutoGroupPresetTitle
-} from '../lib/auto-group-defaults';
+import { createAutoGroupConfig, findAutoGroupConfigForGroup } from '../lib/auto-group-config';
 import { getErrorMessage } from '../lib/format';
 import { getMessages, resolveLocale } from '../lib/i18n';
 import {
@@ -105,36 +83,47 @@ import {
   discardTabs,
   focusTab,
   getBookmarks,
+  getSessions,
   getTabDetail,
   getOverview,
   groupTabs,
   moveTabAfter,
   moveTabBefore,
-  moveTabsAfter,
-  moveTabsBefore,
+  moveGroup,
   muteTabs,
-  getRedirectTrackingPermissionState,
+  openDashboardPage,
   openPreferredLaunchSurface,
   openSidePanel,
   pinTabs,
-  refreshRedirectTracking,
-  removeRedirectTrackingPermission,
-  requestRedirectTrackingPermission,
   smartGroupTabs,
   subscribeToBookmarksUpdates,
   subscribeToOverviewUpdates,
+  subscribeToSessionsUpdates,
   ungroupTabs,
   updateGroup
 } from '../lib/runtime-client';
 import { defaultSettings, getSettings, updateSettings } from '../lib/settings';
-import { allGroupColors, applyTheme, resolveTheme } from '../lib/theme';
+import { allGroupColors, applyTheme } from '../lib/theme';
 
 type SurfaceMode = 'popup' | 'sidepanel' | 'dashboard';
 type SmartView = 'all' | 'ungrouped' | 'grouped' | 'sleeping' | 'audible' | 'pinned' | 'stale';
 type TabSort = 'manual' | 'recent' | 'opened-time' | 'title' | 'active-time';
 type DropPosition = 'before' | 'after' | 'inside';
+type ParsedDropTarget = {
+  kind: 'tab' | 'group' | 'group-sort' | 'group-tail' | 'group-after' | 'new';
+  id?: number;
+};
 type GroupFilter = 'all' | 'ungrouped' | `${number}`;
-type SidepanelView = 'tabs' | 'bookmarks' | 'auto-groups';
+type SidepanelView = 'tabs' | 'sessions' | 'bookmarks';
+type DashboardTabsSubView = 'current' | 'history';
+type DuplicateTabGroup = {
+  duplicateCount: number;
+  hostname: string;
+  keepTab: TabSnapshot;
+  tabs: TabSnapshot[];
+  title: string;
+  url: string;
+};
 type ListEntry =
   | { type: 'ungrouped'; tabs: TabSnapshot[] }
   | { type: 'group'; group: TabGroupSnapshot; tabs: TabSnapshot[] };
@@ -142,7 +131,12 @@ type ListEntry =
 const primaryViews: SmartView[] = ['all', 'ungrouped', 'grouped'];
 
 interface OverviewPageProps {
+  embedded?: boolean;
+  errorMessage?: string | null;
   mode: SurfaceMode;
+  onRefreshOverview?: () => Promise<void>;
+  overview?: OverviewSnapshot | null;
+  settings?: ManagerSettings;
 }
 
 interface SmartViewDefinition {
@@ -158,10 +152,25 @@ const surfaceConfig: Record<SurfaceMode, { listLimit: number }> = {
 };
 
 const STALE_MS = 1000 * 60 * 60 * 24 * 7;
+const EMPTY_DRAG_OVERLAY_STATE = {
+  activeId: null as string | null,
+  height: 0,
+  left: 0,
+  maxTop: 0,
+  minTop: 0,
+  originTop: 0,
+  top: 0,
+  width: 0
+};
+
 const collisionDetectionStrategy: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
   return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
 };
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function isTabStale(tab: TabSnapshot): boolean {
   const anchor = tab.lastAccessed ?? tab.telemetry.lastActivatedAt ?? tab.telemetry.observedAt;
@@ -241,26 +250,32 @@ function colorFromSeed(seed: string | number): TabGroupColor {
   return allGroupColors[hash % allGroupColors.length] ?? 'blue';
 }
 
-function createAutoGroupConfig(locale: string): AutoGroupConfig {
-  const id =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-  return {
-    id: `custom:${id}`,
-    title: locale === 'zh-CN' ? '自定义分组' : 'Custom group',
-    color: 'blue',
-    enabled: true,
-    websites: [],
-    rules: [createAutoGroupRule()]
-  };
+function normalizeDuplicateTabUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    parsed.hash = '';
+    return parsed.href;
+  } catch {
+    return null;
+  }
 }
 
+function getTabRecency(tab: TabSnapshot): number {
+  return tab.lastAccessed ?? tab.telemetry.lastActivatedAt ?? tab.telemetry.openedAt ?? tab.telemetry.observedAt;
+}
 
-function parseDropId(id: string | number | undefined): { kind: 'tab' | 'group' | 'group-sort' | 'new'; id?: number } | null {
+function compareDuplicateKeepCandidate(left: TabSnapshot, right: TabSnapshot): number {
+  if (left.active !== right.active) return left.active ? -1 : 1;
+  if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+  return getTabRecency(right) - getTabRecency(left);
+}
+
+function parseDropId(id: string | number | undefined): ParsedDropTarget | null {
   if (typeof id !== 'string') return null;
   if (id === 'new-group-drop') return { kind: 'new' };
+  if (id.startsWith('group-tail:')) return { kind: 'group-tail', id: Number(id.slice(11)) };
+  if (id.startsWith('group-after:')) return { kind: 'group-after', id: Number(id.slice(12)) };
   if (id.startsWith('tab:')) return { kind: 'tab', id: Number(id.slice(4)) };
   if (id.startsWith('group-sort:')) return { kind: 'group-sort', id: Number(id.slice(11)) };
   if (id.startsWith('group:')) return { kind: 'group', id: Number(id.slice(6)) };
@@ -411,9 +426,17 @@ function getViewCount(tabs: TabSnapshot[], smartView: SmartView): number {
   return tabs.filter((tab) => matchesSmartView(tab, smartView)).length;
 }
 
-export function OverviewPage({ mode }: OverviewPageProps) {
-  const [settings, setSettings] = useState<ManagerSettings>(defaultSettings);
-  const [overview, setOverview] = useState<OverviewSnapshot | null>(null);
+export function OverviewPage({
+  mode,
+  embedded = false,
+  errorMessage: controlledError = null,
+  onRefreshOverview,
+  overview: controlledOverview,
+  settings: controlledSettings
+}: OverviewPageProps) {
+  const isExternallyBacked = controlledOverview !== undefined && controlledSettings !== undefined;
+  const [settings, setSettings] = useState<ManagerSettings>(controlledSettings ?? defaultSettings);
+  const [overview, setOverview] = useState<OverviewSnapshot | null>(controlledOverview ?? null);
   const [smartView, setSmartView] = useState<SmartView>('all');
   const [sortMode, setSortMode] = useState<TabSort>('manual');
   const [query, setQuery] = useState('');
@@ -424,23 +447,28 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showTools, setShowTools] = useState(false);
+  const [dashboardTabsSubView, setDashboardTabsSubView] = useState<DashboardTabsSubView>('current');
   const [sidepanelView, setSidepanelView] = useState<SidepanelView>('tabs');
   const [bookmarks, setBookmarks] = useState<BookmarkTreeSnapshot>({
     roots: [],
     totalBookmarks: 0,
     totalFolders: 0
   });
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showSettingsAutoGroupPicker, setShowSettingsAutoGroupPicker] = useState(false);
-  const [redirectTrackingPermissionGranted, setRedirectTrackingPermissionGranted] = useState(false);
-  const [redirectTrackingBusy, setRedirectTrackingBusy] = useState(false);
+  const [sessions, setSessions] = useState<SessionsSnapshot>({
+    generatedAt: 0,
+    sessions: [],
+    totalSessions: 0
+  });
   const [showFilterPicker, setShowFilterPicker] = useState(false);
+  const [showDashboardOrganizeMenu, setShowDashboardOrganizeMenu] = useState(false);
+  const [showDuplicateTabsMenu, setShowDuplicateTabsMenu] = useState(false);
   const [moveGroupPickerOpen, setMoveGroupPickerOpen] = useState(false);
   const [pendingAutoOpenGroupEditorId, setPendingAutoOpenGroupEditorId] = useState<number | null>(null);
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
   const [openActionMenuTabId, setOpenActionMenuTabId] = useState<number | null>(null);
   const [activeDragTabId, setActiveDragTabId] = useState<number | null>(null);
   const [activeDragGroupId, setActiveDragGroupId] = useState<number | null>(null);
+  const [dragOverlayState, setDragOverlayState] = useState(EMPTY_DRAG_OVERLAY_STATE);
   const [overDropId, setOverDropId] = useState<string | null>(null);
   const [overDropPosition, setOverDropPosition] = useState<DropPosition | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -448,9 +476,9 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const dragPointerYRef = useRef<number | null>(null);
   const selectVisibleCheckboxRef = useRef<HTMLInputElement | null>(null);
   const filterPickerArrowRef = useRef<SVGSVGElement | null>(null);
+  const dashboardOrganizeMenuArrowRef = useRef<SVGSVGElement | null>(null);
+  const duplicateTabsMenuArrowRef = useRef<SVGSVGElement | null>(null);
   const moveGroupPickerArrowRef = useRef<SVGSVGElement | null>(null);
-  const settingsPopoverArrowRef = useRef<SVGSVGElement | null>(null);
-  const settingsAutoGroupPickerArrowRef = useRef<SVGSVGElement | null>(null);
   const sidepanelScrollRef = useRef<HTMLDivElement | null>(null);
   const sidepanelHeaderRef = useRef<HTMLElement | null>(null);
   const sidepanelTreeShellRef = useRef<HTMLElement | null>(null);
@@ -464,6 +492,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const scrollbarActivityTimersRef = useRef(new Map<HTMLElement, number>());
   const refreshOverviewRef = useRef<() => Promise<void>>(async () => {});
   const refreshBookmarksRef = useRef<() => Promise<void>>(async () => {});
+  const refreshSessionsRef = useRef<() => Promise<void>>(async () => {});
   const [sidepanelScrollbarUi, setSidepanelScrollbarUi] = useState({
     dragging: false,
     enabled: false,
@@ -474,10 +503,10 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
   const config = surfaceConfig[mode];
   const isSidepanel = mode === 'sidepanel';
+  const isEmbeddedDashboard = mode === 'dashboard' && embedded;
   const showingBookmarksManager = mode !== 'popup' && sidepanelView === 'bookmarks';
-  const showingAutoGroupsManager = mode !== 'popup' && sidepanelView === 'auto-groups';
+  const showingSessionsManager = mode !== 'popup' && sidepanelView === 'sessions';
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
-  const resolvedTheme = resolveTheme(settings.theme);
   const locale = resolveLocale(settings.locale);
   const t = getMessages(settings.locale);
   const sensors = useSensors(
@@ -485,6 +514,21 @@ export function OverviewPage({ mode }: OverviewPageProps) {
       activationConstraint: { distance: 5 }
     })
   );
+
+  useEffect(() => {
+    if (!isExternallyBacked) return;
+    setOverview(controlledOverview);
+  }, [controlledOverview, isExternallyBacked]);
+
+  useEffect(() => {
+    if (!isExternallyBacked) return;
+    setSettings(controlledSettings);
+  }, [controlledSettings, isExternallyBacked]);
+
+  useEffect(() => {
+    if (!isExternallyBacked) return;
+    setError(controlledError);
+  }, [controlledError, isExternallyBacked]);
 
   const smartViews: SmartViewDefinition[] = useMemo(
     () => [
@@ -497,60 +541,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     ],
     [t]
   );
-
-  const sidepanelFooterThemeChoices = useMemo(
-    () => [
-      { id: 'system' as const, label: t.system },
-      { id: 'light' as const, label: t.light },
-      { id: 'dark' as const, label: t.dark }
-    ],
-    [t]
-  );
-
-  const sidepanelFooterLocaleChoices = useMemo(
-    () => [
-      { id: 'en' as const, label: t.localeEnglish },
-      { id: 'zh-CN' as const, label: t.localeChinese },
-      { id: 'ja' as const, label: t.localeJapanese },
-      { id: 'fr' as const, label: t.localeFrench },
-      { id: 'es' as const, label: t.localeSpanish },
-      { id: 'ar' as const, label: t.localeArabic }
-    ],
-    [t]
-  );
-
-  const effectiveLocaleChoice = settings.locale === 'system' ? locale : settings.locale;
-  const autoGroupStateCopy = settings.autoGroupEnabled
-    ? locale === 'zh-CN'
-      ? '按常见网站类型自动归组'
-      : 'Group common site types automatically'
-    : locale === 'zh-CN'
-      ? '仅手动触发分组'
-      : 'Group only when triggered manually';
-  const settingsAutoGroupPresetLabels = useMemo(
-    () =>
-      settings.autoGroupConfigs.map((config) => {
-        const preset = config.presetId
-          ? defaultAutoGroupPresets.find((entry) => entry.id === config.presetId)
-          : null;
-
-        return {
-          id: config.id,
-          label: preset ? getDefaultAutoGroupPresetTitle(preset, locale) : config.title,
-          enabled: config.enabled
-        };
-      }),
-    [locale, settings.autoGroupConfigs]
-  );
-  const settingsAutoGroupSummary = useMemo(() => {
-    const enabledConfigs = settingsAutoGroupPresetLabels.filter((config) => config.enabled);
-    if (enabledConfigs.length === 0) return t.selectModules;
-
-    const labels = enabledConfigs.map((config) => config.label);
-
-    if (labels.length <= 2) return labels.join(' · ');
-    return locale === 'zh-CN' ? `已选 ${labels.length} 项` : `${labels.length} selected`;
-  }, [locale, settingsAutoGroupPresetLabels, t.selectModules]);
 
   const sortChoices = useMemo(
     () => [
@@ -565,16 +555,16 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
   const load = async () => {
     try {
-      const [nextOverview, nextSettings, redirectPermission, nextBookmarks] = await Promise.all([
+      const [nextOverview, nextSettings, nextBookmarks, nextSessions] = await Promise.all([
         getOverview(),
         getSettings(),
-        getRedirectTrackingPermissionState(),
-        getBookmarks()
+        getBookmarks(),
+        getSessions()
       ]);
       setOverview(nextOverview);
       setSettings(nextSettings);
-      setRedirectTrackingPermissionGranted(redirectPermission.granted);
       setBookmarks(nextBookmarks);
+      setSessions(nextSessions);
       setError(null);
     } catch (nextError) {
       setError(getErrorMessage(nextError));
@@ -582,6 +572,11 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   };
 
   const refreshOverview = async () => {
+    if (onRefreshOverview) {
+      await onRefreshOverview();
+      return;
+    }
+
     try {
       const nextOverview = await getOverview();
       setOverview(nextOverview);
@@ -601,18 +596,32 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     }
   };
 
+  const refreshSessions = async () => {
+    try {
+      const nextSessions = await getSessions();
+      setSessions(nextSessions);
+      setError(null);
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    }
+  };
+
   const scheduleOverviewRefresh = () => {
     void refreshOverviewRef.current();
   };
 
   refreshOverviewRef.current = refreshOverview;
   refreshBookmarksRef.current = refreshBookmarks;
+  refreshSessionsRef.current = refreshSessions;
 
   useEffect(() => {
+    if (isExternallyBacked) return;
     void load();
-  }, []);
+  }, [isExternallyBacked]);
 
   useEffect(() => {
+    if (isExternallyBacked) return;
+
     let refreshTimer: number | null = null;
 
     const unsubscribe = subscribeToOverviewUpdates(() => {
@@ -633,9 +642,36 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
       unsubscribe();
     };
-  }, []);
+  }, [isExternallyBacked]);
 
   useEffect(() => {
+    if (isExternallyBacked) return;
+
+    let refreshTimer: number | null = null;
+
+    const unsubscribe = subscribeToSessionsUpdates(() => {
+      if (refreshTimer != null) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        void refreshSessionsRef.current();
+      }, 48);
+    });
+
+    return () => {
+      if (refreshTimer != null) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      unsubscribe();
+    };
+  }, [isExternallyBacked]);
+
+  useEffect(() => {
+    if (isExternallyBacked) return;
+
     let refreshTimer: number | null = null;
 
     const unsubscribe = subscribeToBookmarksUpdates(() => {
@@ -656,7 +692,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
       unsubscribe();
     };
-  }, []);
+  }, [isExternallyBacked]);
 
   useEffect(() => {
     if (settings.autoRefreshSeconds <= 0) return;
@@ -731,10 +767,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
         const currentContent = sidepanelTreeShellRef.current;
         if (!currentScroller || !currentHeader || !currentContent) return;
 
-        const headerHeight =
-          showingAutoGroupsManager
-            ? 0
-            : Math.round(currentHeader.getBoundingClientRect().height);
+        const headerHeight = Math.round(currentHeader.getBoundingClientRect().height);
         const viewportHeight = Math.max(currentScroller.clientHeight - headerHeight, 0);
         const contentHeight = Math.max(currentContent.scrollHeight - headerHeight, viewportHeight);
         const maxScrollTop = Math.max(currentScroller.scrollHeight - currentScroller.clientHeight, 0);
@@ -795,11 +828,11 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     groupFilter,
     selectedIds,
     showFilterPicker,
+    showDashboardOrganizeMenu,
+    showDuplicateTabsMenu,
     moveGroupPickerOpen,
     expandedGroups,
-    showTools,
-    showingAutoGroupsManager,
-    settings.autoGroupConfigs
+    showTools
   ]);
 
   useEffect(() => {
@@ -832,67 +865,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     };
   }, [sidepanelScrollbarUi.dragging]);
 
-  useEffect(() => {
-    if (!showSettingsModal) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setShowSettingsModal(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      setShowSettingsAutoGroupPicker(false);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [showSettingsModal]);
-
-  const {
-    refs: settingsPopoverRefs,
-    floatingStyles: settingsPopoverStyles,
-    context: settingsPopoverContext,
-    placement: settingsPopoverPlacement
-  } = useFloating({
-    open: isSidepanel && showSettingsModal,
-    onOpenChange: setShowSettingsModal,
-    placement: 'bottom-end',
-    transform: false,
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(10), flip({ padding: 8 }), shift({ padding: 8 }), arrow({ element: settingsPopoverArrowRef, padding: 12 })]
-  });
-  const settingsPopoverClick = useClick(settingsPopoverContext, { event: 'click' });
-  const settingsPopoverDismiss = useDismiss(settingsPopoverContext);
-  const settingsPopoverRole = useRole(settingsPopoverContext, { role: 'dialog' });
-  const {
-    getReferenceProps: getSettingsPopoverReferenceProps,
-    getFloatingProps: getSettingsPopoverFloatingProps
-  } = useInteractions([settingsPopoverClick, settingsPopoverDismiss, settingsPopoverRole]);
-  const {
-    refs: settingsAutoGroupPickerRefs,
-    floatingStyles: settingsAutoGroupPickerStyles,
-    context: settingsAutoGroupPickerContext,
-    placement: settingsAutoGroupPickerPlacement
-  } = useFloating({
-    open: showSettingsAutoGroupPicker,
-    onOpenChange: setShowSettingsAutoGroupPicker,
-    placement: 'bottom-start',
-    strategy: 'absolute',
-    transform: false,
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 }), arrow({ element: settingsAutoGroupPickerArrowRef, padding: 8 })]
-  });
-  const settingsAutoGroupPickerClick = useClick(settingsAutoGroupPickerContext, { event: 'click' });
-  const settingsAutoGroupPickerDismiss = useDismiss(settingsAutoGroupPickerContext, {
-    outsidePress: true,
-    escapeKey: true
-  });
-  const settingsAutoGroupPickerRole = useRole(settingsAutoGroupPickerContext, { role: 'listbox' });
-  const {
-    getReferenceProps: getSettingsAutoGroupPickerReferenceProps,
-    getFloatingProps: getSettingsAutoGroupPickerFloatingProps
-  } = useInteractions([settingsAutoGroupPickerClick, settingsAutoGroupPickerDismiss, settingsAutoGroupPickerRole]);
-
   const {
     refs: filterPickerRefs,
     floatingStyles: filterPickerStyles,
@@ -908,9 +880,13 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     middleware: [offset(10), flip({ padding: 8 }), shift({ padding: 8 }), arrow({ element: filterPickerArrowRef, padding: 10 })]
   });
   const filterPickerHover = useHover(filterPickerContext, {
+    enabled: !isEmbeddedDashboard,
     move: false,
     delay: { open: 70, close: 80 },
     handleClose: safePolygon({ blockPointerEvents: true })
+  });
+  const filterPickerClick = useClick(filterPickerContext, {
+    event: 'click'
   });
   const filterPickerDismiss = useDismiss(filterPickerContext, {
     outsidePress: true,
@@ -920,7 +896,71 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const {
     getReferenceProps: getFilterPickerReferenceProps,
     getFloatingProps: getFilterPickerFloatingProps
-  } = useInteractions([filterPickerHover, filterPickerDismiss, filterPickerRole]);
+  } = useInteractions([filterPickerClick, filterPickerHover, filterPickerDismiss, filterPickerRole]);
+
+  const {
+    refs: dashboardOrganizeMenuRefs,
+    floatingStyles: dashboardOrganizeMenuStyles,
+    context: dashboardOrganizeMenuContext,
+    placement: dashboardOrganizeMenuPlacement
+  } = useFloating({
+    open: showDashboardOrganizeMenu,
+    onOpenChange: setShowDashboardOrganizeMenu,
+    placement: 'bottom-end',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+    middleware: [
+      offset(10),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      arrow({ element: dashboardOrganizeMenuArrowRef, padding: 10 })
+    ]
+  });
+  const dashboardOrganizeMenuClick = useClick(dashboardOrganizeMenuContext, {
+    event: 'click'
+  });
+  const dashboardOrganizeMenuDismiss = useDismiss(dashboardOrganizeMenuContext, {
+    outsidePress: true,
+    escapeKey: true
+  });
+  const dashboardOrganizeMenuRole = useRole(dashboardOrganizeMenuContext, { role: 'menu' });
+  const {
+    getReferenceProps: getDashboardOrganizeMenuReferenceProps,
+    getFloatingProps: getDashboardOrganizeMenuFloatingProps
+  } = useInteractions([dashboardOrganizeMenuClick, dashboardOrganizeMenuDismiss, dashboardOrganizeMenuRole]);
+
+  const {
+    refs: duplicateTabsMenuRefs,
+    floatingStyles: duplicateTabsMenuStyles,
+    context: duplicateTabsMenuContext,
+    placement: duplicateTabsMenuPlacement
+  } = useFloating({
+    open: showDuplicateTabsMenu,
+    onOpenChange: setShowDuplicateTabsMenu,
+    placement: 'bottom-end',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+    middleware: [
+      offset(10),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      arrow({ element: duplicateTabsMenuArrowRef, padding: 10 })
+    ]
+  });
+  const duplicateTabsMenuClick = useClick(duplicateTabsMenuContext, {
+    event: 'click'
+  });
+  const duplicateTabsMenuDismiss = useDismiss(duplicateTabsMenuContext, {
+    outsidePress: true,
+    escapeKey: true
+  });
+  const duplicateTabsMenuRole = useRole(duplicateTabsMenuContext, { role: 'menu' });
+  const {
+    getReferenceProps: getDuplicateTabsMenuReferenceProps,
+    getFloatingProps: getDuplicateTabsMenuFloatingProps
+  } = useInteractions([duplicateTabsMenuClick, duplicateTabsMenuDismiss, duplicateTabsMenuRole]);
 
   const {
     refs: moveGroupPickerRefs,
@@ -984,6 +1024,44 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
   const allTabs = overview?.tabs ?? [];
 
+  const duplicateTabGroups = useMemo<DuplicateTabGroup[]>(() => {
+    const buckets = new Map<string, TabSnapshot[]>();
+
+    for (const tab of allTabs) {
+      const normalizedUrl = normalizeDuplicateTabUrl(tab.url);
+      if (!normalizedUrl) continue;
+
+      const bucket = buckets.get(normalizedUrl);
+      if (bucket) bucket.push(tab);
+      else buckets.set(normalizedUrl, [tab]);
+    }
+
+    return Array.from(buckets.entries())
+      .map(([url, tabs]) => {
+        if (tabs.length <= 1) return null;
+
+        const sortedTabs = [...tabs].sort(compareDuplicateKeepCandidate);
+        const keepTab = sortedTabs[0];
+        if (!keepTab) return null;
+
+        return {
+          duplicateCount: sortedTabs.length - 1,
+          hostname: keepTab.hostname || new URL(url).hostname,
+          keepTab,
+          tabs: sortedTabs,
+          title: keepTab.title || keepTab.hostname || url,
+          url
+        };
+      })
+      .filter((group): group is DuplicateTabGroup => group !== null)
+      .sort((left, right) => right.duplicateCount - left.duplicateCount || left.title.localeCompare(right.title));
+  }, [allTabs]);
+
+  const duplicateTabCount = useMemo(
+    () => duplicateTabGroups.reduce((total, group) => total + group.duplicateCount, 0),
+    [duplicateTabGroups]
+  );
+
   const groups = useMemo(() => {
     const map = new Map<number, { group: TabGroupSnapshot; tabs: TabSnapshot[] }>();
 
@@ -1005,6 +1083,13 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     }
     return map;
   }, [groups]);
+  const tabById = useMemo(() => {
+    const map = new Map<number, TabSnapshot>();
+    for (const tab of allTabs) {
+      map.set(tab.id, tab);
+    }
+    return map;
+  }, [allTabs]);
 
   useEffect(() => {
     if (groups.length === 0) return;
@@ -1036,9 +1121,12 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   }, [groupFilter, groups]);
 
   const filteredTabs = useMemo(() => {
-    const scoped = allTabs.filter(
-      (tab) => matchesSmartView(tab, smartView) && matchesGroupFilter(tab, groupFilter)
-    );
+    const scoped = allTabs.filter((tab) => {
+      return (
+        matchesSmartView(tab, smartView) &&
+        matchesGroupFilter(tab, groupFilter)
+      );
+    });
     const searched = scoped.filter((tab) => {
       if (!deferredQuery) return true;
 
@@ -1067,9 +1155,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   }, [visibleBookmarks]);
   const bookmarksSearchMeta =
     showingBookmarksManager && deferredQuery
-      ? locale === 'zh-CN'
-        ? `已匹配 ${visibleBookmarkMatchCount} 项`
-        : `${visibleBookmarkMatchCount} matched`
+      ? `${visibleBookmarkMatchCount} ${t.matched}`
       : null;
 
   const visibleTabs = useMemo(
@@ -1106,6 +1192,13 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     return displayIndexByTabId.get(tabId) ?? visibleOrderDisplayIndexByTabId.get(tabId) ?? 0;
   };
   const historyTabs = overview?.historyTabs ?? [];
+  const visibleHistoryTabs = useMemo(() => {
+    if (!deferredQuery) return historyTabs;
+    return historyTabs.filter((tab) => {
+      const haystack = `${tab.title} ${tab.hostname} ${tab.url}`.toLowerCase();
+      return haystack.includes(deferredQuery);
+    });
+  }, [deferredQuery, historyTabs]);
 
   const visibleSelectedCount = useMemo(
     () => visibleTabs.filter((tab) => selectedIds.has(tab.id)).length,
@@ -1122,8 +1215,13 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const partiallyVisibleSelected = visibleSelectedCount > 0 && !allVisibleSelected;
   const selectedPinned = selectedCount > 0 && selectedTabs.every((tab) => tab.pinned);
   const selectedMuted = selectedCount > 0 && selectedTabs.every((tab) => tab.muted);
-  const quickActionTabs = selectedCount > 0 ? selectedTabs : visibleTabs;
   const selectedGrouped = selectedTabs.some((tab) => tab.group != null);
+  const groupFilterLabel =
+    groupFilter === 'all'
+      ? t.allTabs
+      : groupFilter === 'ungrouped'
+        ? t.ungrouped
+        : groups.find((entry) => String(entry.group.id) === groupFilter)?.group.title ?? t.filter;
   const activeDragGroup = useMemo(
     () => groups.find((entry) => entry.group.id === activeDragGroupId) ?? null,
     [activeDragGroupId, groups]
@@ -1202,118 +1300,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     }
-  };
-
-  const saveSetting = async (patch: Partial<ManagerSettings>) => {
-    try {
-      const next = await updateSettings(patch);
-      setSettings(next);
-    } catch (nextError) {
-      setError(getErrorMessage(nextError));
-    }
-  };
-
-  const toggleRedirectTracking = async () => {
-    if (redirectTrackingBusy) return;
-
-    setRedirectTrackingBusy(true);
-    try {
-      if (settings.redirectTrackingEnabled) {
-        await saveSetting({ redirectTrackingEnabled: false });
-        await removeRedirectTrackingPermission();
-        const permissionState = await refreshRedirectTracking();
-        setRedirectTrackingPermissionGranted(permissionState.granted);
-        setStatusMessage(t.redirectTrackingOff);
-        return;
-      }
-
-      const granted = await requestRedirectTrackingPermission();
-      setRedirectTrackingPermissionGranted(granted);
-      if (!granted) {
-        await saveSetting({ redirectTrackingEnabled: false });
-        setError(t.redirectTrackingDenied);
-        return;
-      }
-
-      await saveSetting({ redirectTrackingEnabled: true });
-      const permissionState = await refreshRedirectTracking();
-      setRedirectTrackingPermissionGranted(permissionState.granted);
-      setStatusMessage(t.redirectTrackingGranted);
-    } catch (nextError) {
-      setError(getErrorMessage(nextError));
-    } finally {
-      setRedirectTrackingBusy(false);
-    }
-  };
-
-  const saveAutoGroupConfigs = async (configs: AutoGroupConfig[]) => {
-    await saveSetting({ autoGroupConfigs: configs });
-  };
-
-  const toggleAutoGroupConfig = async (configId: string) => {
-    await saveAutoGroupConfigs(
-      settings.autoGroupConfigs.map((config) =>
-        config.id === configId ? { ...config, enabled: !config.enabled } : config
-      )
-    );
-  };
-
-  const updateAutoGroupConfig = async (configId: string, patch: Partial<AutoGroupConfig>) => {
-    await saveAutoGroupConfigs(
-      settings.autoGroupConfigs.map((config) =>
-        config.id === configId
-          ? {
-              ...config,
-              ...patch,
-              title: typeof patch.title === 'string' ? patch.title : config.title,
-              websites: patch.websites ?? config.websites,
-              rules: patch.rules ?? config.rules
-            }
-          : config
-      )
-    );
-  };
-
-  const addAutoGroupConfig = async (): Promise<string> => {
-    const nextConfig = createAutoGroupConfig(locale);
-    await saveAutoGroupConfigs([...settings.autoGroupConfigs, nextConfig]);
-    return nextConfig.id;
-  };
-
-  const deleteAutoGroupConfig = async (configId: string) => {
-    const config = settings.autoGroupConfigs.find((item) => item.id === configId);
-    if (config?.presetId) {
-      const preset = defaultAutoGroupPresets.find((item) => item.id === config.presetId);
-      await updateAutoGroupConfig(configId, {
-        title: preset?.titles.en ?? config.title,
-        color: preset?.color ?? config.color,
-        enabled: false,
-        websites: [],
-        rules: []
-      });
-      return;
-    }
-
-    await saveAutoGroupConfigs(settings.autoGroupConfigs.filter((item) => item.id !== configId));
-  };
-
-  const moveAutoGroupConfig = async (configId: string, direction: -1 | 1) => {
-    const currentIndex = settings.autoGroupConfigs.findIndex((config) => config.id === configId);
-    const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= settings.autoGroupConfigs.length) return;
-
-    const nextConfigs = [...settings.autoGroupConfigs];
-    const [movedConfig] = nextConfigs.splice(currentIndex, 1);
-    nextConfigs.splice(nextIndex, 0, movedConfig);
-    await saveAutoGroupConfigs(nextConfigs);
-  };
-
-  const openAutoGroupsManager = () => {
-    setShowSettingsModal(false);
-    setShowSettingsAutoGroupPicker(false);
-    setShowTools(false);
-    setSelectedIds(new Set());
-    setSidepanelView('auto-groups');
   };
 
   const markTabActiveLocally = (tabId: number, windowId: number) => {
@@ -1458,6 +1444,27 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     setMoveGroupPickerOpen(false);
   };
 
+  const getDuplicateCloseIds = (duplicateGroups: DuplicateTabGroup[]) =>
+    duplicateGroups.flatMap((group) => group.tabs.slice(1).map((tab) => tab.id));
+
+  const deduplicateGroups = async (duplicateGroups: DuplicateTabGroup[], successMessage: string) => {
+    const tabIds = getDuplicateCloseIds(duplicateGroups);
+    if (tabIds.length === 0) return;
+
+    setShowDuplicateTabsMenu(false);
+    await execute(successMessage, async () => {
+      await closeTabs(tabIds);
+    }, { clearSelection: true });
+  };
+
+  const deduplicateAllTabs = async () => {
+    await deduplicateGroups(duplicateTabGroups, t.deduplicatedTabs);
+  };
+
+  const deduplicateTabGroup = async (group: DuplicateTabGroup) => {
+    await deduplicateGroups([group], t.deduplicatedTabs);
+  };
+
   const createSelectionGroupAndOpenEditor = async () => {
     if (selectedCount === 0 || selectedTabs.length === 0) return;
 
@@ -1504,25 +1511,25 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   };
 
   const handleSmartGrouping = async (strategy: SmartGroupStrategy) => {
-    if (quickActionTabs.length === 0) return;
+    if (visibleTabs.length === 0) return;
 
     await execute(strategy === 'domain' ? t.groupByDomain : t.groupByType, async () => {
       await smartGroupTabs(
-        quickActionTabs.map((tab) => tab.id),
+        visibleTabs.map((tab) => tab.id),
         strategy
       );
     });
   };
 
-  const handleCreateGroup = async (tabs: TabSnapshot[]) => {
-    if (tabs.length === 0) return;
+  const handleCreateSelectionGroup = async () => {
+    if (selectedTabs.length === 0) return;
 
-    const title = suggestGroupTitle(tabs, t.newGroup);
+    const title = suggestGroupTitle(selectedTabs, t.newGroup);
     const color = colorFromSeed(title);
 
     await execute(t.createdGroup, async () => {
       await groupTabs(
-        tabs.map((tab) => tab.id),
+        selectedTabs.map((tab) => tab.id),
         {
           title,
           color
@@ -1556,6 +1563,42 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     }
   };
 
+  const saveGroupAsAutoGroup = async (group: TabGroupSnapshot, tabs: TabSnapshot[]) => {
+    const existingConfig =
+      settings.autoGroupConfigs.find((config) => config.id === group.autoGroupConfigId) ??
+      findAutoGroupConfigForGroup(settings.autoGroupConfigs, group.title, tabs);
+    if (existingConfig) {
+      await openDashboardPage('automation', { autoGroupConfig: existingConfig.id });
+      return;
+    }
+
+    await execute(t.savedAsAutoGroup, async () => {
+      const latestSettings = await getSettings();
+      const latestExistingConfig =
+        latestSettings.autoGroupConfigs.find((config) => config.id === group.autoGroupConfigId) ??
+        findAutoGroupConfigForGroup(latestSettings.autoGroupConfigs, group.title, tabs);
+      if (latestExistingConfig) {
+        setSettings(latestSettings);
+        await updateGroup(group.id, { autoGroupConfigId: latestExistingConfig.id });
+        await openDashboardPage('automation', { autoGroupConfig: latestExistingConfig.id });
+        return;
+      }
+
+      const config = createAutoGroupConfig(group.title || t.newGroup, {
+        color: group.color as TabGroupColor,
+        tabs
+      });
+      const nextSettings = await updateSettings({
+        autoGroupEnabled: true,
+        autoGroupConfigs: [config, ...latestSettings.autoGroupConfigs]
+      });
+
+      setSettings(nextSettings);
+      await updateGroup(group.id, { autoGroupConfigId: config.id });
+      await openDashboardPage('automation', { autoGroupConfig: config.id });
+    }, { silentStatus: true, soft: true });
+  };
+
   const handleMoveSelectionToGroup = async (nextGroupId: number | string) => {
     if (!nextGroupId || selectedCount === 0) return;
 
@@ -1569,13 +1612,21 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   };
 
   const resolveDragDropPosition = (
-    active: { kind: 'tab' | 'group-sort' | 'group' | 'new'; id?: number } | null,
-    over: { kind: 'tab' | 'group-sort' | 'group' | 'new'; id?: number } | null,
+    active: ParsedDropTarget | null,
+    over: ParsedDropTarget | null,
     overId: string | null,
     overRect: { top: number; height: number } | null | undefined,
     fallbackRect: { top: number; height: number } | null | undefined
   ): DropPosition | null => {
     if (!active || !over || !overId) return null;
+
+    if (over.kind === 'group-tail') {
+      return active.kind === 'tab' ? 'inside' : 'after';
+    }
+
+    if (over.kind === 'group-after') {
+      return 'after';
+    }
 
     if (
       (active.kind === 'tab' && over.kind === 'tab') ||
@@ -1604,10 +1655,31 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     return 'inside';
   };
 
+  const normalizeGroupSortDropTarget = (
+    active: ParsedDropTarget | null,
+    over: ParsedDropTarget | null,
+    overId: string | null
+  ): { over: ParsedDropTarget | null; overId: string | null } => {
+    if (!active || active.kind !== 'group-sort' || !over || over.kind !== 'tab' || over.id == null) {
+      return { over, overId };
+    }
+
+    const targetTab = tabById.get(over.id);
+    if (!targetTab?.group) {
+      return { over, overId };
+    }
+
+    return {
+      over: { kind: 'group', id: targetTab.group.id },
+      overId: `group:${targetTab.group.id}`
+    };
+  };
+
   const updateDragTarget = (event: DragMoveEvent | DragOverEvent | DragEndEvent) => {
     const active = parseDropId(event.active.id as string);
-    const overId = typeof event.over?.id === 'string' ? event.over.id : null;
-    const over = parseDropId(overId ?? undefined);
+    const rawOverId = typeof event.over?.id === 'string' ? event.over.id : null;
+    const rawOver = parseDropId(rawOverId ?? undefined);
+    const { over, overId } = normalizeGroupSortDropTarget(active, rawOver, rawOverId);
 
     if (!active || !overId || !over) {
       setOverDropId(null);
@@ -1617,7 +1689,9 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
     if (
       (active.kind === 'tab' && over.kind === 'tab' && active.id === over.id) ||
-      (active.kind === 'group-sort' && over.kind === 'group' && active.id === over.id)
+      (active.kind === 'group-sort' &&
+        (over.kind === 'group' || over.kind === 'group-tail' || over.kind === 'group-after') &&
+        active.id === over.id)
     ) {
       setOverDropId(null);
       setOverDropPosition(null);
@@ -1640,12 +1714,15 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragTabId(null);
     setActiveDragGroupId(null);
+    setDragOverlayState(EMPTY_DRAG_OVERLAY_STATE);
     const active = parseDropId(event.active.id as string);
-    const over = parseDropId(event.over?.id as string | undefined);
+    const rawOverId = typeof event.over?.id === 'string' ? event.over.id : null;
+    const rawOver = parseDropId(rawOverId ?? undefined);
+    const { over, overId } = normalizeGroupSortDropTarget(active, rawOver, rawOverId);
     const dropPosition = resolveDragDropPosition(
       active,
       over,
-      typeof event.over?.id === 'string' ? event.over.id : null,
+      overId,
       event.over?.rect,
       event.active.rect.current.translated
     );
@@ -1656,49 +1733,31 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
     if (!active || !over) return;
 
-    if (active.kind === 'group-sort' && active.id) {
-      const movingGroup = groups.find((entry) => entry.group.id === active.id);
+    if (active.kind === 'group-sort' && active.id != null) {
+      const activeGroupId = active.id;
+      const movingGroup = groups.find((entry) => entry.group.id === activeGroupId);
       if (!movingGroup) return;
 
-      if (over.kind === 'group' && over.id && over.id !== movingGroup.group.id) {
-        const targetGroup = groups.find((entry) => entry.group.id === over.id);
-        const anchorTabId =
-          dropPosition === 'after'
-            ? targetGroup?.tabs[targetGroup.tabs.length - 1]?.id
-            : targetGroup?.tabs[0]?.id;
-        if (!anchorTabId) return;
-
+      if ((over.kind === 'group-tail' || over.kind === 'group-after') && over.id != null && over.id !== movingGroup.group.id) {
+        const overGroupId = over.id;
         await execute(t.dragToReorder, async () => {
-          if (dropPosition === 'after') {
-            await moveTabsAfter(
-              movingGroup.tabs.map((tab) => tab.id),
-              anchorTabId
-            );
-          } else {
-            await moveTabsBefore(
-              movingGroup.tabs.map((tab) => tab.id),
-              anchorTabId
-            );
-          }
+          await moveGroup(activeGroupId, { kind: 'group', id: overGroupId }, 'after');
         }, { silentStatus: true, soft: true });
         return;
       }
 
-      if (over.kind === 'tab' && over.id) {
-        const targetTabId = over.id;
-
+      if (over.kind === 'group' && over.id != null && over.id !== movingGroup.group.id) {
+        const overGroupId = over.id;
         await execute(t.dragToReorder, async () => {
-          if (dropPosition === 'after') {
-            await moveTabsAfter(
-              movingGroup.tabs.map((tab) => tab.id),
-              targetTabId
-            );
-          } else {
-            await moveTabsBefore(
-              movingGroup.tabs.map((tab) => tab.id),
-              targetTabId
-            );
-          }
+          await moveGroup(activeGroupId, { kind: 'group', id: overGroupId }, dropPosition === 'after' ? 'after' : 'before');
+        }, { silentStatus: true, soft: true });
+        return;
+      }
+
+      if (over.kind === 'tab' && over.id != null) {
+        const overTabId = over.id;
+        await execute(t.dragToReorder, async () => {
+          await moveGroup(activeGroupId, { kind: 'tab', id: overTabId }, dropPosition === 'after' ? 'after' : 'before');
         }, { silentStatus: true, soft: true });
       }
       return;
@@ -1726,6 +1785,36 @@ export function OverviewPage({ mode }: OverviewPageProps) {
           } else if (movingTab.group) {
             await ungroupTabs([movingTab.id]);
           }
+        }
+      }, { silentStatus: true, soft: true });
+      return;
+    }
+
+    if (over.kind === 'group-tail' && over.id) {
+      const targetGroup = groupById.get(over.id);
+      const anchorTabId = targetGroup?.tabs[targetGroup.tabs.length - 1]?.id;
+      if (!anchorTabId) return;
+
+      await execute(t.dragToReorder, async () => {
+        await moveTabAfter(movingTab.id, anchorTabId);
+
+        if (movingTab.group?.id !== over.id) {
+          await groupTabs([movingTab.id], { groupId: over.id });
+        }
+      }, { silentStatus: true, soft: true });
+      return;
+    }
+
+    if (over.kind === 'group-after' && over.id) {
+      const targetGroup = groupById.get(over.id);
+      const anchorTabId = targetGroup?.tabs[targetGroup.tabs.length - 1]?.id;
+      if (!anchorTabId) return;
+
+      await execute(t.dragToReorder, async () => {
+        await moveTabAfter(movingTab.id, anchorTabId);
+
+        if (movingTab.group && movingTab.group.id !== over.id) {
+          await ungroupTabs([movingTab.id]);
         }
       }, { silentStatus: true, soft: true });
       return;
@@ -1761,13 +1850,44 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     }
 
     if (over.kind === 'new') {
-      await handleCreateGroup([movingTab]);
+      const title = suggestGroupTitle([movingTab], t.newGroup);
+      const color = colorFromSeed(title);
+      await execute(t.createdGroup, async () => {
+        await groupTabs([movingTab.id], {
+          title,
+          color
+        });
+      });
     }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
     dragPointerYRef.current = extractClientY(event.activatorEvent);
     const active = parseDropId(event.active.id as string);
+    const activeId = typeof event.active.id === 'string' ? event.active.id : null;
+    const escapedActiveId = activeId
+      ? globalThis.CSS?.escape?.(activeId) ?? activeId.replace(/["\\]/g, '\\$&')
+      : null;
+    const activeElement = escapedActiveId
+      ? document.querySelector<HTMLElement>(`[data-drag-overlay-id="${escapedActiveId}"]`)
+      : null;
+    const listRect = treeListScrollRef.current?.getBoundingClientRect();
+    const activeRect = activeElement?.getBoundingClientRect();
+
+    setDragOverlayState(
+      activeId && listRect && activeRect
+        ? {
+            activeId,
+            height: activeRect.height,
+            left: listRect.left,
+            maxTop: Math.max(listRect.bottom - activeRect.height, listRect.top),
+            minTop: listRect.top,
+            originTop: activeRect.top,
+            top: activeRect.top,
+            width: listRect.width
+          }
+        : EMPTY_DRAG_OVERLAY_STATE
+    );
     if (active?.kind === 'tab' && active.id) {
       setActiveDragTabId(active.id);
     }
@@ -1777,6 +1897,14 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   };
 
   const handleDragMove = (event: DragMoveEvent) => {
+    setDragOverlayState((current) =>
+      current.activeId
+        ? {
+            ...current,
+            top: clamp(current.originTop + event.delta.y, current.minTop, current.maxTop)
+          }
+        : current
+    );
     updateDragTarget(event);
   };
 
@@ -1787,6 +1915,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
   const resetDragState = () => {
     setActiveDragTabId(null);
     setActiveDragGroupId(null);
+    setDragOverlayState(EMPTY_DRAG_OVERLAY_STATE);
     setOverDropId(null);
     setOverDropPosition(null);
     dragPointerYRef.current = null;
@@ -1858,7 +1987,11 @@ export function OverviewPage({ mode }: OverviewPageProps) {
         <motion.div
           ref={filterPickerRefs.setFloating}
           animate={{ opacity: 1, y: 0 }}
-          className="tm-header-group-picker tm-header-group-picker-floating"
+          className={
+            isEmbeddedDashboard
+              ? 'tm-header-group-picker tm-header-group-picker-floating tm-dashboard-compact-menu'
+              : 'tm-header-group-picker tm-header-group-picker-floating'
+          }
           data-side={filterPickerPlacement.split('-')[0]}
           exit={{ opacity: 0, y: 4 }}
           initial={{ opacity: 0, y: 6 }}
@@ -1935,6 +2068,145 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     );
   };
 
+  const renderDashboardOrganizeMenu = () => {
+    if (!showDashboardOrganizeMenu) return null;
+
+    return (
+      <FloatingPortal>
+        <motion.div
+          ref={dashboardOrganizeMenuRefs.setFloating}
+          animate={{ opacity: 1, y: 0 }}
+          className="tm-header-group-picker tm-header-group-picker-floating tm-dashboard-compact-menu"
+          data-side={dashboardOrganizeMenuPlacement.split('-')[0]}
+          exit={{ opacity: 0, y: 4 }}
+          initial={{ opacity: 0, y: 6 }}
+          style={dashboardOrganizeMenuStyles}
+          transition={{ duration: 0.14, ease: 'easeOut' }}
+          {...getDashboardOrganizeMenuFloatingProps()}
+        >
+          <div className="tm-dashboard-compact-menu-title">{t.organize}</div>
+          <motion.button
+            animate={{ opacity: 1, y: 0 }}
+            className="tm-header-group-picker-button"
+            disabled={visibleTabs.length === 0}
+            exit={{ opacity: 0, y: 2 }}
+            initial={{ opacity: 0, y: 4 }}
+            onClick={() => {
+              setShowDashboardOrganizeMenu(false);
+              void handleSmartGrouping('domain');
+            }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+            type="button"
+          >
+            <RiGlobalLine size={12} />
+            <span>{t.smartByDomain}</span>
+          </motion.button>
+          <motion.button
+            animate={{ opacity: 1, y: 0 }}
+            className="tm-header-group-picker-button"
+            disabled={visibleTabs.length === 0}
+            exit={{ opacity: 0, y: 2 }}
+            initial={{ opacity: 0, y: 4 }}
+            onClick={() => {
+              setShowDashboardOrganizeMenu(false);
+              void handleSmartGrouping('site-type');
+            }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+            type="button"
+          >
+            <RiShining2Line size={12} />
+            <span>{t.smartByType}</span>
+          </motion.button>
+          <FloatingArrow
+            ref={dashboardOrganizeMenuArrowRef}
+            className="tm-header-group-picker-arrow"
+            context={dashboardOrganizeMenuContext}
+            fill="var(--tm-header-group-picker-surface)"
+            height={6}
+            stroke="var(--tm-header-group-picker-border)"
+            strokeWidth={1}
+            tipRadius={2}
+            width={12}
+          />
+        </motion.div>
+      </FloatingPortal>
+    );
+  };
+
+  const renderDuplicateTabsMenu = () => {
+    if (!showDuplicateTabsMenu) return null;
+
+    return (
+      <FloatingPortal>
+        <motion.div
+          ref={duplicateTabsMenuRefs.setFloating}
+          animate={{ opacity: 1, y: 0 }}
+          className="tm-header-group-picker tm-header-group-picker-floating tm-dashboard-compact-menu tm-duplicate-tabs-menu"
+          data-side={duplicateTabsMenuPlacement.split('-')[0]}
+          exit={{ opacity: 0, y: 4 }}
+          initial={{ opacity: 0, y: 6 }}
+          style={duplicateTabsMenuStyles}
+          transition={{ duration: 0.14, ease: 'easeOut' }}
+          {...getDuplicateTabsMenuFloatingProps()}
+        >
+          <div className="tm-dashboard-compact-menu-title">{t.deduplicateTabs}</div>
+          {duplicateTabGroups.length > 0 ? (
+            <>
+              <motion.button
+                animate={{ opacity: 1, y: 0 }}
+                className="tm-header-group-picker-button tm-duplicate-tabs-menu-action"
+                exit={{ opacity: 0, y: 2 }}
+                initial={{ opacity: 0, y: 4 }}
+                onClick={() => void deduplicateAllTabs()}
+                transition={{ duration: 0.12, ease: 'easeOut' }}
+                type="button"
+              >
+                <RiFileCopyLine size={12} />
+                <span>{t.deduplicateAll}</span>
+                <em>{duplicateTabCount}</em>
+              </motion.button>
+              <div className="tm-header-group-picker-divider" />
+              <div className="tm-duplicate-tabs-list">
+                {duplicateTabGroups.map((group) => (
+                  <motion.button
+                    animate={{ opacity: 1, y: 0 }}
+                    className="tm-header-group-picker-button tm-duplicate-tabs-url-button"
+                    exit={{ opacity: 0, y: 2 }}
+                    initial={{ opacity: 0, y: 4 }}
+                    key={group.url}
+                    onClick={() => void deduplicateTabGroup(group)}
+                    transition={{ duration: 0.12, ease: 'easeOut' }}
+                    type="button"
+                  >
+                    <RiFileCopyLine size={12} />
+                    <span>
+                      <strong>{group.title}</strong>
+                      <small>{group.hostname || group.url}</small>
+                    </span>
+                    <em>{group.duplicateCount}</em>
+                  </motion.button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="tm-header-group-picker-empty">{t.noDuplicateTabs}</div>
+          )}
+          <FloatingArrow
+            ref={duplicateTabsMenuArrowRef}
+            className="tm-header-group-picker-arrow"
+            context={duplicateTabsMenuContext}
+            fill="var(--tm-header-group-picker-surface)"
+            height={6}
+            stroke="var(--tm-header-group-picker-border)"
+            strokeWidth={1}
+            tipRadius={2}
+            width={12}
+          />
+        </motion.div>
+      </FloatingPortal>
+    );
+  };
+
   const renderMoveGroupPickerPanel = () => {
     if (!moveGroupPickerOpen) return null;
 
@@ -1956,12 +2228,12 @@ export function OverviewPage({ mode }: OverviewPageProps) {
             className="tm-header-group-picker-button"
             exit={{ opacity: 0, y: 2 }}
             initial={{ opacity: 0, y: 4 }}
-            onClick={() => void (selectedCount > 0 ? createSelectionGroupAndOpenEditor() : handleCreateEmptyGroup())}
+            onClick={() => void createSelectionGroupAndOpenEditor()}
             transition={{ duration: 0.12, ease: 'easeOut' }}
             type="button"
           >
             <RiAddCircleLine size={12} />
-            <span>{t.newGroup}</span>
+            <span>{t.createGroup}</span>
           </motion.button>
           {groups.length > 0 ? <div className="tm-header-group-picker-divider" /> : null}
           {groups.length > 0 ? (
@@ -2062,10 +2334,16 @@ export function OverviewPage({ mode }: OverviewPageProps) {
     />
   );
 
-  const renderGroupedEntry = (entry: GroupedEntry) => (
-    <GroupTreeBlock
-      autoOpenEditMenu={pendingAutoOpenGroupEditorId === entry.group.id}
-      compact={isSidepanel}
+  const renderGroupedEntry = (entry: GroupedEntry) => {
+    const autoGroupConfig =
+      settings.autoGroupConfigs.find((config) => config.id === entry.group.autoGroupConfigId) ??
+      findAutoGroupConfigForGroup(settings.autoGroupConfigs, entry.group.title, entry.tabs);
+
+    return (
+      <GroupTreeBlock
+        autoGroupSaved={autoGroupConfig !== null}
+        autoOpenEditMenu={pendingAutoOpenGroupEditorId === entry.group.id}
+        compact={isSidepanel}
       dragSortingLocked={activeDragTabId !== null || activeDragGroupId !== null}
       key={entry.group.id}
       dragPreviewId={activeDragGroupId}
@@ -2095,11 +2373,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
           });
         }, { silentStatus: true, soft: true })
       }
-      onUpdateGroupAutoConfig={(patch) =>
-        void execute(t.autoGroupRules, async () => {
-          await updateGroup(entry.group.id, patch);
-        }, { silentStatus: true, soft: true })
-      }
       onAddTabToGroup={() =>
         void execute(t.addTabToGroup, async () => {
           const anchorTab = entry.tabs.reduce<TabSnapshot | null>((current, tab) => {
@@ -2119,6 +2392,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
           }
         }, { silentStatus: true, soft: true })
       }
+      onSaveAsAutoGroup={() => void saveGroupAsAutoGroup(entry.group, entry.tabs)}
       onUngroupGroup={() =>
         void execute(t.ungroup, async () => {
           await ungroupTabs(entry.tabs.map((tab) => tab.id));
@@ -2131,17 +2405,6 @@ export function OverviewPage({ mode }: OverviewPageProps) {
       }
       onAutoOpenEditMenuHandled={() => setPendingAutoOpenGroupEditorId(null)}
       onFocusTab={(tab) => handleFocusTab(tab)}
-      onMoveSelectionHere={
-        selectedCount > 0
-          ? () =>
-              void execute(t.movedToGroup, async () => {
-                await groupTabs(
-                  selectedTabs.map((tab) => tab.id),
-                  { groupId: entry.group.id }
-                );
-              })
-          : undefined
-      }
       onMuteTab={(tab) =>
         void execute(tab.muted ? t.unmute : t.mute, async () => {
           await muteTabs([tab.id], !tab.muted);
@@ -2208,29 +2471,30 @@ export function OverviewPage({ mode }: OverviewPageProps) {
         })
       }
       selectedIds={selectedIds}
-    />
-  );
+      />
+    );
+  };
 
   const renderUngroupedEntry = (entry: UngroupedEntry) => (
     <UngroupedTabsSection entry={entry} renderTabRow={renderUngroupedTabRow} />
   );
 
   return (
-    <div className="tm-shell">
-      <div className="tm-app" data-mode={mode}>
+    <div className={isEmbeddedDashboard ? 'tm-dashboard-tabs-embed-root' : 'tm-shell'}>
+      <div
+        className={isEmbeddedDashboard ? 'tm-dashboard-tabs-embed tm-app' : 'tm-app'}
+        data-mode={mode}
+      >
         <div
           className={isSidepanel ? 'tm-sidepanel-frame tm-scrollbar' : undefined}
           data-scrolling={isSidepanel ? 'false' : undefined}
           onScroll={isSidepanel ? () => markScrollbarActive(sidepanelScrollRef.current) : undefined}
           ref={isSidepanel ? sidepanelScrollRef : undefined}
         >
-          {showingAutoGroupsManager ? (
-            <section ref={sidepanelHeaderRef} className="tm-sidepanel-hidden-header" aria-hidden="true" />
-          ) : (
-            <section
-              className={`tm-panel tm-searchbar${isSidepanel ? ' tm-searchbar-sidepanel' : ''}`}
-              ref={isSidepanel ? sidepanelHeaderRef : undefined}
-            >
+          <section
+            className={`tm-panel tm-searchbar${isSidepanel ? ' tm-searchbar-sidepanel' : ''}`}
+            ref={isSidepanel ? sidepanelHeaderRef : undefined}
+          >
             {mode === 'sidepanel' ? (
               <>
                 <div className="tm-search-row tm-search-row-sidepanel tm-search-row-sidepanel-primary">
@@ -2243,264 +2507,46 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                     />
                   </label>
                   <div className="tm-sidepanel-settings-popover-root">
-                    <button
-                      ref={settingsPopoverRefs.setReference}
-                      className={
-                        showSettingsModal
-                          ? 'tm-button-primary tm-button-sidepanel tm-button-sidepanel-icon'
-                          : 'tm-button tm-button-sidepanel tm-button-sidepanel-icon'
-                      }
-                      aria-expanded={showSettingsModal}
-                      aria-haspopup="dialog"
-                      aria-label={t.settings}
-                      title={t.settings}
-                      type="button"
-                      {...getSettingsPopoverReferenceProps()}
-                    >
-                      <RiSettings3Line size={14} />
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {showSettingsModal ? (
-                        <FloatingPortal>
-                          <motion.section
-                            ref={settingsPopoverRefs.setFloating}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            aria-label={t.workspaceSettings}
-                            className="tm-sidepanel-settings-popover"
-                            data-side={settingsPopoverPlacement.split('-')[0]}
-                            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                            role="dialog"
-                            style={settingsPopoverStyles}
-                            transition={{ duration: 0.14, ease: 'easeOut' }}
-                            {...getSettingsPopoverFloatingProps()}
-                          >
-                            <div className="tm-sidepanel-settings-popover-header">
-                              <strong>{t.workspaceSettings}</strong>
-                              <span>{locale === 'zh-CN' ? '自动分组、主题和语言' : 'Auto group, theme, and language'}</span>
-                            </div>
-
-                            <section className="tm-sidepanel-settings-card">
-                              <div className="tm-sidepanel-settings-card-head">
-                                <div className="tm-sidepanel-settings-card-icon">
-                                  <RiShining2Line size={12} />
-                                </div>
-                                <div className="tm-sidepanel-settings-card-copy">
-                                  <strong>{t.autoGroup}</strong>
-                                  <span>{locale === 'zh-CN' ? '全局默认模块' : 'Global default modules'}</span>
-                                </div>
-                              </div>
-                              <div className="tm-sidepanel-settings-auto-toolbar">
-                                <button
-                                  className="tm-sidepanel-settings-inline-toggle"
-                                  data-active={settings.autoGroupEnabled}
-                                  onClick={() => void saveSetting({ autoGroupEnabled: !settings.autoGroupEnabled })}
-                                  type="button"
-                                >
-                                  <span className="tm-sidepanel-settings-inline-toggle-label">{t.autoGroup}</span>
-                                  <span
-                                    aria-hidden="true"
-                                    className="tm-sidepanel-settings-switch"
-                                    data-active={settings.autoGroupEnabled}
-                                  >
-                                    <span className="tm-sidepanel-settings-switch-thumb" />
-                                  </span>
-                                </button>
-
-                                {settings.autoGroupEnabled ? (
-                                  <div className="tm-sidepanel-settings-module-picker-root">
-                                    <button
-                                      ref={settingsAutoGroupPickerRefs.setReference}
-                                      className="tm-sidepanel-settings-module-picker-trigger"
-                                      data-open={showSettingsAutoGroupPicker}
-                                      type="button"
-                                      {...getSettingsAutoGroupPickerReferenceProps()}
-                                    >
-                                      <span className="tm-sidepanel-settings-module-picker-summary">
-                                        {settingsAutoGroupSummary}
-                                      </span>
-                                      <RiArrowDownSLine size={14} />
-                                    </button>
-
-                                    <AnimatePresence initial={false}>
-                                      {showSettingsAutoGroupPicker ? (
-                                        <motion.div
-                                          ref={settingsAutoGroupPickerRefs.setFloating}
-                                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                                          className="tm-sidepanel-settings-module-picker-menu"
-                                          data-side={settingsAutoGroupPickerPlacement.split('-')[0]}
-                                          exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                                          initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                                          style={settingsAutoGroupPickerStyles}
-                                          transition={{ duration: 0.14, ease: 'easeOut' }}
-                                          {...getSettingsAutoGroupPickerFloatingProps()}
-                                        >
-                                          {settingsAutoGroupPresetLabels.map((config) => {
-                                            const active = config.enabled;
-
-                                            return (
-                                              <button
-                                                className="tm-sidepanel-settings-module-picker-option"
-                                                data-active={active}
-                                                key={config.id}
-                                                onClick={() => void toggleAutoGroupConfig(config.id)}
-                                                type="button"
-                                              >
-                                                <span className="tm-sidepanel-settings-module-picker-check" aria-hidden="true">
-                                                  {active ? '✓' : ''}
-                                                </span>
-                                                <span className="tm-sidepanel-settings-module-picker-label">{config.label}</span>
-                                              </button>
-                                            );
-                                          })}
-                                          <FloatingArrow
-                                            ref={settingsAutoGroupPickerArrowRef}
-                                            className="tm-sidepanel-settings-module-picker-arrow"
-                                            context={settingsAutoGroupPickerContext}
-                                            fill="var(--tm-sidepanel-settings-surface-solid)"
-                                            height={6}
-                                            stroke="var(--tm-sidepanel-settings-border)"
-                                            strokeWidth={1}
-                                            tipRadius={2}
-                                            width={12}
-                                          />
-                                        </motion.div>
-                                      ) : null}
-                                    </AnimatePresence>
-                                  </div>
-                                ) : null}
-                              </div>
-                              <button
-                                className="tm-sidepanel-settings-manage-button"
-                                onClick={openAutoGroupsManager}
-                                type="button"
-                              >
-                                <RiSettings3Line size={12} />
-                                <span>{locale === 'zh-CN' ? '管理分组和规则' : 'Manage groups and rules'}</span>
-                              </button>
-                              <p className="tm-sidepanel-settings-hint-copy">{autoGroupStateCopy}</p>
-                            </section>
-
-                            <section className="tm-sidepanel-settings-card">
-                              <div className="tm-sidepanel-settings-card-head">
-                                <div className="tm-sidepanel-settings-card-icon">
-                                  <RiRouteLine size={12} />
-                                </div>
-                                <div className="tm-sidepanel-settings-card-copy">
-                                  <strong>{t.redirectTracking}</strong>
-                                  <span>{t.redirectTrackingSub}</span>
-                                </div>
-                              </div>
-                              <button
-                                className="tm-sidepanel-settings-permission-toggle"
-                                data-active={settings.redirectTrackingEnabled && redirectTrackingPermissionGranted}
-                                disabled={redirectTrackingBusy}
-                                onClick={() => void toggleRedirectTracking()}
-                                type="button"
-                              >
-                                <span className="tm-sidepanel-settings-permission-copy">
-                                  <strong>
-                                    {settings.redirectTrackingEnabled && redirectTrackingPermissionGranted
-                                      ? t.enabled
-                                      : t.disabled}
-                                  </strong>
-                                  <span>
-                                    {settings.redirectTrackingEnabled && redirectTrackingPermissionGranted
-                                      ? t.redirectTrackingGranted
-                                      : t.redirectTrackingOff}
-                                  </span>
-                                </span>
-                                <span
-                                  aria-hidden="true"
-                                  className="tm-sidepanel-settings-switch"
-                                  data-active={settings.redirectTrackingEnabled && redirectTrackingPermissionGranted}
-                                >
-                                  <span className="tm-sidepanel-settings-switch-thumb" />
-                                </span>
-                              </button>
-                            </section>
-
-                            <section className="tm-sidepanel-settings-card">
-                              <div className="tm-sidepanel-settings-card-head">
-                                <div className="tm-sidepanel-settings-card-icon">
-                                  <RiPaletteLine size={12} />
-                                </div>
-                                <div className="tm-sidepanel-settings-card-copy">
-                                  <strong>{locale === 'zh-CN' ? '界面偏好' : 'Interface'}</strong>
-                                  <span>{locale === 'zh-CN' ? '主题与语言' : 'Theme and language'}</span>
-                                </div>
-                              </div>
-                              <div className="tm-sidepanel-settings-field">
-                                <span className="tm-sidepanel-settings-field-label">{t.theme}</span>
-                                <div className="tm-sidepanel-settings-card-options tm-sidepanel-settings-card-options-3">
-                                  {sidepanelFooterThemeChoices.map((choice) => (
-                                    <button
-                                      key={choice.id}
-                                      className="tm-sidepanel-settings-option"
-                                      data-active={settings.theme === choice.id}
-                                      onClick={() => void saveSetting({ theme: choice.id })}
-                                      type="button"
-                                    >
-                                      {choice.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="tm-sidepanel-settings-field">
-                                <span className="tm-sidepanel-settings-field-label">{t.language}</span>
-                                <div className="tm-sidepanel-settings-card-options tm-sidepanel-settings-card-options-2">
-                                  {sidepanelFooterLocaleChoices.map((choice) => (
-                                    <button
-                                      key={choice.id}
-                                      className="tm-sidepanel-settings-option"
-                                      data-active={effectiveLocaleChoice === choice.id}
-                                      onClick={() => void saveSetting({ locale: choice.id })}
-                                      type="button"
-                                    >
-                                      {choice.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </section>
-
-                            <FloatingArrow
-                              ref={settingsPopoverArrowRef}
-                              className="tm-sidepanel-settings-popover-arrow"
-                              context={settingsPopoverContext}
-                              fill="var(--tm-sidepanel-settings-surface-solid)"
-                              height={6}
-                              stroke="var(--tm-sidepanel-settings-border)"
-                              strokeWidth={1}
-                              tipRadius={2}
-                              width={12}
-                            />
-                          </motion.section>
-                        </FloatingPortal>
-                      ) : null}
-                    </AnimatePresence>
+                    <Tooltip content={t.dashboard}>
+                      <button
+                        className="tm-button tm-button-sidepanel tm-button-sidepanel-icon"
+                        aria-label={t.dashboard}
+                        type="button"
+                        onClick={() => void openDashboardPage()}
+                      >
+                        <RiDashboardLine size={14} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={t.settings}>
+                      <button
+                        className="tm-button tm-button-sidepanel tm-button-sidepanel-icon"
+                        aria-label={t.settings}
+                        type="button"
+                        onClick={() => void openDashboardPage('settings')}
+                      >
+                        <RiSettings3Line size={14} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
 
                 <SidepanelViewTabs
-                  activeView={sidepanelView === 'bookmarks' ? 'bookmarks' : 'tabs'}
-                  bookmarksAction={
-                    <Tooltip content={locale === 'zh-CN' ? '刷新书签' : 'Refresh bookmarks'}>
-                      <IconButton
-                        icon={RiRefreshLine}
-                        label={locale === 'zh-CN' ? '刷新书签' : 'Refresh bookmarks'}
-                        nativeTitle={false}
-                        onClick={() => void refreshBookmarks()}
-                      />
-                    </Tooltip>
+                  activeView={
+                    sidepanelView === 'bookmarks'
+                      ? 'bookmarks'
+                      : sidepanelView === 'sessions'
+                        ? 'sessions'
+                        : 'tabs'
                   }
                   bookmarksCount={bookmarks.totalBookmarks}
-                  bookmarksLabel={locale === 'zh-CN' ? '书签' : 'Bookmarks'}
+                  bookmarksLabel={t.navBookmarks}
+                  label={t.navViews}
                   meta={bookmarksSearchMeta}
                   onSwitch={(nextView) => setSidepanelView(nextView)}
+                  sessionsCount={sessions.totalSessions}
+                  sessionsLabel={t.navSnapshots}
                   tabsCount={allTabs.length}
-                  tabsLabel={t.tabs}
+                  tabsLabel={t.navTabs}
                 />
 
                 {sidepanelView === 'tabs' ? (
@@ -2529,7 +2575,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                       >
                         <RiBrushLine size={13} />
                       </button>
-                    </Tooltip>
+                  </Tooltip>
                   </div>
 
                   <div className="tm-action-group tm-action-group-compact">
@@ -2552,6 +2598,32 @@ export function OverviewPage({ mode }: OverviewPageProps) {
 
                     <div
                       className="tm-header-picker"
+                      data-duplicate-tabs-root="true"
+                      data-open={showDuplicateTabsMenu}
+                    >
+                      <button
+                        ref={duplicateTabsMenuRefs.setReference}
+                        aria-label={t.deduplicateTabs}
+                        className="tm-icon-button tm-header-picker-trigger tm-sidepanel-dedupe-trigger"
+                        data-open={showDuplicateTabsMenu}
+                        title={t.deduplicateTabs}
+                        type="button"
+                        {...getDuplicateTabsMenuReferenceProps({
+                          onMouseEnter: () => {
+                            setShowFilterPicker(false);
+                            closeMoveGroupPicker();
+                          }
+                        })}
+                      >
+                        <RiFileCopyLine size={13} />
+                        {duplicateTabCount > 0 ? <em>{duplicateTabCount}</em> : null}
+                      </button>
+
+                      <AnimatePresence initial={false}>{renderDuplicateTabsMenu()}</AnimatePresence>
+                    </div>
+
+                    <div
+                      className="tm-header-picker"
                       data-group-picker-root="true"
                       data-open={moveGroupPickerOpen}
                     >
@@ -2562,7 +2634,10 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                         data-open={moveGroupPickerOpen}
                         type="button"
                         {...getMoveGroupPickerReferenceProps({
-                          onMouseEnter: () => setShowFilterPicker(false)
+                          onMouseEnter: () => {
+                            setShowFilterPicker(false);
+                            setShowDuplicateTabsMenu(false);
+                          }
                         })}
                       >
                         <RiFolderLine size={13} />
@@ -2593,9 +2668,35 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                   </div>
                 ) : null}
               </>
+            ) : isEmbeddedDashboard ? (
+              <div className="tm-dashboard-tabs-top-row">
+                <div className="tm-dashboard-tabs-nav-row">
+                  <SegmentedSwitch
+                    ariaLabel={t.navTabs}
+                    className="tm-dashboard-tabs-view-switch"
+                    onChange={setDashboardTabsSubView}
+                    optionClassName="tm-dashboard-tabs-view-button"
+                    options={[
+                      { value: 'current', label: t.navTabs, meta: visibleTabs.length },
+                      { value: 'history', label: t.historyTabs, meta: historyTabs.length }
+                    ]}
+                    value={dashboardTabsSubView}
+                  />
+                </div>
+                <div className="tm-search-row tm-search-row-dashboard">
+                  <label className="tm-input tm-input-search tm-input-search-dashboard">
+                    <RiSearchLine size={15} />
+                    <input
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder={t.searchPlaceholder}
+                      value={query}
+                    />
+                  </label>
+                </div>
+              </div>
             ) : (
-              <div className="tm-search-row">
-                <label className="tm-input tm-input-search">
+              <div className={isEmbeddedDashboard ? 'tm-search-row tm-search-row-dashboard' : 'tm-search-row'}>
+                <label className={isEmbeddedDashboard ? 'tm-input tm-input-search tm-input-search-dashboard' : 'tm-input tm-input-search'}>
                   <RiSearchLine size={15} />
                   <input
                     onChange={(event) => setQuery(event.target.value)}
@@ -2604,193 +2705,87 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                   />
                 </label>
 
-                <div className="tm-toolbar-controls">
-                  <select
-                    className="tm-select tm-select-inline"
-                    onChange={(event) => setSortMode(event.target.value as TabSort)}
-                    title={t.browserOrder}
-                    value={sortMode}
-                  >
-                    {sortChoices.map((choice) => (
-                      <option key={choice.id} value={choice.id}>
-                        {choice.label}
-                      </option>
-                    ))}
-                  </select>
+                {isEmbeddedDashboard ? null : (
+                  <div className="tm-toolbar-controls">
+                    <select
+                      className="tm-select tm-select-inline"
+                      onChange={(event) => setSortMode(event.target.value as TabSort)}
+                      title={t.browserOrder}
+                      value={sortMode}
+                    >
+                      {sortChoices.map((choice) => (
+                        <option key={choice.id} value={choice.id}>
+                          {choice.label}
+                        </option>
+                      ))}
+                    </select>
 
-                  <IconButton
-                    icon={resolvedTheme === 'dark' ? RiSunLine : RiMoonLine}
-                    label={t.theme}
-                    onClick={() =>
-                      void saveSetting({
-                        theme: resolvedTheme === 'dark' ? 'light' : 'dark'
-                      })
-                    }
-                  />
-                  <IconButton icon={RiRefreshLine} label={t.refreshed} onClick={() => void load()} />
-                  {mode === 'dashboard' ? (
+                    <IconButton icon={RiRefreshLine} label={t.refreshed} onClick={() => void load()} />
                     <button
-                      className="tm-button"
-                      onClick={openAutoGroupsManager}
-                      title={locale === 'zh-CN' ? '管理分组和规则' : 'Manage groups and rules'}
+                      className={showTools ? 'tm-button-primary' : 'tm-button'}
+                      onClick={() => setShowTools((current) => !current)}
+                      title={showTools ? t.hideTools : t.showTools}
                       type="button"
                     >
-                      <RiShining2Line size={13} />
-                      {locale === 'zh-CN' ? '自动分组' : 'Auto groups'}
+                      <RiFolderLine size={14} />
+                      {t.organize}
                     </button>
-                  ) : null}
-                  <button
-                    className={showTools ? 'tm-button-primary' : 'tm-button'}
-                    onClick={() => setShowTools((current) => !current)}
-                    title={showTools ? t.hideTools : t.showTools}
-                    type="button"
-                  >
-                    <RiFolderLine size={14} />
-                    {t.organize}
-                  </button>
-                  {mode === 'dashboard' ? (
-                    <IconButton
-                      icon={RiArrowRightUpLine}
-                      label={t.sidePanel}
-                      onClick={() => void launchAlternate()}
-                    />
-                  ) : (
-                    <button
-                      className="tm-button-primary"
-                      onClick={() => void launchAlternate()}
-                      title={t.openWorkspace}
-                      type="button"
-                    >
-                      {t.openWorkspace}
-                    </button>
-                  )}
-                </div>
+                    {mode === 'dashboard' ? (
+                      <IconButton
+                        icon={RiArrowRightUpLine}
+                        label={t.sidePanel}
+                        onClick={() => void launchAlternate()}
+                      />
+                    ) : (
+                      <button
+                        className="tm-button-primary"
+                        onClick={() => void launchAlternate()}
+                        title={t.openWorkspace}
+                        type="button"
+                      >
+                        {t.openWorkspace}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {!isSidepanel ? (
-              <div className="tm-chip-row">
-                {smartViews
-                  .filter((view) => (showTools ? true : primaryViews.includes(view.id)))
-                  .map((view) => (
-                    <button
-                      key={view.id}
-                      className="tm-chip-button"
-                      data-active={smartView === view.id}
-                      onClick={() => setSmartView(view.id)}
-                      type="button"
-                    >
-                      <view.icon size={14} />
-                      {view.label}
-                      <span className="tm-chip-count">{getViewCount(allTabs, view.id)}</span>
-                    </button>
-                  ))}
+            {!isEmbeddedDashboard && !isSidepanel ? (
+              <div>
+                <div className="tm-chip-row">
+                  {smartViews
+                    .filter((view) =>
+                      isEmbeddedDashboard ? primaryViews.includes(view.id) : showTools ? true : primaryViews.includes(view.id)
+                    )
+                    .map((view) => (
+                      <button
+                        key={view.id}
+                        className="tm-chip-button"
+                        data-active={smartView === view.id}
+                        onClick={() => setSmartView(view.id)}
+                        type="button"
+                      >
+                        <view.icon size={14} />
+                        {view.label}
+                        <span className="tm-chip-count">{getViewCount(allTabs, view.id)}</span>
+                      </button>
+                    ))}
+                </div>
+
               </div>
             ) : null}
             </section>
-          )}
 
-          {showingAutoGroupsManager || isSidepanel ? null : showTools || selectedCount > 0 ? (
-            <section className="tm-panel tm-action-strip">
+          {isSidepanel || isEmbeddedDashboard ? null : showTools ? (
+            <section className="tm-panel tm-action-strip tm-organize-strip">
               <div className="tm-action-primary">
                 <div className="tm-action-overview">
-                  <strong>{selectedCount > 0 ? `${selectedCount} ${t.selected}` : `${visibleTabs.length} ${t.shown}`}</strong>
-                  <span>{selectedCount > 0 ? t.moveToGroup : t.organize}</span>
+                  <strong>{`${visibleTabs.length} ${t.shown}`}</strong>
+                  <span>{t.organize}</span>
                 </div>
 
                 <div className="tm-action-group">
-                  {selectedCount > 0 ? (
-                    <>
-                      <button
-                        className="tm-button"
-                        onClick={toggleVisibleSelection}
-                        title={t.selectVisible}
-                        type="button"
-                      >
-                        {visibleTabs.every((tab) => selectedIds.has(tab.id)) ? t.clearVisible : t.selectVisible}
-                      </button>
-                      <div
-                        className="tm-header-picker tm-header-picker-batch"
-                        data-group-picker-root="true"
-                        data-open={moveGroupPickerOpen}
-                      >
-                        <button
-                          ref={moveGroupPickerRefs.setReference}
-                          aria-label={t.moveToGroup}
-                          className="tm-button tm-header-picker-trigger tm-batch-group-trigger"
-                          data-open={moveGroupPickerOpen}
-                          type="button"
-                          {...getMoveGroupPickerReferenceProps()}
-                        >
-                          <RiFolderLine size={13} />
-                          {t.moveToGroup}
-                        </button>
-
-                        <AnimatePresence initial={false}>{renderMoveGroupPickerPanel()}</AnimatePresence>
-                      </div>
-                      <button
-                        className="tm-button tm-button-danger"
-                        onClick={() =>
-                          void execute(t.close, async () => {
-                            await closeTabs(selectedTabs.map((tab) => tab.id));
-                          }, { clearSelection: true })
-                        }
-                        title={t.close}
-                        type="button"
-                      >
-                        <RiCloseLine size={13} />
-                        {t.close}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className="tm-button"
-                        onClick={() => void handleSmartGrouping('domain')}
-                        title={t.smartByDomain}
-                        type="button"
-                      >
-                        <RiGlobalLine size={13} />
-                        {t.smartByDomain}
-                      </button>
-                      <button
-                        className="tm-button"
-                        onClick={() => void handleSmartGrouping('site-type')}
-                        title={t.smartByType}
-                        type="button"
-                      >
-                        <RiShining2Line size={13} />
-                        {t.smartByType}
-                      </button>
-                      <Tooltip content={t.createGroup}>
-                        <button
-                          aria-label={t.createGroup}
-                          className="tm-button-primary"
-                          onClick={() =>
-                            void (selectedCount > 0 ? handleCreateGroup(selectedTabs) : handleCreateEmptyGroup())
-                          }
-                          type="button"
-                        >
-                          <RiAddCircleLine size={13} />
-                          {t.newGroup}
-                        </button>
-                      </Tooltip>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {showTools ? (
-                <div className="tm-action-secondary">
-                  <button
-                    className="tm-button"
-                    onClick={() => void load()}
-                    title={t.refreshed}
-                    type="button"
-                  >
-                    <RiRefreshLine size={13} />
-                    {t.refreshed}
-                  </button>
                   <button
                     className="tm-button"
                     onClick={() => void handleSmartGrouping('domain')}
@@ -2812,80 +2807,327 @@ export function OverviewPage({ mode }: OverviewPageProps) {
                   <Tooltip content={t.createGroup}>
                     <button
                       aria-label={t.createGroup}
-                      className="tm-button"
-                      onClick={() =>
-                        void (selectedCount > 0 ? handleCreateGroup(selectedTabs) : handleCreateEmptyGroup())
-                      }
+                      className="tm-button-primary"
+                      onClick={() => void handleCreateEmptyGroup()}
                       type="button"
                     >
                       <RiAddCircleLine size={13} />
                       {t.newGroup}
                     </button>
                   </Tooltip>
-                  <button
-                    className="tm-button"
-                    disabled={selectedCount === 0}
-                    onClick={() =>
-                      void execute(selectedPinned ? t.unpin : t.pin, async () => {
-                        await pinTabs(
-                          selectedTabs.map((tab) => tab.id),
-                          !selectedPinned
-                        );
-                      })
-                    }
-                    title={selectedPinned ? t.unpin : t.pin}
-                    type="button"
-                  >
-                    <RiPushpin2Line size={13} />
-                    {selectedPinned ? t.unpin : t.pin}
-                  </button>
-                  <button
-                    className="tm-button"
-                    disabled={selectedCount === 0}
-                    onClick={() =>
-                      void execute(selectedMuted ? t.unmute : t.mute, async () => {
-                        await muteTabs(
-                          selectedTabs.map((tab) => tab.id),
-                          !selectedMuted
-                        );
-                      })
-                    }
-                    title={selectedMuted ? t.unmute : t.mute}
-                    type="button"
-                  >
-                    <RiVolumeMuteLine size={13} />
-                    {selectedMuted ? t.unmute : t.mute}
-                  </button>
-                  <button
-                    className="tm-button"
-                    disabled={selectedCount === 0 || !selectedGrouped}
-                    onClick={() =>
-                      void execute(t.ungroup, async () => {
-                        await ungroupTabs(selectedTabs.map((tab) => tab.id));
-                      })
-                    }
-                    title={t.ungroup}
-                    type="button"
-                  >
-                    {t.ungroup}
-                  </button>
                 </div>
-              ) : null}
+              </div>
             </section>
           ) : null}
 
-          {showingAutoGroupsManager ? (
-            <AutoGroupsManagerView
-              configs={settings.autoGroupConfigs}
+          {isEmbeddedDashboard && dashboardTabsSubView === 'current' ? (
+            <div className="tm-dashboard-tabs-filter-row">
+              <div className="tm-dashboard-tabs-filter-group">
+                <div className="tm-dashboard-zero-selection">
+                  <button
+                    aria-label={t.selectVisible}
+                    className="tm-dashboard-zero-select-toggle"
+                    data-state={allVisibleSelected ? 'all' : partiallyVisibleSelected ? 'partial' : 'none'}
+                    disabled={visibleTabs.length === 0}
+                    onClick={toggleVisibleSelection}
+                    title={t.selectVisible}
+                    type="button"
+                  >
+                    <span className="tm-dashboard-zero-count">{selectedCount}</span>
+                    <span className="tm-dashboard-zero-checkbox" aria-hidden="true" />
+                  </button>
+                  <span>{t.selected}</span>
+                  {selectedCount > 0 ? (
+                    <button
+                      className="tm-selection-clear-text"
+                      onClick={clearSelectionState}
+                      type="button"
+                    >
+                      <RiCloseLine size={13} />
+                      {t.clearSelection}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="tm-action-group tm-dashboard-inline-actions">
+                {selectedCount === 0 ? (
+                  <>
+                    <div className="tm-header-picker" data-filter-picker-root="true" data-open={showFilterPicker}>
+                      <button
+                        ref={filterPickerRefs.setReference}
+                        aria-label={t.filter}
+                        className="tm-button tm-dashboard-filter-trigger"
+                        data-open={showFilterPicker}
+                        title={t.filter}
+                        type="button"
+                        {...getFilterPickerReferenceProps({
+                          onMouseEnter: () => {
+                            setShowDashboardOrganizeMenu(false);
+                            setShowDuplicateTabsMenu(false);
+                          }
+                        })}
+                      >
+                        <RiFilter3Line size={13} />
+                        <span>{groupFilterLabel}</span>
+                        <RiArrowDownSLine className="tm-dashboard-trigger-chevron" size={14} />
+                      </button>
+
+                      <AnimatePresence initial={false}>{renderFilterPickerPanel()}</AnimatePresence>
+                    </div>
+                    <div
+                      className="tm-header-picker"
+                      data-duplicate-tabs-root="true"
+                      data-open={showDuplicateTabsMenu}
+                    >
+                      <button
+                        ref={duplicateTabsMenuRefs.setReference}
+                        aria-label={t.deduplicateTabs}
+                        className="tm-button tm-dashboard-dedupe-trigger"
+                        data-open={showDuplicateTabsMenu}
+                        title={t.deduplicateTabs}
+                        type="button"
+                        {...getDuplicateTabsMenuReferenceProps({
+                          onMouseEnter: () => {
+                            setShowFilterPicker(false);
+                            setShowDashboardOrganizeMenu(false);
+                          }
+                        })}
+                      >
+                        <RiFileCopyLine size={13} />
+                        <span>{t.deduplicateTabs}</span>
+                        {duplicateTabCount > 0 ? <em>{duplicateTabCount}</em> : null}
+                        <RiArrowDownSLine className="tm-dashboard-trigger-chevron" size={14} />
+                      </button>
+
+                      <AnimatePresence initial={false}>{renderDuplicateTabsMenu()}</AnimatePresence>
+                    </div>
+                    <div
+                      className="tm-header-picker"
+                      data-dashboard-organize-root="true"
+                      data-open={showDashboardOrganizeMenu}
+                    >
+                      <button
+                        ref={dashboardOrganizeMenuRefs.setReference}
+                        aria-label={t.organize}
+                        className="tm-button tm-dashboard-organize-trigger"
+                        data-open={showDashboardOrganizeMenu}
+                        title={t.organize}
+                        type="button"
+                        {...getDashboardOrganizeMenuReferenceProps({
+                          onMouseEnter: () => {
+                            setShowFilterPicker(false);
+                            setShowDuplicateTabsMenu(false);
+                          }
+                        })}
+                      >
+                        <RiShining2Line size={13} />
+                        {t.organize}
+                      </button>
+
+                      <AnimatePresence initial={false}>{renderDashboardOrganizeMenu()}</AnimatePresence>
+                    </div>
+                    <Tooltip content={t.createGroup}>
+                      <button
+                        aria-label={t.createGroup}
+                        className="tm-button-primary"
+                        onClick={() => void handleCreateEmptyGroup()}
+                        type="button"
+                      >
+                        <RiAddCircleLine size={13} />
+                        {t.newGroup}
+                      </button>
+                    </Tooltip>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className="tm-header-picker tm-header-picker-batch"
+                      data-group-picker-root="true"
+                      data-open={moveGroupPickerOpen}
+                    >
+                      <button
+                        ref={moveGroupPickerRefs.setReference}
+                        aria-label={t.moveToGroup}
+                        className="tm-button tm-header-picker-trigger tm-batch-group-trigger"
+                        data-open={moveGroupPickerOpen}
+                        type="button"
+                        {...getMoveGroupPickerReferenceProps()}
+                      >
+                        <RiFolderLine size={13} />
+                        {t.moveToGroup}
+                      </button>
+
+                      <AnimatePresence initial={false}>{renderMoveGroupPickerPanel()}</AnimatePresence>
+                    </div>
+                    <button
+                      className="tm-button-primary"
+                      onClick={() => void handleCreateSelectionGroup()}
+                      title={t.createGroup}
+                      type="button"
+                    >
+                      <RiAddCircleLine size={13} />
+                      {t.newGroup}
+                    </button>
+                    <button
+                      className="tm-button tm-button-danger"
+                      onClick={() =>
+                        void execute(t.close, async () => {
+                          await closeTabs(selectedTabs.map((tab) => tab.id));
+                        }, { clearSelection: true })
+                      }
+                      title={t.close}
+                      type="button"
+                    >
+                      <RiCloseLine size={13} />
+                      {t.close}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {isSidepanel || isEmbeddedDashboard || (isEmbeddedDashboard && dashboardTabsSubView !== 'current') ? null : selectedCount > 0 ? (
+            <section
+              className={
+                isEmbeddedDashboard
+                  ? 'tm-panel tm-action-strip tm-selection-strip tm-selection-strip-dashboard'
+                  : 'tm-panel tm-action-strip tm-selection-strip'
+              }
+            >
+              <div className="tm-action-primary">
+                <div className="tm-action-overview tm-selection-status">
+                  <strong>{isEmbeddedDashboard ? t.selectedItems : `${selectedCount} ${t.selected}`}</strong>
+                  {isEmbeddedDashboard ? <span>{selectedCount}</span> : null}
+                  {isEmbeddedDashboard ? (
+                    <button
+                      className="tm-selection-clear-text"
+                      onClick={clearSelectionState}
+                      type="button"
+                    >
+                      <RiCloseLine size={13} />
+                      {t.clearSelection}
+                    </button>
+                  ) : (
+                    <span>{t.moveToGroup}</span>
+                  )}
+                </div>
+
+                <div className="tm-action-group">
+                  {isEmbeddedDashboard ? null : (
+                    <button
+                      className="tm-button"
+                      onClick={toggleVisibleSelection}
+                      title={t.selectVisible}
+                      type="button"
+                    >
+                      {visibleTabs.every((tab) => selectedIds.has(tab.id)) ? t.clearVisible : t.selectVisible}
+                    </button>
+                  )}
+                  <div
+                    className="tm-header-picker tm-header-picker-batch"
+                    data-group-picker-root="true"
+                    data-open={moveGroupPickerOpen}
+                  >
+                    <button
+                      ref={moveGroupPickerRefs.setReference}
+                      aria-label={t.moveToGroup}
+                      className="tm-button tm-header-picker-trigger tm-batch-group-trigger"
+                      data-open={moveGroupPickerOpen}
+                      type="button"
+                      {...getMoveGroupPickerReferenceProps()}
+                    >
+                      <RiFolderLine size={13} />
+                      {t.moveToGroup}
+                    </button>
+
+                    <AnimatePresence initial={false}>{renderMoveGroupPickerPanel()}</AnimatePresence>
+                  </div>
+                  <button
+                    className={isEmbeddedDashboard ? 'tm-button-primary' : 'tm-button'}
+                    onClick={() => void handleCreateSelectionGroup()}
+                    title={t.createGroup}
+                    type="button"
+                  >
+                    <RiAddCircleLine size={13} />
+                    {isEmbeddedDashboard ? t.newGroup : t.createGroup}
+                  </button>
+                  {isEmbeddedDashboard ? null : (
+                    <>
+                      <button
+                        className="tm-button"
+                        onClick={() =>
+                          void execute(selectedPinned ? t.unpin : t.pin, async () => {
+                            await pinTabs(
+                              selectedTabs.map((tab) => tab.id),
+                              !selectedPinned
+                            );
+                          })
+                        }
+                        title={selectedPinned ? t.unpin : t.pin}
+                        type="button"
+                      >
+                        <RiPushpin2Line size={13} />
+                        {selectedPinned ? t.unpin : t.pin}
+                      </button>
+                      <button
+                        className="tm-button"
+                        onClick={() =>
+                          void execute(selectedMuted ? t.unmute : t.mute, async () => {
+                            await muteTabs(
+                              selectedTabs.map((tab) => tab.id),
+                              !selectedMuted
+                            );
+                          })
+                        }
+                        title={selectedMuted ? t.unmute : t.mute}
+                        type="button"
+                      >
+                        <RiVolumeMuteLine size={13} />
+                        {selectedMuted ? t.unmute : t.mute}
+                      </button>
+                      <button
+                        className="tm-button"
+                        disabled={!selectedGrouped}
+                        onClick={() =>
+                          void execute(t.ungroup, async () => {
+                            await ungroupTabs(selectedTabs.map((tab) => tab.id));
+                          })
+                        }
+                        title={t.ungroup}
+                        type="button"
+                      >
+                        {t.ungroup}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    className="tm-button tm-button-danger"
+                    onClick={() =>
+                      void execute(t.close, async () => {
+                        await closeTabs(selectedTabs.map((tab) => tab.id));
+                      }, { clearSelection: true })
+                    }
+                    title={t.close}
+                    type="button"
+                  >
+                    <RiCloseLine size={13} />
+                    {t.close}
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {showingSessionsManager ? (
+            <SessionsManagerView
+              isSidepanel={isSidepanel}
               locale={locale}
-              onAddConfig={addAutoGroupConfig}
-              onBack={() => setSidepanelView('tabs')}
-              onDeleteConfig={deleteAutoGroupConfig}
-              onMoveConfig={moveAutoGroupConfig}
-              onToggleConfig={(configId) => void toggleAutoGroupConfig(configId)}
-              onUpdateConfig={updateAutoGroupConfig}
+              query={deferredQuery}
+              refreshSessions={refreshSessions}
               scrollRef={sidepanelTreeShellRef}
-              surfaceMode={mode}
+              openUrls={allTabs.map((tab) => tab.url)}
+              sessions={sessions.sessions}
             />
           ) : showingBookmarksManager ? (
             <BookmarksManagerView
@@ -2896,15 +3138,36 @@ export function OverviewPage({ mode }: OverviewPageProps) {
               refreshBookmarks={refreshBookmarks}
               scrollRef={sidepanelTreeShellRef}
             />
+          ) : isEmbeddedDashboard && dashboardTabsSubView === 'history' ? (
+            <main className="tm-dashboard-tabs-history-view">
+              {visibleHistoryTabs.length > 0 ? (
+                <HistoryTabsSection
+                  collapsible={false}
+                  historyTabs={visibleHistoryTabs}
+                  locale={locale}
+                  onOpenDetail={(historyTab) => void openHistoryTabDetail(historyTab)}
+                  onOpenTab={(historyTab) => void reopenHistoryTab(historyTab)}
+                  t={t}
+                />
+              ) : (
+                <div className="tm-empty">
+                  <RiTimeLine size={16} />
+                  <div>
+                    <div className="font-medium">{t.noMatch}</div>
+                    <div className="tm-subtle">{t.noMatchHint}</div>
+                  </div>
+                </div>
+              )}
+            </main>
           ) : (
             <TabsWorkspaceView
               activeDragGroupColor={activeDragGroup?.group.color as TabGroupColor | undefined}
               activeDragGroupId={activeDragGroupId}
-              activeDragTabId={activeDragTabId}
               collisionDetection={collisionDetectionStrategy}
+              dragOverlayState={dragOverlayState}
               entries={entries}
               historyContent={
-                historyTabs.length > 0 ? (
+                !isEmbeddedDashboard && historyTabs.length > 0 ? (
                   <HistoryTabsSection
                     historyTabs={historyTabs}
                     locale={locale}
@@ -2932,7 +3195,7 @@ export function OverviewPage({ mode }: OverviewPageProps) {
               }
               scrollRef={sidepanelTreeShellRef}
               sensors={sensors}
-              showTools={showTools}
+              showCreateGroupDropZone={showTools && (activeDragTabId !== null || activeDragGroupId !== null)}
               t={t}
               treeListScrollRef={treeListScrollRef}
               visibleTabs={visibleTabs}
