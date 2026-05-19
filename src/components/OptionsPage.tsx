@@ -4,6 +4,7 @@ import {
   RiFileCopyLine,
   RiFolderReduceLine,
   RiGlobalLine,
+  RiHistoryLine,
   RiMoonLine,
   RiSidebarUnfoldLine,
 } from '@remixicon/react';
@@ -171,6 +172,25 @@ export function OptionsPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              <div className="tm-panel-muted p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <RiHistoryLine size={14} />
+                    <h3 className="text-sm font-semibold">{t.showHistory}</h3>
+                  </div>
+                  <p className="tm-subtle">{t.showHistorySub}</p>
+                  <button
+                    aria-pressed={settings.showHistory}
+                    className={settings.showHistory ? 'tm-button-primary' : 'tm-button'}
+                    disabled={busy}
+                    onClick={() => void save({ showHistory: !settings.showHistory })}
+                    type="button"
+                  >
+                    {settings.showHistory ? t.enabled : t.disabled}
+                  </button>
                 </div>
               </div>
 

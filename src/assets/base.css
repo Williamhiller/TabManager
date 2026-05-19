@@ -425,6 +425,35 @@ button:disabled {
     @apply w-8 px-0;
   }
 
+  .tm-sidepanel-dashboard-launcher {
+    background: color-mix(in srgb, var(--tm-brand-subtle) 58%, var(--tm-surface));
+    border-color: color-mix(in srgb, var(--tm-brand) 34%, var(--tm-border));
+    color: var(--tm-brand);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--tm-brand) 16%, transparent);
+  }
+
+  .tm-sidepanel-dashboard-launcher:hover {
+    background: color-mix(in srgb, var(--tm-brand-subtle) 78%, var(--tm-surface));
+    border-color: color-mix(in srgb, var(--tm-brand) 48%, var(--tm-border));
+    color: var(--tm-brand);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--tm-brand) 16%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .tm-sidepanel-dashboard-launcher:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--tm-brand) 16%, transparent);
+  }
+
+  .tm-sidepanel-dashboard-launcher:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--tm-brand) 42%, transparent);
+    outline-offset: 1px;
+  }
+
+  .tm-sidepanel-dashboard-launcher svg {
+    color: inherit;
+  }
+
   .tm-sidepanel-settings-popover-root {
     @apply relative flex shrink-0 items-center gap-1;
   }
@@ -1637,6 +1666,53 @@ button:disabled {
     @apply sticky bottom-0 z-10 mt-auto flex flex-wrap items-center justify-between gap-2 rounded-[16px] px-3 py-2 backdrop-blur-xl;
   }
 
+  .tm-sidepanel-dashboard-shortcuts {
+    background: color-mix(in srgb, var(--tm-surface) 94%, transparent);
+    border-width: 1px 0 0;
+    box-shadow: 0 -6px 14px rgba(28, 25, 23, 0.06);
+    @apply shrink-0 grid gap-1 rounded-none px-2 py-1;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 1.75rem;
+  }
+
+  .tm-sidepanel-dashboard-shortcut {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--tm-border) 68%, transparent);
+    color: var(--tm-text-muted);
+    min-width: 0;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      transform 140ms ease;
+    @apply inline-flex h-7 items-center justify-center gap-1 rounded-[10px] px-1.5 text-[10px] font-semibold;
+  }
+
+  .tm-sidepanel-dashboard-shortcut:hover {
+    background: color-mix(in srgb, var(--tm-brand-subtle) 34%, transparent);
+    border-color: color-mix(in srgb, var(--tm-brand) 24%, var(--tm-border));
+    color: var(--tm-brand);
+    transform: translateY(-1px);
+  }
+
+  .tm-sidepanel-dashboard-shortcut:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--tm-primary) 45%, transparent);
+    outline-offset: 1px;
+  }
+
+  .tm-sidepanel-dashboard-shortcut svg,
+  .tm-sidepanel-dashboard-shortcut span {
+    color: inherit;
+    transition: color 140ms ease;
+  }
+
+  .tm-sidepanel-dashboard-shortcut span {
+    @apply min-w-0 truncate;
+  }
+
+  .tm-sidepanel-dashboard-shortcut-icon {
+    @apply w-7 px-0;
+  }
+
   .tm-sidepanel-footer-group {
     @apply flex min-w-0 items-center gap-2;
   }
@@ -1644,7 +1720,7 @@ button:disabled {
   .tm-sidepanel-scrollbar {
     @apply absolute right-0 z-40 flex justify-center;
     width: 12px;
-    bottom: 8px;
+    bottom: 38px;
     transition: opacity 160ms ease;
   }
 

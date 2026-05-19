@@ -67,6 +67,7 @@ export interface ManagerSettings {
   autoDeduplicationSites: string[];
   autoGroupEnabled: boolean;
   autoSnapshotsEnabled: boolean;
+  showHistory: boolean;
   redirectTrackingEnabled: boolean;
   autoGroupPresetIds: string[];
   autoGroupConfigs: AutoGroupConfig[];

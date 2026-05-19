@@ -62,6 +62,7 @@ export const defaultSettings: ManagerSettings = {
   autoDeduplicationSites: [],
   autoGroupEnabled: true,
   autoSnapshotsEnabled: true,
+  showHistory: true,
   redirectTrackingEnabled: false,
   autoGroupPresetIds: defaultAutoGroupPresets.map((preset) => preset.id),
   autoGroupConfigs: defaultAutoGroupPresets.map((preset) => ({
@@ -173,6 +174,10 @@ function normalizeAutoGroupEnabled(value: unknown): boolean {
 
 function normalizeAutoSnapshotsEnabled(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.autoSnapshotsEnabled;
+}
+
+function normalizeShowHistory(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : defaultSettings.showHistory;
 }
 
 function normalizeRedirectTrackingEnabled(value: unknown): boolean {
@@ -304,6 +309,7 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
     autoDeduplicationSites: normalizeAutoDeduplicationSites(raw?.autoDeduplicationSites),
     autoGroupEnabled: normalizeAutoGroupEnabled(raw?.autoGroupEnabled),
     autoSnapshotsEnabled: normalizeAutoSnapshotsEnabled(raw?.autoSnapshotsEnabled),
+    showHistory: normalizeShowHistory(raw?.showHistory),
     redirectTrackingEnabled: normalizeRedirectTrackingEnabled(raw?.redirectTrackingEnabled),
     autoGroupPresetIds: autoGroupConfigs
       .filter((config) => config.presetId && config.enabled)

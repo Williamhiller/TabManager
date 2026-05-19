@@ -17,6 +17,7 @@ import {
   RiArrowRightUpLine,
   RiBrushLine,
   RiCloseLine,
+  RiFilterOffLine,
   RiFilter3Line,
   RiFileCopyLine,
   RiFolderLine,
@@ -31,6 +32,7 @@ import {
   RiShining2Line,
   RiSoundModuleLine,
   RiTimeLine,
+  RiNodeTree,
   RiVolumeMuteLine,
   type RemixiconComponentType
 } from '@remixicon/react';
@@ -102,7 +104,7 @@ import {
   ungroupTabs,
   updateGroup
 } from '../lib/runtime-client';
-import { defaultSettings, getSettings, updateSettings } from '../lib/settings';
+import { SETTINGS_KEY, defaultSettings, getSettings, updateSettings } from '../lib/settings';
 import { allGroupColors, applyTheme } from '../lib/theme';
 
 type SurfaceMode = 'popup' | 'sidepanel' | 'dashboard';
@@ -509,6 +511,7 @@ export function OverviewPage({
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const locale = resolveLocale(settings.locale);
   const t = getMessages(settings.locale);
+  const showHistory = settings.showHistory;
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 }
@@ -622,6 +625,30 @@ export function OverviewPage({
   useEffect(() => {
     if (isExternallyBacked) return;
 
+    const handleStorageChanged = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string
+    ) => {
+      if (areaName !== 'sync' || !changes[SETTINGS_KEY]) return;
+
+      void (async () => {
+        try {
+          const nextSettings = await getSettings();
+          setSettings(nextSettings);
+          setError(null);
+        } catch (nextError) {
+          setError(getErrorMessage(nextError));
+        }
+      })();
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChanged);
+    return () => chrome.storage.onChanged.removeListener(handleStorageChanged);
+  }, [isExternallyBacked]);
+
+  useEffect(() => {
+    if (isExternallyBacked) return;
+
     let refreshTimer: number | null = null;
 
     const unsubscribe = subscribeToOverviewUpdates(() => {
@@ -708,6 +735,11 @@ export function OverviewPage({
   useEffect(() => {
     applyTheme(settings.theme);
   }, [settings.theme]);
+
+  useEffect(() => {
+    if (showHistory || dashboardTabsSubView !== 'history') return;
+    setDashboardTabsSubView('current');
+  }, [dashboardTabsSubView, showHistory]);
 
   useEffect(() => {
     if (!isSidepanel) return;
@@ -2509,22 +2541,12 @@ export function OverviewPage({
                   <div className="tm-sidepanel-settings-popover-root">
                     <Tooltip content={t.dashboard}>
                       <button
-                        className="tm-button tm-button-sidepanel tm-button-sidepanel-icon"
+                        className="tm-button tm-button-sidepanel tm-button-sidepanel-icon tm-sidepanel-dashboard-launcher"
                         aria-label={t.dashboard}
                         type="button"
                         onClick={() => void openDashboardPage()}
                       >
                         <RiDashboardLine size={14} />
-                      </button>
-                    </Tooltip>
-                    <Tooltip content={t.settings}>
-                      <button
-                        className="tm-button tm-button-sidepanel tm-button-sidepanel-icon"
-                        aria-label={t.settings}
-                        type="button"
-                        onClick={() => void openDashboardPage('settings')}
-                      >
-                        <RiSettings3Line size={14} />
                       </button>
                     </Tooltip>
                   </div>
@@ -2670,19 +2692,21 @@ export function OverviewPage({
               </>
             ) : isEmbeddedDashboard ? (
               <div className="tm-dashboard-tabs-top-row">
-                <div className="tm-dashboard-tabs-nav-row">
-                  <SegmentedSwitch
-                    ariaLabel={t.navTabs}
-                    className="tm-dashboard-tabs-view-switch"
-                    onChange={setDashboardTabsSubView}
-                    optionClassName="tm-dashboard-tabs-view-button"
-                    options={[
-                      { value: 'current', label: t.navTabs, meta: visibleTabs.length },
-                      { value: 'history', label: t.historyTabs, meta: historyTabs.length }
-                    ]}
-                    value={dashboardTabsSubView}
-                  />
-                </div>
+                {showHistory ? (
+                  <div className="tm-dashboard-tabs-nav-row">
+                    <SegmentedSwitch
+                      ariaLabel={t.navTabs}
+                      className="tm-dashboard-tabs-view-switch"
+                      onChange={setDashboardTabsSubView}
+                      optionClassName="tm-dashboard-tabs-view-button"
+                      options={[
+                        { value: 'current', label: t.navTabs, meta: visibleTabs.length },
+                        { value: 'history', label: t.historyTabs, meta: historyTabs.length }
+                      ]}
+                      value={dashboardTabsSubView}
+                    />
+                  </div>
+                ) : null}
                 <div className="tm-search-row tm-search-row-dashboard">
                   <label className="tm-input tm-input-search tm-input-search-dashboard">
                     <RiSearchLine size={15} />
@@ -3138,7 +3162,7 @@ export function OverviewPage({
               refreshBookmarks={refreshBookmarks}
               scrollRef={sidepanelTreeShellRef}
             />
-          ) : isEmbeddedDashboard && dashboardTabsSubView === 'history' ? (
+          ) : isEmbeddedDashboard && showHistory && dashboardTabsSubView === 'history' ? (
             <main className="tm-dashboard-tabs-history-view">
               {visibleHistoryTabs.length > 0 ? (
                 <HistoryTabsSection
@@ -3167,7 +3191,7 @@ export function OverviewPage({
               dragOverlayState={dragOverlayState}
               entries={entries}
               historyContent={
-                !isEmbeddedDashboard && historyTabs.length > 0 ? (
+                showHistory && !isEmbeddedDashboard && historyTabs.length > 0 ? (
                   <HistoryTabsSection
                     historyTabs={historyTabs}
                     locale={locale}
@@ -3203,6 +3227,39 @@ export function OverviewPage({
           )}
 
         </div>
+        {isSidepanel ? (
+          <div className="tm-sidepanel-footer tm-sidepanel-dashboard-shortcuts">
+            <button
+              aria-label={t.navAutomation}
+              className="tm-sidepanel-dashboard-shortcut"
+              onClick={() => void openDashboardPage('automation')}
+              title={t.navAutomation}
+              type="button"
+            >
+              <RiNodeTree size={12} />
+              <span>{t.navAutomation}</span>
+            </button>
+            <button
+              aria-label={t.autoDeduplicate}
+              className="tm-sidepanel-dashboard-shortcut"
+              onClick={() => void openDashboardPage('deduplication')}
+              title={t.autoDeduplicate}
+              type="button"
+            >
+              <RiFilterOffLine size={12} />
+              <span>{t.autoDeduplicate}</span>
+            </button>
+            <button
+              aria-label={t.settings}
+              className="tm-sidepanel-dashboard-shortcut tm-sidepanel-dashboard-shortcut-icon"
+              onClick={() => void openDashboardPage('settings')}
+              title={t.settings}
+              type="button"
+            >
+              <RiSettings3Line size={12} />
+            </button>
+          </div>
+        ) : null}
         {isSidepanel ? (
           <div
             className="tm-sidepanel-scrollbar"

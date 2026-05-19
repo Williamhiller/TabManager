@@ -395,11 +395,11 @@ export function DashboardPage() {
           shareFeedback={shareFeedback}
           shareLabel={t.shareApp}
           shareOpenStoreLabel={t.openStorePage}
-          tagline="· Tame tab chaos"
+          tagline={`· ${t.appTagline}`}
           onThemeToggle={handleThemeToggle}
           themeChoice={resolvedTheme}
           themeLabel={t.theme}
-          title={t.appTitle}
+          title="TabWise"
         />
 
         <div
@@ -448,6 +448,7 @@ export function DashboardPage() {
               onLocaleChange={(localeMode) => void saveSettings({ locale: localeMode })}
               onRedirectTrackingToggle={() => void toggleRedirectTracking()}
               onToggleAutoGroup={() => void saveSettings({ autoGroupEnabled: !data.settings.autoGroupEnabled })}
+              onToggleShowHistory={() => void saveSettings({ showHistory: !data.settings.showHistory })}
               onToggleAutoSnapshots={() =>
                 void saveSettings({ autoSnapshotsEnabled: !data.settings.autoSnapshotsEnabled })
               }

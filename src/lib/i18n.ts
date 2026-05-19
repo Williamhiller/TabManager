@@ -6,6 +6,7 @@ export type ResolvedLocale = (typeof supportedLocales)[number];
 
 const enMessages = {
     appTitle: 'TabWise',
+    appTagline: 'Tame tab chaos',
     appSubtitle: 'Auto-group tabs, remove duplicates, search, clean up, and restore sessions.',
     searchPlaceholder: 'Search title, site, or group',
     allTabs: 'All tabs',
@@ -43,6 +44,8 @@ const enMessages = {
     redirectTrackingOff: 'Off by default; enable only when you need redirect details.',
     redirectTrackingDenied: 'Permission was not granted.',
     historyTabs: 'History Tabs',
+    showHistory: 'Show history',
+    showHistorySub: 'Render the history module in the workspace and dashboard tabs view.',
     reopenHistoryTab: 'Reopen tab',
     openedLabel: 'Opened',
     lastActiveLabel: 'Last active',
@@ -225,7 +228,8 @@ const enMessages = {
 } as const;
 
 const zhCnMessages = {
-    appTitle: '标签管理',
+    appTitle: 'TabWise',
+    appTagline: '把标签整理好',
     appSubtitle: '先搜索，再分组，把标签真正管起来。',
     searchPlaceholder: '搜索标题、站点或分组',
     allTabs: '全部标签',
@@ -263,6 +267,8 @@ const zhCnMessages = {
     redirectTrackingOff: '默认关闭，仅在需要跳转详情时开启。',
     redirectTrackingDenied: '未获得授权。',
     historyTabs: '历史标签',
+    showHistory: '展示历史记录',
+    showHistorySub: '在工作区和独立页面标签视图中渲染历史记录模块。',
     reopenHistoryTab: '重新打开标签',
     openedLabel: '打开时间',
     lastActiveLabel: '最近活跃',
@@ -449,6 +455,7 @@ const messages = {
   'zh-CN': zhCnMessages,
   ja: {
     ...enMessages,
+    appTagline: 'タブの混沌を整える',
     searchPlaceholder: 'タイトル、サイト、グループを検索',
     settings: '設定',
     workspaceSettings: 'ワークスペース設定',
@@ -523,6 +530,7 @@ const messages = {
   },
   fr: {
     ...enMessages,
+    appTagline: 'Maîtrisez le chaos des onglets',
     searchPlaceholder: 'Rechercher un titre, un site ou un groupe',
     settings: 'Paramètres',
     workspaceSettings: 'Paramètres de l’espace',
@@ -597,6 +605,7 @@ const messages = {
   },
   es: {
     ...enMessages,
+    appTagline: 'Domina el caos de pestañas',
     searchPlaceholder: 'Buscar título, sitio o grupo',
     settings: 'Ajustes',
     workspaceSettings: 'Ajustes del espacio',
@@ -671,6 +680,7 @@ const messages = {
   },
   ar: {
     ...enMessages,
+    appTagline: 'رتب فوضى التبويبات',
     searchPlaceholder: 'ابحث عن العنوان أو الموقع أو المجموعة',
     settings: 'الإعدادات',
     workspaceSettings: 'إعدادات مساحة العمل',

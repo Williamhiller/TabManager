@@ -3,6 +3,7 @@ import {
   RiDashboardLine,
   RiFolderReduceLine,
   RiGlobalLine,
+  RiHistoryLine,
   RiLayoutRightLine,
   RiMoonLine,
   RiRadarLine,
@@ -36,6 +37,7 @@ type DashboardSettingsPanelProps = {
   onAutoSleepChange: (minutes: AutoSleepInactiveTabsMinutes) => void;
   onLocaleChange: (locale: LocaleMode) => void;
   onRedirectTrackingToggle: () => void;
+  onToggleShowHistory: () => void;
   onToggleAutoSnapshots: () => void;
   onToggleAutoGroup: () => void;
   onToggleLaunchSurface: (surface: ManagerSettings['launchSurface']) => void;
@@ -68,6 +70,7 @@ export function DashboardSettingsPanel({
   onAutoSleepChange,
   onLocaleChange,
   onRedirectTrackingToggle,
+  onToggleShowHistory,
   onToggleAutoSnapshots,
   onToggleAutoGroup,
   onToggleLaunchSurface,
@@ -112,6 +115,35 @@ export function DashboardSettingsPanel({
                 ]}
                 value={settings.launchSurface}
               />
+            </div>
+          </section>
+
+          <section className="tm-dashboard-setting-row">
+            <div className="tm-dashboard-setting-copy">
+              <span className="tm-dashboard-setting-icon">
+                <RiHistoryLine size={14} />
+              </span>
+              <div>
+                <strong>{t.showHistory}</strong>
+                <p>{t.showHistorySub}</p>
+              </div>
+            </div>
+            <div className="tm-dashboard-setting-control">
+              <button
+                aria-pressed={settings.showHistory}
+                className="tm-dashboard-switch"
+                data-active={settings.showHistory}
+                disabled={busy}
+                onClick={onToggleShowHistory}
+                type="button"
+              >
+                <span className="tm-dashboard-switch-track">
+                  <span className="tm-dashboard-switch-thumb" />
+                </span>
+                <span className="tm-dashboard-switch-label">
+                  {settings.showHistory ? t.enabled : t.disabled}
+                </span>
+              </button>
             </div>
           </section>
 
