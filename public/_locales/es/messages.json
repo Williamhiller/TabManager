@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "TabWise - Gestor y organizador inteligente de pestañas"
+    "message": "TabFriday - Gestor de pestañas: grupos, duplicados y sesiones"
   },
   "extDescription": {
     "message": "Gestor inteligente para agrupar pestañas, eliminar duplicadas, limpiar pestañas inactivas, buscar y restaurar sesiones."
   },
   "extActionTitle": {
-    "message": "TabWise - Gestor y organizador inteligente de pestañas"
+    "message": "TabFriday - Gestor de pestañas: grupos, duplicados y sesiones"
   }
 }

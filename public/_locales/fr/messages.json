@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "TabWise - Gestionnaire et organiseur d'onglets intelligent"
+    "message": "TabFriday - Gestion d'onglets : groupes, doublons et sessions"
   },
   "extDescription": {
     "message": "Gestionnaire d'onglets intelligent pour regrouper, supprimer les doublons, nettoyer les onglets inactifs, rechercher et restaurer les sessions."
   },
   "extActionTitle": {
-    "message": "TabWise - Gestionnaire et organiseur d'onglets intelligent"
+    "message": "TabFriday - Gestion d'onglets : groupes, doublons et sessions"
   }
 }

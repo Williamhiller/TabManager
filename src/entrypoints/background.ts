@@ -2,25 +2,25 @@ import { defineBackground } from 'wxt/utils/define-background';
 
 import { installBackgroundService } from '../lib/background-service';
 import type { LaunchSurface, ManagerSettings } from '../lib/contracts';
+import { openOrRefreshDashboardTab } from '../lib/dashboard-tabs';
 import { getSettings, SETTINGS_KEY, updateSettings } from '../lib/settings';
 
 let preferredLaunchSurface: LaunchSurface = 'sidepanel';
+const LAUNCH_SURFACE_OPEN_TIMEOUT_MS = 4_000;
 
-async function openDashboardPage(): Promise<void> {
-  const url = chrome.runtime.getURL('/dashboard.html');
-  const dashboardUrlPrefix = chrome.runtime.getURL('/dashboard.html');
-  const existingTabs = await chrome.tabs.query({});
-  const existingTab = existingTabs.find((candidate) => candidate.url?.startsWith(dashboardUrlPrefix));
-
-  if (existingTab?.id != null) {
-    await chrome.tabs.update(existingTab.id, { active: true, url });
-    if (existingTab.windowId != null) {
-      await chrome.windows.update(existingTab.windowId, { focused: true });
-    }
-    return;
-  }
-
-  await chrome.tabs.create({ url });
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
 }
 
 async function syncPreferredLaunchSurface(): Promise<void> {
@@ -52,7 +52,11 @@ async function openConfiguredLaunchSurface(tab?: chrome.tabs.Tab): Promise<void>
     const windowId = tab?.windowId;
     if (windowId != null) {
       try {
-        await chrome.sidePanel.open({ windowId });
+        await withTimeout(
+          chrome.sidePanel.open({ windowId }),
+          LAUNCH_SURFACE_OPEN_TIMEOUT_MS,
+          'Timed out opening side panel from action click.'
+        );
         return;
       } catch (error) {
         console.warn('Failed to open side panel from action click, falling back to dashboard.', error);
@@ -60,10 +64,12 @@ async function openConfiguredLaunchSurface(tab?: chrome.tabs.Tab): Promise<void>
     }
   }
 
-  await openDashboardPage();
+  await openOrRefreshDashboardTab();
 }
 
 async function configureActionClickBehavior(): Promise<void> {
+  if (!chrome.sidePanel?.setPanelBehavior) return;
+
   await chrome.sidePanel.setPanelBehavior({
     openPanelOnActionClick: false
   });
@@ -73,7 +79,7 @@ async function handleInstalled(details: chrome.runtime.InstalledDetails): Promis
   if (details.reason === 'install') {
     await updateSettings({ launchSurface: 'dashboard' });
     preferredLaunchSurface = 'dashboard';
-    await openDashboardPage();
+    await openOrRefreshDashboardTab();
     return;
   }
 

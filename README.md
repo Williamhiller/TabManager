@@ -1,6 +1,6 @@
-# TabWise - Smart Tab Manager & Organizer
+# TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions
 
-TabWise is a smart tab manager and organizer for auto-grouping tabs, removing duplicate tabs, cleaning inactive tabs, searching tabs, and restoring sessions.
+TabFriday is a smart tab manager and organizer for auto-grouping tabs, removing duplicate tabs, cleaning inactive tabs, searching tabs, and restoring sessions.
 
 The main product promise is simple: tabs should organize themselves. The extension can auto group Chrome tabs by website, topic, domain, custom website lists, and user-defined rules, while still keeping manual search, cleanup, batch actions, and tab history close at hand.
 

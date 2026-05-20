@@ -28,6 +28,7 @@ import {
   updateSettings
 } from '../lib/settings';
 import { applyTheme } from '../lib/theme';
+import { TagListEditor } from './TagListEditor';
 
 const refreshChoices = [0, 15, 30, 60];
 
@@ -284,24 +285,14 @@ export function OptionsPage() {
                         </option>
                         <option value="listed-only">{t.autoDeduplicationModeListedOnly}</option>
                       </select>
-                      <textarea
-                        aria-label={
+                      <TagListEditor
+                        ariaLabel={
                           settings.autoDeduplicationScope === 'listed-only'
                             ? t.autoDeduplicationIncludedSites
                             : t.autoDeduplicationExcludedSites
                         }
-                        className="tm-select tm-settings-select min-h-[112px] resize-y py-3"
-                        defaultValue={settings.autoDeduplicationSites.join('\n')}
-                        key={`options-dedupe-sites:${settings.autoDeduplicationSites.join('|')}:${settings.autoDeduplicationScope}`}
-                        onBlur={(event) => {
-                          const entries = event.target.value
-                            .split('\n')
-                            .map((entry) => entry.trim())
-                            .filter(Boolean);
-                          const normalized = entries.join('\n');
-                          if (normalized !== event.target.value.trim()) {
-                            event.target.value = normalized;
-                          }
+                        disabled={busy}
+                        onChange={(entries) => {
                           void save({ autoDeduplicationSites: entries });
                         }}
                         placeholder={
@@ -309,6 +300,8 @@ export function OptionsPage() {
                             ? t.autoDeduplicationIncludedSitesPlaceholder
                             : t.autoDeduplicationExcludedSitesPlaceholder
                         }
+                        removeLabel={t.removeCondition}
+                        value={settings.autoDeduplicationSites}
                       />
                     </>
                   ) : null}
@@ -322,23 +315,15 @@ export function OptionsPage() {
                     <h3 className="text-sm font-semibold">{t.autoCleanupWhitelist}</h3>
                   </div>
                   <p className="tm-subtle">{t.autoCleanupWhitelistSub}</p>
-                  <textarea
-                    aria-label={t.autoCleanupWhitelist}
-                    className="tm-select tm-settings-select min-h-[112px] resize-y py-3"
-                    defaultValue={settings.autoCleanupWhitelist.join('\n')}
-                    key={`options-cleanup-whitelist:${settings.autoCleanupWhitelist.join('|')}`}
-                    onBlur={(event) => {
-                      const entries = event.target.value
-                        .split('\n')
-                        .map((entry) => entry.trim())
-                        .filter(Boolean);
-                      const normalized = entries.join('\n');
-                      if (normalized !== event.target.value.trim()) {
-                        event.target.value = normalized;
-                      }
+                  <TagListEditor
+                    ariaLabel={t.autoCleanupWhitelist}
+                    disabled={busy}
+                    onChange={(entries) => {
                       void save({ autoCleanupWhitelist: entries });
                     }}
                     placeholder={t.autoCleanupWhitelistPlaceholder}
+                    removeLabel={t.removeCondition}
+                    value={settings.autoCleanupWhitelist}
                   />
                 </div>
               </div>

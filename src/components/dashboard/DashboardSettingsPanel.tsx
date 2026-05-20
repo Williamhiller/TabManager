@@ -23,6 +23,7 @@ import type {
 import { DashboardDropdown } from './DashboardDropdown';
 import type { DashboardLocaleOptionView } from './types';
 import { SegmentedSwitch } from '../SegmentedSwitch';
+import { TagListEditor } from '../TagListEditor';
 
 type DashboardSettingsPanelProps = {
   autoCloseChoices: readonly AutoCloseInactiveTabsMinutes[];
@@ -330,23 +331,13 @@ export function DashboardSettingsPanel({
               </div>
             </div>
             <div className="tm-dashboard-setting-control">
-              <textarea
-                aria-label={t.autoCleanupWhitelist}
-                className="tm-dashboard-automation-input tm-dashboard-automation-textarea tm-dashboard-setting-textarea"
-                defaultValue={settings.autoCleanupWhitelist.join('\n')}
-                key={`cleanup-whitelist:${settings.autoCleanupWhitelist.join('|')}`}
-                onBlur={(event) => {
-                  const entries = event.target.value
-                    .split('\n')
-                    .map((entry) => entry.trim())
-                    .filter(Boolean);
-                  const normalized = entries.join('\n');
-                  if (normalized !== event.target.value.trim()) {
-                    event.target.value = normalized;
-                  }
-                  onAutoCleanupWhitelistChange(entries);
-                }}
+              <TagListEditor
+                ariaLabel={t.autoCleanupWhitelist}
+                disabled={busy}
+                onChange={onAutoCleanupWhitelistChange}
                 placeholder={t.autoCleanupWhitelistPlaceholder}
+                removeLabel={t.removeCondition}
+                value={settings.autoCleanupWhitelist}
               />
             </div>
           </section>

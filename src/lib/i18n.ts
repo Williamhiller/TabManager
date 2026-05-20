@@ -5,8 +5,8 @@ export const supportedLocales = ['en', 'zh-CN', 'ja', 'fr', 'es', 'ar'] as const
 export type ResolvedLocale = (typeof supportedLocales)[number];
 
 const enMessages = {
-    appTitle: 'TabWise',
-    appTagline: 'Tame tab chaos',
+    appTitle: 'TabFriday',
+    appTagline: 'Your tab assistant',
     appSubtitle: 'Auto-group tabs, remove duplicates, search, clean up, and restore sessions.',
     searchPlaceholder: 'Search title, site, or group',
     allTabs: 'All tabs',
@@ -228,8 +228,8 @@ const enMessages = {
 } as const;
 
 const zhCnMessages = {
-    appTitle: 'TabWise',
-    appTagline: '把标签整理好',
+    appTitle: 'TabFriday',
+    appTagline: '你的标签助理',
     appSubtitle: '先搜索，再分组，把标签真正管起来。',
     searchPlaceholder: '搜索标题、站点或分组',
     allTabs: '全部标签',
@@ -455,7 +455,7 @@ const messages = {
   'zh-CN': zhCnMessages,
   ja: {
     ...enMessages,
-    appTagline: 'タブの混沌を整える',
+    appTagline: 'タブアシスタント',
     searchPlaceholder: 'タイトル、サイト、グループを検索',
     settings: '設定',
     workspaceSettings: 'ワークスペース設定',
@@ -530,7 +530,7 @@ const messages = {
   },
   fr: {
     ...enMessages,
-    appTagline: 'Maîtrisez le chaos des onglets',
+    appTagline: "Assistant d'onglets",
     searchPlaceholder: 'Rechercher un titre, un site ou un groupe',
     settings: 'Paramètres',
     workspaceSettings: 'Paramètres de l’espace',
@@ -605,7 +605,7 @@ const messages = {
   },
   es: {
     ...enMessages,
-    appTagline: 'Domina el caos de pestañas',
+    appTagline: 'Asistente de pestañas',
     searchPlaceholder: 'Buscar título, sitio o grupo',
     settings: 'Ajustes',
     workspaceSettings: 'Ajustes del espacio',
@@ -680,7 +680,7 @@ const messages = {
   },
   ar: {
     ...enMessages,
-    appTagline: 'رتب فوضى التبويبات',
+    appTagline: 'مساعد علامات التبويب',
     searchPlaceholder: 'ابحث عن العنوان أو الموقع أو المجموعة',
     settings: 'الإعدادات',
     workspaceSettings: 'إعدادات مساحة العمل',

@@ -1,5 +1,6 @@
 import { RiGlobalLine, RiSparklingLine } from '@remixicon/react';
 
+import { TagListEditor } from '../TagListEditor';
 import { DashboardDropdown } from './DashboardDropdown';
 import type { DashboardDeduplicationPanelProps } from './types';
 
@@ -114,24 +115,13 @@ export function DashboardDeduplicationPanel({
                 </div>
 
                 <div className="tm-dashboard-dedup-card-body">
-                  <textarea
-                    aria-label={siteListTitle}
-                    className="tm-dashboard-automation-input tm-dashboard-automation-textarea tm-dashboard-setting-textarea"
-                    defaultValue={settings.autoDeduplicationSites.join('\n')}
+                  <TagListEditor
+                    ariaLabel={siteListTitle}
                     disabled={!settings.autoDeduplicateTabs}
-                    key={`dedupe-sites-panel:${settings.autoDeduplicationSites.join('|')}:${settings.autoDeduplicationScope}`}
-                    onBlur={(event) => {
-                      const entries = event.target.value
-                        .split('\n')
-                        .map((entry) => entry.trim())
-                        .filter(Boolean);
-                      const normalized = entries.join('\n');
-                      if (normalized !== event.target.value.trim()) {
-                        event.target.value = normalized;
-                      }
-                      onDeduplicationSitesChange(entries);
-                    }}
+                    onChange={onDeduplicationSitesChange}
                     placeholder={siteListPlaceholder}
+                    removeLabel={t.removeCondition}
+                    value={settings.autoDeduplicationSites}
                   />
                 </div>
               </section>

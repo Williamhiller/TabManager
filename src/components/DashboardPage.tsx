@@ -98,22 +98,64 @@ export function DashboardPage() {
   }, [shareFeedback]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadOverview = async () => {
+      try {
+        const overview = await getOverview();
+        if (!mounted) return;
+        setData((current) => ({ ...current, overview }));
+        setError(null);
+      } catch (nextError) {
+        if (mounted) setError(getErrorMessage(nextError));
+      }
+    };
+
+    const loadBookmarks = async () => {
+      try {
+        const bookmarks = await getBookmarks();
+        if (!mounted) return;
+        setData((current) => ({ ...current, bookmarks }));
+      } catch (nextError) {
+        if (mounted) setError(getErrorMessage(nextError));
+      }
+    };
+
+    const loadSessions = async () => {
+      try {
+        const sessions = await getSessions();
+        if (!mounted) return;
+        setData((current) => ({ ...current, sessions }));
+      } catch (nextError) {
+        if (mounted) setError(getErrorMessage(nextError));
+      }
+    };
+
+    const loadRedirectPermission = async () => {
+      try {
+        const redirectTrackingPermission = await getRedirectTrackingPermissionState();
+        if (!mounted) return;
+        setData((current) => ({ ...current, redirectTrackingPermission }));
+      } catch (nextError) {
+        if (mounted) setError(getErrorMessage(nextError));
+      }
+    };
+
     const load = async () => {
       try {
-        const [overview, settings, bookmarks, sessions, redirectTrackingPermission] = await Promise.all([
-          getOverview(),
-          getSettings(),
-          getBookmarks(),
-          getSessions(),
-          getRedirectTrackingPermissionState()
-        ]);
-
-        setData({ bookmarks, overview, redirectTrackingPermission, sessions, settings });
+        const settings = await getSettings();
+        if (!mounted) return;
+        setData((current) => ({ ...current, settings }));
         setSettingsLoaded(true);
         setError(null);
       } catch (nextError) {
-        setError(getErrorMessage(nextError));
+        if (mounted) setError(getErrorMessage(nextError));
       }
+
+      void loadOverview();
+      void loadBookmarks();
+      void loadSessions();
+      void loadRedirectPermission();
     };
 
     const refreshOverview = async () => {
@@ -169,6 +211,7 @@ export function DashboardPage() {
     chrome.storage.onChanged.addListener(handleStorageChanged);
 
     return () => {
+      mounted = false;
       unsubscribeOverview();
       unsubscribeBookmarks();
       unsubscribeSessions();
@@ -399,7 +442,7 @@ export function DashboardPage() {
           onThemeToggle={handleThemeToggle}
           themeChoice={resolvedTheme}
           themeLabel={t.theme}
-          title="TabWise"
+          title="TabFriday"
         />
 
         <div

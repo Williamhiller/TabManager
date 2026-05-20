@@ -1,10 +1,10 @@
-# Privacy Policy - TabWise
+# Privacy Policy - TabFriday
 
 Last updated: 2026-05-11
 
 ## Summary
 
-TabWise is designed to work locally in your browser.
+TabFriday is designed to work locally in your browser.
 
 - No user account is required.
 - No analytics service is integrated.
@@ -31,6 +31,7 @@ Data is stored in browser-provided local/sync storage (`chrome.storage.local` an
 - `tabs`: required to list and manage tabs.
 - `tabGroups`: required to read and manage tab groups.
 - `bookmarks`: required to read, search, create, edit, move, and delete bookmarks and bookmark folders inside the bookmark workspace.
+- `alarms`: required to schedule lightweight background tasks for auto snapshots and automatic cleanup of inactive tab groups and tabs.
 - `sidePanel`: required to open the side panel workspace.
 - `storage`: required to persist settings and local history.
 - `system.memory`: required to show memory snapshot information.
@@ -40,7 +41,7 @@ Data is stored in browser-provided local/sync storage (`chrome.storage.local` an
 
 ## Data Sharing
 
-TabWise does not sell, transfer, or share your browsing data with third parties.
+TabFriday does not sell, transfer, or share your browsing data with third parties.
 
 ## Contact
 

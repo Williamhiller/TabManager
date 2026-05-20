@@ -3649,6 +3649,51 @@ button:disabled {
     @apply h-9 w-full rounded-[12px] px-3 pr-8 text-[13px] font-medium;
   }
 
+  .tm-tag-editor {
+    border: 1px solid var(--tm-border);
+    background: transparent;
+    @apply min-h-[42px] w-full rounded-[12px] px-3 py-2;
+  }
+
+  .tm-tag-editor[data-disabled='true'] {
+    opacity: 0.62;
+  }
+
+  .tm-tag-list {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .tm-tag-chip {
+    background: var(--tm-surface-muted);
+    color: var(--tm-text);
+    @apply inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full px-2.5 text-xs leading-none;
+  }
+
+  .tm-tag-chip span {
+    @apply min-w-0 truncate;
+    max-width: min(220px, 100%);
+  }
+
+  .tm-tag-remove {
+    color: var(--tm-text-faint);
+    @apply inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-0 bg-transparent;
+  }
+
+  .tm-tag-remove:hover:not(:disabled),
+  .tm-tag-remove:focus-visible:not(:disabled) {
+    background: color-mix(in srgb, var(--tm-text) 10%, transparent);
+    color: var(--tm-text);
+  }
+
+  .tm-tag-input {
+    color: var(--tm-text);
+    @apply h-7 min-w-[120px] flex-1 border-0 bg-transparent text-[13px] outline-none;
+  }
+
+  .tm-tag-input::placeholder {
+    color: var(--tm-text-faint);
+  }
+
   .tm-section-title {
     color: var(--tm-text-faint);
     @apply text-[11px] font-semibold uppercase tracking-[0.16em];

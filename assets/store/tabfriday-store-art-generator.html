@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabFriday Store Art Generator</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #201815;
+        --muted: #6f635b;
+        --line: rgba(76, 97, 84, 0.14);
+        --line-strong: rgba(88, 60, 35, 0.18);
+        --surface: rgba(255, 252, 245, 0.86);
+        --surface-strong: rgba(255, 255, 255, 0.94);
+        --amber: #d77a1f;
+        --amber-soft: #f5b454;
+        --brown: #6f3a1b;
+        --teal: #208672;
+        --blue: #536fbd;
+        --green: #3f8d62;
+        --violet: #8060c6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #f8f3e7;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      .asset {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 84% 18%, rgba(83, 111, 189, 0.18), transparent 34%),
+          radial-gradient(circle at 20% 92%, rgba(32, 134, 114, 0.16), transparent 30%),
+          linear-gradient(135deg, #fff4d8 0%, #f8f4e9 45%, #edf7f2 100%);
+      }
+
+      .asset::before {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background-image:
+          linear-gradient(to right, var(--line) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+        background-size: 32px 32px;
+        opacity: 0.78;
+      }
+
+      .ring {
+        position: absolute;
+        border: 14px solid rgba(215, 122, 31, 0.16);
+        border-radius: 999px;
+        pointer-events: none;
+      }
+
+      .ring.one {
+        width: 810px;
+        height: 810px;
+        right: -150px;
+        top: -112px;
+      }
+
+      .ring.two {
+        width: 520px;
+        height: 520px;
+        right: 110px;
+        bottom: -182px;
+        border-color: rgba(32, 134, 114, 0.13);
+      }
+
+      .ring.three {
+        width: 300px;
+        height: 300px;
+        left: 38%;
+        top: 18%;
+        border-width: 10px;
+        border-color: rgba(83, 111, 189, 0.1);
+      }
+
+      .content {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        height: 100%;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        font-size: 25px;
+        font-weight: 780;
+        letter-spacing: 0;
+      }
+
+      .brand img {
+        width: 58px;
+        height: 58px;
+        border-radius: 14px;
+        filter: drop-shadow(0 12px 20px rgba(80, 47, 18, 0.16));
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        min-height: 38px;
+        padding: 7px 18px;
+        border: 1px solid rgba(194, 94, 27, 0.56);
+        border-radius: 999px;
+        background: rgba(255, 250, 241, 0.72);
+        color: #b55a17;
+        font-size: 17px;
+        font-weight: 740;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 720px;
+        font-size: 76px;
+        line-height: 0.98;
+        font-weight: 850;
+        letter-spacing: 0;
+      }
+
+      .subhead {
+        margin: 26px 0 0;
+        max-width: 720px;
+        color: #755d4e;
+        font-size: 29px;
+        line-height: 1.34;
+        font-weight: 660;
+      }
+
+      .subhead .short {
+        display: none;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 34px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 5px 15px;
+        border: 1px solid rgba(181, 113, 47, 0.3);
+        border-radius: 999px;
+        background: rgba(255, 252, 245, 0.88);
+        color: #2b221e;
+        font-size: 18px;
+        font-weight: 760;
+      }
+
+      .chip::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--amber);
+        content: "";
+      }
+
+      .chip:nth-child(2)::before {
+        background: var(--teal);
+      }
+
+      .chip:nth-child(3)::before {
+        background: var(--blue);
+      }
+
+      .chip:nth-child(4)::before {
+        background: var(--green);
+      }
+
+      .mock {
+        align-self: center;
+        justify-self: end;
+        width: 482px;
+        padding: 28px;
+        border: 1px solid rgba(86, 74, 58, 0.14);
+        border-radius: 25px;
+        background: var(--surface-strong);
+        box-shadow:
+          0 28px 70px rgba(64, 48, 26, 0.18),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.76);
+      }
+
+      .mock-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        color: var(--muted);
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .status::before {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--teal);
+        content: "";
+      }
+
+      .row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 18px;
+        align-items: center;
+        min-height: 82px;
+        margin-top: 14px;
+        padding: 15px 18px;
+        border: 1px solid rgba(200, 140, 63, 0.25);
+        border-radius: 16px;
+        background: rgba(255, 249, 239, 0.74);
+      }
+
+      .row strong {
+        display: block;
+        font-size: 27px;
+        line-height: 1;
+        font-weight: 830;
+      }
+
+      .row span {
+        display: block;
+        margin-top: 7px;
+        color: #745d4e;
+        font-size: 16px;
+        font-weight: 690;
+      }
+
+      .badge {
+        display: grid;
+        width: 47px;
+        height: 47px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--brown);
+        color: white;
+        font-size: 18px;
+        font-weight: 820;
+      }
+
+      .row:nth-child(3) .badge {
+        background: var(--teal);
+      }
+
+      .row:nth-child(4) .badge {
+        background: var(--blue);
+      }
+
+      .row:nth-child(5) .badge {
+        background: var(--green);
+      }
+
+      .tabs-rail {
+        position: absolute;
+        z-index: 1;
+        display: grid;
+        gap: 13px;
+        width: 340px;
+        padding: 18px;
+        border: 1px solid rgba(76, 97, 84, 0.12);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.58);
+        box-shadow: 0 18px 60px rgba(42, 52, 43, 0.1);
+      }
+
+      .mini-tab {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: center;
+        height: 48px;
+        padding: 0 14px;
+        border: 1px solid rgba(76, 97, 84, 0.12);
+        border-radius: 13px;
+        background: rgba(255, 253, 249, 0.82);
+      }
+
+      .mini-dot {
+        width: 15px;
+        height: 15px;
+        border-radius: 5px;
+        background: var(--teal);
+      }
+
+      .mini-tab:nth-child(2) .mini-dot {
+        background: var(--blue);
+      }
+
+      .mini-tab:nth-child(3) .mini-dot {
+        background: var(--amber);
+      }
+
+      .mini-tab:nth-child(4) .mini-dot {
+        background: var(--green);
+      }
+
+      .mini-lines {
+        display: grid;
+        gap: 7px;
+      }
+
+      .mini-lines::before,
+      .mini-lines::after {
+        height: 7px;
+        border-radius: 99px;
+        background: rgba(45, 35, 29, 0.2);
+        content: "";
+      }
+
+      .mini-lines::after {
+        width: 62%;
+        background: rgba(45, 35, 29, 0.12);
+      }
+
+      .marquee .content {
+        grid-template-columns: 1fr 482px;
+        gap: 64px;
+        padding: 70px 84px 66px;
+      }
+
+      .marquee .hero {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .marquee .topline,
+      .cover .topline {
+        position: absolute;
+        left: 84px;
+        top: 70px;
+        display: flex;
+        align-items: center;
+        gap: 26px;
+      }
+
+      .marquee h1 {
+        margin-top: 70px;
+      }
+
+      .small .content {
+        display: block;
+        padding: 30px 24px 26px;
+      }
+
+      .small .topline {
+        position: absolute;
+        left: 24px;
+        top: 30px;
+      }
+
+      .small .brand {
+        gap: 8px;
+        font-size: 17px;
+      }
+
+      .small .brand img {
+        width: 43px;
+        height: 43px;
+        border-radius: 11px;
+      }
+
+      .small .eyebrow {
+        display: none;
+      }
+
+      .small .hero {
+        position: absolute;
+        left: 24px;
+        top: 102px;
+        width: 214px;
+        padding-top: 0;
+      }
+
+      .small h1 {
+        max-width: 220px;
+        margin-top: 0;
+        font-size: 31px;
+        line-height: 1.02;
+      }
+
+      .small .subhead {
+        max-width: 210px;
+        margin-top: 13px;
+        font-size: 15px;
+        line-height: 1.32;
+        font-weight: 680;
+      }
+
+      .small .subhead .long {
+        display: none;
+      }
+
+      .small .subhead .short {
+        display: inline;
+      }
+
+      .small .chips {
+        gap: 7px;
+        margin-top: 13px;
+      }
+
+      .small .chip {
+        min-height: 23px;
+        padding: 2px 9px;
+        font-size: 12px;
+      }
+
+      .small .chip:nth-child(n + 2) {
+        display: none;
+      }
+
+      .small .mock {
+        position: absolute;
+        top: 52px;
+        right: 24px;
+        width: 168px;
+        padding: 11px;
+        border-radius: 18px;
+        box-shadow: 0 18px 42px rgba(64, 48, 26, 0.16);
+      }
+
+      .small .mock-header {
+        margin-bottom: 8px;
+        font-size: 10px;
+      }
+
+      .small .status::before {
+        width: 7px;
+        height: 7px;
+      }
+
+      .small .row {
+        min-height: 39px;
+        margin-top: 7px;
+        padding: 7px 8px;
+        border-radius: 10px;
+        gap: 7px;
+      }
+
+      .small .row strong {
+        font-size: 13px;
+      }
+
+      .small .row span {
+        display: none;
+      }
+
+      .small .row:nth-of-type(5) {
+        display: none;
+      }
+
+      .small .badge {
+        width: 27px;
+        height: 27px;
+        font-size: 11px;
+      }
+
+      .small .ring.one {
+        width: 320px;
+        height: 320px;
+        right: -96px;
+        top: 40px;
+        border-width: 8px;
+      }
+
+      .small .ring.two {
+        width: 220px;
+        height: 220px;
+        right: 60px;
+        bottom: -86px;
+        border-width: 7px;
+      }
+
+      .small .ring.three {
+        display: none;
+      }
+
+      .cover .content {
+        grid-template-columns: 1fr 382px;
+        gap: 70px;
+        padding: 88px 98px 78px;
+      }
+
+      .cover .hero {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .cover h1 {
+        margin-top: 94px;
+        max-width: 680px;
+        font-size: 70px;
+      }
+
+      .cover .subhead {
+        max-width: 660px;
+        font-size: 27px;
+      }
+
+      .cover .mock {
+        width: 382px;
+      }
+
+      .cover .tabs-rail {
+        display: none;
+      }
+
+      .marquee .tabs-rail,
+      .small .tabs-rail {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="asset cover" id="asset">
+      <div class="ring one"></div>
+      <div class="ring two"></div>
+      <div class="ring three"></div>
+      <section class="content">
+        <div class="topline">
+          <div class="brand">
+            <img src="../../src/assets/icons/icon-128.png" alt="" />
+            <span>TabFriday</span>
+          </div>
+          <div class="eyebrow">Tab Manager</div>
+        </div>
+
+        <div class="hero">
+          <h1>Your tab assistant</h1>
+          <p class="subhead">
+            <span class="long">Group related tabs, clean duplicates, restore sessions, and keep focus.</span>
+            <span class="short">Group, clean, restore, and focus.</span>
+          </p>
+          <div class="chips">
+            <span class="chip">Auto Group</span>
+            <span class="chip">Duplicate Cleanup</span>
+            <span class="chip">Sessions</span>
+            <span class="chip">Side Panel</span>
+          </div>
+        </div>
+
+        <aside class="mock" aria-hidden="true">
+          <div class="mock-header">
+            <span>Workspace</span>
+            <span class="status">Ready</span>
+          </div>
+          <div class="row">
+            <div><strong>Groups</strong><span>site rules · topics</span></div>
+            <div class="badge">8</div>
+          </div>
+          <div class="row">
+            <div><strong>Duplicates</strong><span>repeat URLs found</span></div>
+            <div class="badge">2</div>
+          </div>
+          <div class="row">
+            <div><strong>Sessions</strong><span>restore workspaces</span></div>
+            <div class="badge">7</div>
+          </div>
+          <div class="row">
+            <div><strong>Cleanup</strong><span>inactive tabs</span></div>
+            <div class="badge">30</div>
+          </div>
+        </aside>
+
+        <div class="tabs-rail" aria-hidden="true">
+          <div class="mini-tab"><span class="mini-dot"></span><span class="mini-lines"></span></div>
+          <div class="mini-tab"><span class="mini-dot"></span><span class="mini-lines"></span></div>
+          <div class="mini-tab"><span class="mini-dot"></span><span class="mini-lines"></span></div>
+          <div class="mini-tab"><span class="mini-dot"></span><span class="mini-lines"></span></div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const asset = params.get('asset') ?? 'cover';
+      document.getElementById('asset').className = `asset ${asset}`;
+    </script>
+  </body>
+</html>

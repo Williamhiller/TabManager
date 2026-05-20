@@ -1,13 +1,13 @@
 English
 =======
 
-TabWise - Smart Tab Manager & Organizer
+TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions
 
 Bring tab chaos under control with a smarter Chrome workspace.
 
-TabWise helps you auto-group tabs, remove duplicate tabs, clean inactive tabs, save snapshots, restore workspaces, search open tabs, track local tab activity, and manage bookmarks from one place.
+TabFriday helps you auto-group tabs, remove duplicate tabs, clean inactive tabs, save snapshots, restore workspaces, search open tabs, track local tab activity, and manage bookmarks from one place.
 
-Why install TabWise?
+Why install TabFriday?
 
 1. ⚡ AutoGroup tabs by rules
 Automatically group tabs by website type, topic, domain, title, URL, website lists, or custom rules. Built-in presets include Shopping, Social, Media, Office, AI, Development, News, Finance, Travel, and Learning.
@@ -25,7 +25,7 @@ Save the current window or all windows as snapshots, then restore your workspace
 Find open tabs, history tabs, snapshots, and bookmarks quickly with search, smart views, and tab detail history.
 
 6. 🔖 Manage bookmarks in the same workspace
-Search bookmarks, create folders, save the active tab, edit bookmarks, move bookmarks, and delete bookmarks without leaving TabWise.
+Search bookmarks, create folders, save the active tab, edit bookmarks, move bookmarks, and delete bookmarks without leaving TabFriday.
 
 7. 🧭 Track local URL activity
 Keep a local timeline of tab events such as created, closed, navigated, redirected, retitled, activated, pinned, muted, discarded, grouped, and ungrouped. Redirect tracking is optional and only runs after permission is granted.
@@ -33,19 +33,19 @@ Keep a local timeline of tab events such as created, closed, navigated, redirect
 8. 🖥️ Work from the popup, side panel, or dashboard
 Use a quick popup, a focused side panel, or a full dashboard depending on how you manage tabs.
 
-TabWise is built for people who open many tabs while researching, working, learning, shopping, comparing tools, or switching between projects. Install TabWise to auto-group tabs, remove duplicates, clean clutter, restore snapshots, and keep your browser workspace organized.
+TabFriday is built for people who open many tabs while researching, working, learning, shopping, comparing tools, or switching between projects. Install TabFriday to auto-group tabs, remove duplicates, clean clutter, restore snapshots, and keep your browser workspace organized.
 
 
 简体中文
 ========
 
-TabWise - 智能标签页管理与整理器
+TabFriday - 标签页管理：分组、重复标签清理与会话恢复
 
 让混乱的 Chrome 标签页重新变得可控。
 
-TabWise 可以帮助你自动分组标签页、移除重复标签、清理不活跃标签、保存快照、恢复工作区、搜索标签、记录本地标签活动，并在同一个工作区管理书签。
+TabFriday 可以帮助你自动分组标签页、移除重复标签、清理不活跃标签、保存快照、恢复工作区、搜索标签、记录本地标签活动，并在同一个工作区管理书签。
 
-为什么安装 TabWise？
+为什么安装 TabFriday？
 
 1. ⚡ 按规则自动分组标签页
 可按网站类型、主题、域名、标题、URL、网站列表或自定义规则自动分组。内置预设包括购物、社交、媒体、办公、AI、开发、新闻、金融、出行和学习。
@@ -71,19 +71,19 @@ TabWise 可以帮助你自动分组标签页、移除重复标签、清理不活
 8. 🖥️ 支持弹窗、侧边栏和 Dashboard
 你可以使用快速弹窗、专注的侧边栏，或完整的 Dashboard 来管理标签页。
 
-TabWise 适合经常打开大量标签页进行研究、工作、学习、购物、工具对比或多项目切换的用户。安装 TabWise，自动分组标签页、移除重复标签、清理杂乱内容、恢复快照，并保持浏览器工作区井然有序。
+TabFriday 适合经常打开大量标签页进行研究、工作、学习、购物、工具对比或多项目切换的用户。安装 TabFriday，自动分组标签页、移除重复标签、清理杂乱内容、恢复快照，并保持浏览器工作区井然有序。
 
 
 日本語
 ======
 
-TabWise - スマートタブ管理・整理ツール
+TabFriday - タブ管理：グループ化、重複削除、セッション復元
 
 Chrome のタブ混乱を、すばやく整理されたワークスペースに変えます。
 
-TabWise は、タブの自動グループ化、重複タブの削除、非アクティブタブの整理、スナップショットの保存と復元、タブ検索、ローカルのタブアクティビティ記録、ブックマーク管理を 1 つの場所で行えるツールです。
+TabFriday は、タブの自動グループ化、重複タブの削除、非アクティブタブの整理、スナップショットの保存と復元、タブ検索、ローカルのタブアクティビティ記録、ブックマーク管理を 1 つの場所で行えるツールです。
 
-TabWise を使う理由
+TabFriday を使う理由
 
 1. ⚡ ルールでタブを自動グループ化
 サイト種別、トピック、ドメイン、タイトル、URL、サイトリスト、カスタムルールに基づいてタブを自動グループ化できます。Shopping、Social、Media、Office、AI、Development、News、Finance、Travel、Learning などのプリセットも用意されています。
@@ -109,19 +109,19 @@ TabWise を使う理由
 8. 🖥️ ポップアップ、サイドパネル、Dashboard に対応
 軽量なポップアップ、集中しやすいサイドパネル、またはフル機能の Dashboard から作業できます。
 
-TabWise は、調査、仕事、学習、買い物、ツール比較、複数プロジェクトの切り替えで多くのタブを開く人に向いています。TabWise でタブを自動グループ化し、重複を削除し、不要なタブを整理し、スナップショットを復元して、ブラウザの作業環境を保ちましょう。
+TabFriday は、調査、仕事、学習、買い物、ツール比較、複数プロジェクトの切り替えで多くのタブを開く人に向いています。TabFriday でタブを自動グループ化し、重複を削除し、不要なタブを整理し、スナップショットを復元して、ブラウザの作業環境を保ちましょう。
 
 
 Français
 ========
 
-TabWise - Gestionnaire et organiseur d'onglets intelligent
+TabFriday - Gestion d'onglets : groupes, doublons et sessions
 
 Reprenez le contrôle de vos onglets Chrome.
 
-TabWise vous aide à regrouper automatiquement les onglets, supprimer les doublons, nettoyer les onglets inactifs, enregistrer des instantanés, restaurer des espaces de travail, rechercher vos onglets, suivre l'activité locale des URL et gérer vos favoris depuis un seul espace.
+TabFriday vous aide à regrouper automatiquement les onglets, supprimer les doublons, nettoyer les onglets inactifs, enregistrer des instantanés, restaurer des espaces de travail, rechercher vos onglets, suivre l'activité locale des URL et gérer vos favoris depuis un seul espace.
 
-Pourquoi installer TabWise ?
+Pourquoi installer TabFriday ?
 
 1. ⚡ Regroupement automatique par règles
 Regroupez les onglets par type de site, sujet, domaine, titre, URL, listes de sites ou règles personnalisées. Des préréglages sont inclus pour Shopping, Social, Media, Office, AI, Development, News, Finance, Travel et Learning.
@@ -147,19 +147,19 @@ Conservez localement une chronologie des événements d'onglets : création, fer
 8. 🖥️ Popup, panneau latéral ou Dashboard
 Travaillez depuis un popup rapide, un panneau latéral concentré ou un Dashboard complet.
 
-TabWise est conçu pour les utilisateurs qui ouvrent de nombreux onglets pour la recherche, le travail, l'apprentissage, les achats, la comparaison d'outils ou le passage d'un projet à l'autre. Installez TabWise pour regrouper, dédupliquer, nettoyer, restaurer et organiser votre navigateur.
+TabFriday est conçu pour les utilisateurs qui ouvrent de nombreux onglets pour la recherche, le travail, l'apprentissage, les achats, la comparaison d'outils ou le passage d'un projet à l'autre. Installez TabFriday pour regrouper, dédupliquer, nettoyer, restaurer et organiser votre navigateur.
 
 
 Español
 =======
 
-TabWise - Gestor y organizador inteligente de pestañas
+TabFriday - Gestor de pestañas: grupos, duplicados y sesiones
 
 Controla el caos de pestañas en Chrome.
 
-TabWise te ayuda a agrupar pestañas automáticamente, eliminar pestañas duplicadas, limpiar pestañas inactivas, guardar snapshots, restaurar espacios de trabajo, buscar pestañas, registrar actividad local de URL y gestionar marcadores desde un solo lugar.
+TabFriday te ayuda a agrupar pestañas automáticamente, eliminar pestañas duplicadas, limpiar pestañas inactivas, guardar snapshots, restaurar espacios de trabajo, buscar pestañas, registrar actividad local de URL y gestionar marcadores desde un solo lugar.
 
-Por qué instalar TabWise
+Por qué instalar TabFriday
 
 1. ⚡ Agrupación automática por reglas
 Agrupa pestañas por tipo de sitio, tema, dominio, título, URL, listas de sitios o reglas personalizadas. Incluye presets para Shopping, Social, Media, Office, AI, Development, News, Finance, Travel y Learning.
@@ -185,19 +185,19 @@ Mantén una cronología local de eventos de pestañas: creadas, cerradas, navega
 8. 🖥️ Popup, panel lateral o Dashboard
 Usa un popup rápido, un panel lateral enfocado o un Dashboard completo según tu forma de trabajar.
 
-TabWise está pensado para quienes abren muchas pestañas al investigar, trabajar, estudiar, comprar, comparar herramientas o cambiar entre proyectos. Instala TabWise para agrupar, eliminar duplicados, limpiar, restaurar snapshots y mantener organizado tu navegador.
+TabFriday está pensado para quienes abren muchas pestañas al investigar, trabajar, estudiar, comprar, comparar herramientas o cambiar entre proyectos. Instala TabFriday para agrupar, eliminar duplicados, limpiar, restaurar snapshots y mantener organizado tu navegador.
 
 
 العربية
 =======
 
-TabWise - مدير ومنظم علامات تبويب ذكي
+TabFriday - مدير علامات التبويب: مجموعات وتكرارات وجلسات
 
 سيطر على فوضى علامات التبويب في Chrome.
 
-يساعدك TabWise على تجميع علامات التبويب تلقائيًا، وإزالة علامات التبويب المكررة، وتنظيف علامات التبويب غير النشطة، وحفظ اللقطات، واستعادة مساحات العمل، والبحث في علامات التبويب، وتتبع نشاط URL محليًا، وإدارة الإشارات المرجعية من مكان واحد.
+يساعدك TabFriday على تجميع علامات التبويب تلقائيًا، وإزالة علامات التبويب المكررة، وتنظيف علامات التبويب غير النشطة، وحفظ اللقطات، واستعادة مساحات العمل، والبحث في علامات التبويب، وتتبع نشاط URL محليًا، وإدارة الإشارات المرجعية من مكان واحد.
 
-لماذا تثبت TabWise؟
+لماذا تثبت TabFriday؟
 
 1. ⚡ تجميع تلقائي بالقواعد
 يمكنك تجميع علامات التبويب حسب نوع الموقع، أو الموضوع، أو النطاق، أو العنوان، أو URL، أو قوائم المواقع، أو القواعد المخصصة. تتضمن الإعدادات الجاهزة Shopping و Social و Media و Office و AI و Development و News و Finance و Travel و Learning.
@@ -223,4 +223,4 @@ TabWise - مدير ومنظم علامات تبويب ذكي
 8. 🖥️ نافذة منبثقة أو لوحة جانبية أو Dashboard
 استخدم نافذة منبثقة سريعة، أو لوحة جانبية مركزة، أو Dashboard كامل لإدارة علامات التبويب بالطريقة التي تناسبك.
 
-TabWise مناسب لمن يفتحون الكثير من علامات التبويب أثناء البحث أو العمل أو التعلم أو التسوق أو مقارنة الأدوات أو التنقل بين المشاريع. ثبت TabWise لتجميع علامات التبويب، وإزالة التكرارات، وتنظيف الفوضى، واستعادة اللقطات، والحفاظ على مساحة عمل المتصفح منظمة.
+TabFriday مناسب لمن يفتحون الكثير من علامات التبويب أثناء البحث أو العمل أو التعلم أو التسوق أو مقارنة الأدوات أو التنقل بين المشاريع. ثبت TabFriday لتجميع علامات التبويب، وإزالة التكرارات، وتنظيف الفوضى، واستعادة اللقطات، والحفاظ على مساحة عمل المتصفح منظمة.

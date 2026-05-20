@@ -1,3 +1,4 @@
+import { openOrRefreshDashboardTab } from './dashboard-tabs';
 import { getSettings } from './settings';
 import type {
   BookmarkNodeSnapshot,
@@ -23,10 +24,58 @@ import type {
   TabMutationResult
 } from './contracts';
 
+const RUNTIME_REQUEST_TIMEOUT_MS = 20_000;
+const RUNTIME_MUTATION_TIMEOUT_MS = 60_000;
+const SIDE_PANEL_OPEN_TIMEOUT_MS = 4_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 async function sendRequest<T>(
-  request: ExtensionRequest
+  request: ExtensionRequest,
+  timeoutMs = RUNTIME_REQUEST_TIMEOUT_MS
 ): Promise<ExtensionResult<T>> {
-  return chrome.runtime.sendMessage(request) as Promise<ExtensionResult<T>>;
+  return new Promise<ExtensionResult<T>>((resolve) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve({
+        ok: false,
+        error: `Timed out waiting for extension response: ${request.type}`
+      });
+    }, timeoutMs);
+
+    chrome.runtime
+      .sendMessage(request)
+      .then((response: ExtensionResult<T> | undefined) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(response ?? { ok: false, error: `No extension response: ${request.type}` });
+      })
+      .catch((error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+  });
 }
 
 export async function getOverview(): Promise<OverviewSnapshot> {
@@ -178,20 +227,7 @@ export async function openDashboardPage(
 
   const query = searchParams.toString();
   const path = query ? `/dashboard.html?${query}` : '/dashboard.html';
-  const url = chrome.runtime.getURL(path);
-  const dashboardUrlPrefix = chrome.runtime.getURL('/dashboard.html');
-  const existingTabs = await chrome.tabs.query({});
-  const existingTab = existingTabs.find((tab) => tab.url?.startsWith(dashboardUrlPrefix));
-
-  if (existingTab?.id != null) {
-    await chrome.tabs.update(existingTab.id, { active: true, url });
-    if (existingTab.windowId != null) {
-      await chrome.windows.update(existingTab.windowId, { focused: true });
-    }
-    return;
-  }
-
-  await chrome.tabs.create({ url });
+  await openOrRefreshDashboardTab(path);
 }
 
 export async function openSidePanel(): Promise<boolean> {
@@ -200,7 +236,11 @@ export async function openSidePanel(): Promise<boolean> {
   const currentWindow = await chrome.windows.getCurrent();
   if (!currentWindow.id) return false;
 
-  await chrome.sidePanel.open({ windowId: currentWindow.id });
+  await withTimeout(
+    chrome.sidePanel.open({ windowId: currentWindow.id }),
+    SIDE_PANEL_OPEN_TIMEOUT_MS,
+    'Timed out opening side panel.'
+  );
   return true;
 }
 
@@ -246,7 +286,7 @@ async function sendMutation(
     | Extract<ExtensionRequest, { type: 'tab-manager/update-group' }>
     | Extract<ExtensionRequest, { type: 'tab-manager/smart-group-tabs' }>
 ): Promise<TabMutationResult> {
-  const response = await sendRequest<TabMutationResult>(request);
+  const response = await sendRequest<TabMutationResult>(request, RUNTIME_MUTATION_TIMEOUT_MS);
   if (!response.ok) throw new Error(response.error);
   return response.data;
 }

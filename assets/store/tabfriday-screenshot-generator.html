@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabFriday Screenshot Generator</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #201815;
+        --muted: #765f50;
+        --line: rgba(76, 97, 84, 0.14);
+        --amber: #d77a1f;
+        --brown: #b45d20;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #fbf3db;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      .stage {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 87% 14%, rgba(83, 111, 189, 0.12), transparent 32%),
+          radial-gradient(circle at 20% 92%, rgba(32, 134, 114, 0.12), transparent 32%),
+          linear-gradient(135deg, #fff2d1 0%, #f9f1de 45%, #edf7f2 100%);
+      }
+
+      .stage::before {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background-image:
+          linear-gradient(to right, var(--line) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+        background-size: 40px 40px;
+        opacity: 0.72;
+      }
+
+      .ring {
+        position: absolute;
+        width: 820px;
+        height: 820px;
+        right: -120px;
+        top: 36px;
+        border: 17px solid rgba(215, 122, 31, 0.18);
+        border-radius: 999px;
+      }
+
+      .ring.two {
+        right: 210px;
+        top: 168px;
+        width: 560px;
+        height: 560px;
+        border-width: 14px;
+        border-color: rgba(32, 134, 114, 0.12);
+      }
+
+      .header {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        padding: 36px 56px 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 24px;
+        font-weight: 820;
+        letter-spacing: 0;
+      }
+
+      .brand img {
+        width: 43px;
+        height: 43px;
+        border-radius: 10px;
+        filter: drop-shadow(0 8px 16px rgba(72, 43, 18, 0.12));
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 5px 24px;
+        border: 1px solid rgba(180, 93, 32, 0.58);
+        border-radius: 999px;
+        color: var(--brown);
+        background: rgba(255, 250, 240, 0.78);
+        font-size: 15px;
+        font-weight: 780;
+      }
+
+      .copy {
+        position: relative;
+        z-index: 1;
+        margin: 28px 56px 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 42px;
+        line-height: 1.08;
+        font-weight: 850;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 20px;
+        line-height: 1.35;
+        font-weight: 690;
+      }
+
+      .frame {
+        position: absolute;
+        z-index: 1;
+        left: 64px;
+        right: 64px;
+        bottom: -3px;
+        height: 590px;
+        overflow: hidden;
+        border: 1px solid rgba(99, 72, 42, 0.18);
+        border-radius: 18px 18px 0 0;
+        background: white;
+        box-shadow: 0 28px 70px rgba(77, 55, 26, 0.18);
+      }
+
+      .screenshot {
+        position: absolute;
+        display: block;
+        transform-origin: top left;
+      }
+
+      .dashboard .screenshot {
+        width: 1152px;
+        height: 720px;
+        transform: scale(1);
+      }
+
+      .sidepanel .frame {
+        left: 812px;
+        right: 116px;
+        bottom: 18px;
+        width: 350px;
+        height: 674px;
+        border-radius: 24px;
+        box-shadow: 0 24px 70px rgba(77, 55, 26, 0.18);
+      }
+
+      .sidepanel .screenshot {
+        width: 350px;
+        height: 672px;
+        object-fit: cover;
+      }
+
+      .sidepanel-mock {
+        position: absolute;
+        inset: 0;
+        display: none;
+        padding: 16px;
+        background: #fbfbf8;
+        color: #201815;
+        font-size: 12px;
+      }
+
+      .sidepanel .sidepanel-mock {
+        display: block;
+      }
+
+      .sidepanel .screenshot {
+        display: none;
+      }
+
+      .panel-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .panel-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        font-size: 14px;
+        font-weight: 790;
+      }
+
+      .panel-brand img {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+      }
+
+      .panel-icons {
+        display: flex;
+        gap: 8px;
+        color: #5d5954;
+        font-size: 18px;
+      }
+
+      .panel-search {
+        height: 36px;
+        border: 1px solid #d8d3cb;
+        border-radius: 16px;
+        background: white;
+        color: #8a827a;
+        display: flex;
+        align-items: center;
+        padding: 0 13px;
+        font-size: 13px;
+      }
+
+      .panel-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0;
+        margin: 8px 0 12px;
+        padding: 4px;
+        border: 1px solid #d8d3cb;
+        border-radius: 16px;
+        background: #ebe9e5;
+      }
+
+      .panel-tab {
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        color: #5f5a55;
+        font-size: 12px;
+        font-weight: 720;
+      }
+
+      .panel-tab.active {
+        background: white;
+        color: #201815;
+        box-shadow: 0 8px 18px rgba(68, 52, 30, 0.08);
+      }
+
+      .panel-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 10px 0 12px;
+        font-weight: 760;
+      }
+
+      .panel-actions {
+        display: flex;
+        gap: 7px;
+      }
+
+      .panel-action {
+        width: 28px;
+        height: 28px;
+        border: 1px solid #d8d3cb;
+        border-radius: 50%;
+        background: #f1efeb;
+      }
+
+      .panel-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .panel-group {
+        padding: 10px 0 8px;
+        border-top: 1px solid #ece8df;
+      }
+
+      .panel-group-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 9px;
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .panel-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #d28a0a;
+      }
+
+      .panel-group:nth-child(2) .panel-dot {
+        background: #7543e4;
+      }
+
+      .panel-group:nth-child(3) .panel-dot {
+        background: #1797aa;
+      }
+
+      .panel-item {
+        display: grid;
+        grid-template-columns: 20px 1fr auto;
+        gap: 8px;
+        align-items: center;
+        min-height: 44px;
+        padding-left: 16px;
+      }
+
+      .panel-index {
+        color: #78716b;
+        font-weight: 760;
+      }
+
+      .panel-title {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 13px;
+        font-weight: 780;
+      }
+
+      .panel-url {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        margin-top: 2px;
+        color: #6f6760;
+        font-size: 11px;
+      }
+
+      .panel-time {
+        color: #817a73;
+        font-size: 11px;
+      }
+
+      .sidepanel .features {
+        position: absolute;
+        z-index: 1;
+        left: 64px;
+        bottom: 216px;
+        display: grid;
+        gap: 22px;
+        width: 665px;
+      }
+
+      .dashboard .features {
+        display: none;
+      }
+
+      .feature {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 22px;
+        align-items: center;
+        min-height: 82px;
+        padding: 18px 26px;
+        border: 1px solid rgba(196, 136, 62, 0.28);
+        border-radius: 15px;
+        background: rgba(255, 253, 247, 0.88);
+      }
+
+      .feature::before {
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--brown);
+        content: "";
+      }
+
+      .feature strong {
+        display: block;
+        font-size: 24px;
+        line-height: 1;
+        font-weight: 820;
+      }
+
+      .feature span {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 16px;
+        font-weight: 710;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage dashboard" id="stage">
+      <div class="ring"></div>
+      <div class="ring two"></div>
+      <section class="header">
+        <div class="brand">
+          <img src="../../src/assets/icons/icon-128.png" alt="" />
+          <span>TabFriday</span>
+        </div>
+        <div class="pill">Chrome workspace</div>
+      </section>
+      <section class="copy">
+        <h1 id="title">Manage tabs from one dashboard</h1>
+        <p id="subtitle">Search, group, dedupe, and restore sessions without losing context.</p>
+      </section>
+      <div class="features" aria-hidden="true">
+        <div class="feature"><div><strong>Auto Group</strong><span>Grouped tabs stay organized.</span></div></div>
+        <div class="feature"><div><strong>Snapshots</strong><span>Save and restore workspaces.</span></div></div>
+        <div class="feature"><div><strong>History Tabs</strong><span>Recover recent tab activity.</span></div></div>
+      </div>
+      <div class="frame">
+        <img class="screenshot" id="shot" alt="" />
+        <div class="sidepanel-mock" aria-hidden="true">
+          <div class="panel-top">
+            <div class="panel-brand">
+              <img src="../../src/assets/icons/icon-128.png" alt="" />
+              <span>TabFriday</span>
+            </div>
+            <div class="panel-icons"><span>⌘</span><span>×</span></div>
+          </div>
+          <div class="panel-search">Search title, site, or group</div>
+          <div class="panel-tabs">
+            <div class="panel-tab active">Tabs&nbsp;&nbsp;7</div>
+            <div class="panel-tab">Snapshots&nbsp;&nbsp;10</div>
+            <div class="panel-tab">Bookmarks&nbsp;&nbsp;38</div>
+          </div>
+          <div class="panel-toolbar">
+            <span>0 selected</span>
+            <div class="panel-actions">
+              <span class="panel-action"></span>
+              <span class="panel-action"></span>
+              <span class="panel-action"></span>
+            </div>
+          </div>
+          <div class="panel-list">
+            <section class="panel-group">
+              <div class="panel-group-title"><span class="panel-dot"></span><span>Shopping</span></div>
+              <div class="panel-item">
+                <span class="panel-index">01</span>
+                <div><div class="panel-title">Amazon.com. Spend less.</div><div class="panel-url">amazon.com · 3 minutes ago</div></div>
+                <span class="panel-time">2m</span>
+              </div>
+              <div class="panel-item">
+                <span class="panel-index">02</span>
+                <div><div class="panel-title">Electronics, Cars, Fashion</div><div class="panel-url">ebay.com · 3 minutes ago</div></div>
+                <span class="panel-time">0m</span>
+              </div>
+            </section>
+            <section class="panel-group">
+              <div class="panel-group-title"><span class="panel-dot"></span><span>AI</span></div>
+              <div class="panel-item">
+                <span class="panel-index">03</span>
+                <div><div class="panel-title">Assistant workspace</div><div class="panel-url">chat.example.com · 5 minutes ago</div></div>
+                <span class="panel-time">4m</span>
+              </div>
+            </section>
+            <section class="panel-group">
+              <div class="panel-group-title"><span class="panel-dot"></span><span>Development</span></div>
+              <div class="panel-item">
+                <span class="panel-index">04</span>
+                <div><div class="panel-title">TabFriday Dashboard</div><div class="panel-url">chrome-extension://dashboard.html</div></div>
+                <span class="panel-time">1m</span>
+              </div>
+              <div class="panel-item">
+                <span class="panel-index">05</span>
+                <div><div class="panel-title">Project documentation</div><div class="panel-url">docs.example.com · 8 minutes ago</div></div>
+                <span class="panel-time">2m</span>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script>
+      const data = {
+        tabs: {
+          title: 'Manage tabs from one dashboard',
+          subtitle: 'Search, group, dedupe, and restore sessions without losing context.',
+          image: '../screenshots/tabs.png'
+        },
+        autogroup: {
+          title: 'AutoGroup tabs by rules',
+          subtitle: 'Route tabs by site type, domain, URL, title, presets, and custom rules.',
+          image: '../screenshots/autoGroup.png'
+        },
+        deduplicate: {
+          title: 'Remove duplicates automatically',
+          subtitle: 'Clean duplicate tabs and control where deduplication should apply.',
+          image: '../screenshots/deduplicate.png'
+        },
+        sidepanel: {
+          title: 'Side panel workspace',
+          subtitle: 'Manage tabs beside your browser while you work.',
+          image: '../screenshots/sidepanel.png',
+          sidepanel: true
+        }
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const item = data[params.get('shot') ?? 'tabs'];
+      document.getElementById('title').textContent = item.title;
+      document.getElementById('subtitle').textContent = item.subtitle;
+      document.getElementById('shot').src = item.image;
+      document.getElementById('stage').className = `stage ${item.sidepanel ? 'sidepanel' : 'dashboard'}`;
+    </script>
+  </body>
+</html>

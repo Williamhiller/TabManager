@@ -42,6 +42,7 @@ import {
   matchesDefaultAutoGroupPresetById,
   matchDefaultAutoGroupPreset
 } from './auto-group-defaults';
+import { openOrRefreshDashboardTab } from './dashboard-tabs';
 import { getErrorMessage } from './format';
 import { getSettings, SETTINGS_KEY } from './settings';
 
@@ -103,6 +104,7 @@ interface GroupMetadataRecord {
   autoGroupConfigId?: string | null;
   autoGroupPresetIds: string[];
   autoGroupRules: AutoGroupRule[];
+  lastInteractedAt?: number | null;
 }
 
 interface PersistedGroupMetadataState {
@@ -149,6 +151,7 @@ const activeWindowSessions = new Map<number, ActiveWindowSession>();
 const tabHistoryRecords = new Map<number, TabHistoryRecord>();
 const recentClosedTabHistory: ClosedTabHistoryRecord[] = [];
 const groupMetadataRecords = new Map<number, GroupMetadataRecord>();
+const groupInteractionRecords = new Map<number, number>();
 const autoGroupExemptionRecords = new Map<number, AutoGroupExemptionRecord>();
 const sessionRecords = new Map<string, SessionRecord>();
 const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
@@ -168,6 +171,10 @@ const GROUP_METADATA_STORAGE_KEY = 'tab-manager/group-metadata';
 const AUTO_GROUP_EXEMPTIONS_STORAGE_KEY = 'tab-manager/auto-group-exemptions';
 const SESSIONS_STORAGE_KEY = 'tab-manager/sessions';
 const AUTO_COLLAPSE_INACTIVE_GROUPS_ALARM = 'tab-manager/auto-collapse-inactive-groups';
+const ACTION_BADGE_DUPLICATE_COLOR = '#8B735D';
+const ACTION_BADGE_TEXT_COLOR = '#FFFFFF';
+const RUNTIME_MESSAGE_TIMEOUT_MS = 25_000;
+const RUNTIME_MUTATION_MESSAGE_TIMEOUT_MS = 60_000;
 const MAX_TAB_HISTORY_EVENTS = 120;
 const MAX_RECENT_CLOSED_TABS = 10;
 const OVERVIEW_INVALIDATION_DEBOUNCE_MS = 80;
@@ -187,6 +194,7 @@ let persistGroupMetadataTimer: ReturnType<typeof setTimeout> | null = null;
 let persistAutoGroupExemptionTimer: ReturnType<typeof setTimeout> | null = null;
 let persistSessionsTimer: ReturnType<typeof setTimeout> | null = null;
 let overviewInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
+let actionBadgeUpdateTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOverviewInvalidationReason: OverviewChangeReason = 'updated';
 let autoCollapseInactiveGroupsInFlight = false;
 let autoSleepInactiveTabsInFlight = false;
@@ -295,34 +303,39 @@ async function ensureTabHistoryLoaded(): Promise<void> {
   if (tabHistoryLoadPromise) return tabHistoryLoadPromise;
 
   tabHistoryLoadPromise = (async () => {
-    const stored = await chrome.storage.local.get(TAB_HISTORY_STORAGE_KEY);
-    const raw = stored[TAB_HISTORY_STORAGE_KEY];
-    if (!raw || typeof raw !== 'object') return;
+    try {
+      const stored = await chrome.storage.local.get(TAB_HISTORY_STORAGE_KEY);
+      const raw = stored[TAB_HISTORY_STORAGE_KEY];
+      if (!raw || typeof raw !== 'object') return;
 
-    const state = raw as Partial<PersistedTabHistoryState> | Record<string, TabHistoryRecord>;
-    const activeRecords =
-      'active' in state && state.active && typeof state.active === 'object'
-        ? state.active
-        : (state as Record<string, TabHistoryRecord>);
-    const recentClosed =
-      'recentClosed' in state && Array.isArray(state.recentClosed) ? state.recentClosed : [];
+      const state = raw as Partial<PersistedTabHistoryState> | Record<string, TabHistoryRecord>;
+      const activeRecords =
+        'active' in state && state.active && typeof state.active === 'object'
+          ? state.active
+          : (state as Record<string, TabHistoryRecord>);
+      const recentClosed =
+        'recentClosed' in state && Array.isArray(state.recentClosed) ? state.recentClosed : [];
 
-    for (const [tabId, record] of Object.entries(activeRecords)) {
-      const numericTabId = Number(tabId);
-      if (!Number.isInteger(numericTabId) || !record?.snapshot || !record?.telemetry) continue;
-      record.history = sortHistoryEvents(record.history);
-      tabHistoryRecords.set(numericTabId, record);
-    }
-
-    recentClosedTabHistory.splice(
-      0,
-      recentClosedTabHistory.length,
-      ...recentClosed.slice(0, MAX_RECENT_CLOSED_TABS).filter((record) => {
-        if (!record?.snapshot) return false;
+      for (const [tabId, record] of Object.entries(activeRecords)) {
+        const numericTabId = Number(tabId);
+        if (!Number.isInteger(numericTabId) || !record?.snapshot || !record?.telemetry) continue;
         record.history = sortHistoryEvents(record.history);
-        return true;
-      })
-    );
+        tabHistoryRecords.set(numericTabId, record);
+      }
+
+      recentClosedTabHistory.splice(
+        0,
+        recentClosedTabHistory.length,
+        ...recentClosed.slice(0, MAX_RECENT_CLOSED_TABS).filter((record) => {
+          if (!record?.snapshot) return false;
+          record.history = sortHistoryEvents(record.history);
+          return true;
+        })
+      );
+    } catch (error) {
+      tabHistoryLoadPromise = null;
+      throw error;
+    }
   })();
 
   return tabHistoryLoadPromise;
@@ -347,7 +360,11 @@ function hydrateGroupMetadataRecords(
       autoGroupEnabled: record.autoGroupEnabled ?? true,
       autoGroupConfigId: typeof record.autoGroupConfigId === 'string' ? record.autoGroupConfigId : null,
       autoGroupPresetIds: Array.isArray(record.autoGroupPresetIds) ? record.autoGroupPresetIds : [],
-      autoGroupRules: Array.isArray(record.autoGroupRules) ? record.autoGroupRules : []
+      autoGroupRules: Array.isArray(record.autoGroupRules) ? record.autoGroupRules : [],
+      lastInteractedAt:
+        typeof record.lastInteractedAt === 'number' && Number.isFinite(record.lastInteractedAt)
+          ? record.lastInteractedAt
+          : null
     });
   }
 }
@@ -356,14 +373,19 @@ async function ensureGroupMetadataLoaded(): Promise<void> {
   if (groupMetadataLoadPromise) return groupMetadataLoadPromise;
 
   groupMetadataLoadPromise = (async () => {
-    const stored = await chrome.storage.local.get(GROUP_METADATA_STORAGE_KEY);
-    hydrateGroupMetadataRecords(
-      stored[GROUP_METADATA_STORAGE_KEY] as
-        | Partial<PersistedGroupMetadataState>
-        | Record<string, GroupMetadataRecord>
-        | null
-        | undefined
-    );
+    try {
+      const stored = await chrome.storage.local.get(GROUP_METADATA_STORAGE_KEY);
+      hydrateGroupMetadataRecords(
+        stored[GROUP_METADATA_STORAGE_KEY] as
+          | Partial<PersistedGroupMetadataState>
+          | Record<string, GroupMetadataRecord>
+          | null
+          | undefined
+      );
+    } catch (error) {
+      groupMetadataLoadPromise = null;
+      throw error;
+    }
   })();
 
   return groupMetadataLoadPromise;
@@ -400,14 +422,19 @@ async function ensureAutoGroupExemptionsLoaded(): Promise<void> {
   if (autoGroupExemptionLoadPromise) return autoGroupExemptionLoadPromise;
 
   autoGroupExemptionLoadPromise = (async () => {
-    const stored = await chrome.storage.local.get(AUTO_GROUP_EXEMPTIONS_STORAGE_KEY);
-    hydrateAutoGroupExemptionRecords(
-      stored[AUTO_GROUP_EXEMPTIONS_STORAGE_KEY] as
-        | Partial<PersistedAutoGroupExemptionState>
-        | Record<string, AutoGroupExemptionRecord>
-        | null
-        | undefined
-    );
+    try {
+      const stored = await chrome.storage.local.get(AUTO_GROUP_EXEMPTIONS_STORAGE_KEY);
+      hydrateAutoGroupExemptionRecords(
+        stored[AUTO_GROUP_EXEMPTIONS_STORAGE_KEY] as
+          | Partial<PersistedAutoGroupExemptionState>
+          | Record<string, AutoGroupExemptionRecord>
+          | null
+          | undefined
+      );
+    } catch (error) {
+      autoGroupExemptionLoadPromise = null;
+      throw error;
+    }
   })();
 
   return autoGroupExemptionLoadPromise;
@@ -459,14 +486,19 @@ async function ensureSessionsLoaded(): Promise<void> {
   if (sessionsLoadPromise) return sessionsLoadPromise;
 
   sessionsLoadPromise = (async () => {
-    const stored = await chrome.storage.local.get(SESSIONS_STORAGE_KEY);
-    hydrateSessionRecords(
-      stored[SESSIONS_STORAGE_KEY] as
-        | Partial<PersistedSessionsState>
-        | Record<string, SessionRecord>
-        | null
-        | undefined
-    );
+    try {
+      const stored = await chrome.storage.local.get(SESSIONS_STORAGE_KEY);
+      hydrateSessionRecords(
+        stored[SESSIONS_STORAGE_KEY] as
+          | Partial<PersistedSessionsState>
+          | Record<string, SessionRecord>
+          | null
+          | undefined
+      );
+    } catch (error) {
+      sessionsLoadPromise = null;
+      throw error;
+    }
   })();
 
   return sessionsLoadPromise;
@@ -608,7 +640,8 @@ function getGroupMetadata(groupId: number): GroupMetadataRecord {
     autoGroupEnabled: true,
     autoGroupConfigId: null,
     autoGroupPresetIds: [],
-    autoGroupRules: []
+    autoGroupRules: [],
+    lastInteractedAt: null
   };
 }
 
@@ -1001,6 +1034,55 @@ function normalizeAutoDeduplicationUrl(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+function countDuplicateTabCopies(tabs: chrome.tabs.Tab[]): number {
+  const counts = new Map<string, number>();
+
+  for (const tab of tabs) {
+    const normalizedUrl = normalizeAutoDeduplicationUrl(tab.url ?? tab.pendingUrl ?? '');
+    if (!normalizedUrl) continue;
+    counts.set(normalizedUrl, (counts.get(normalizedUrl) ?? 0) + 1);
+  }
+
+  let duplicateCopies = 0;
+  for (const count of counts.values()) {
+    if (count > 1) {
+      duplicateCopies += count - 1;
+    }
+  }
+
+  return duplicateCopies;
+}
+
+async function updateActionDuplicateBadge(): Promise<void> {
+  if (!chrome.action?.setBadgeText) return;
+
+  const duplicateCopies = countDuplicateTabCopies(await chrome.tabs.query({}));
+  await chrome.action.setBadgeBackgroundColor({ color: ACTION_BADGE_DUPLICATE_COLOR });
+  await chrome.action.setBadgeTextColor?.({ color: ACTION_BADGE_TEXT_COLOR });
+  await chrome.action.setBadgeText({
+    text: duplicateCopies > 0 ? (duplicateCopies > 99 ? '99+' : String(duplicateCopies)) : ''
+  });
+  await chrome.action.setTitle({
+    title:
+      duplicateCopies > 0
+        ? `TabFriday - ${duplicateCopies} duplicate tab${duplicateCopies === 1 ? '' : 's'}`
+        : 'TabFriday'
+  });
+}
+
+function scheduleActionDuplicateBadgeUpdate(delay = 80): void {
+  if (actionBadgeUpdateTimer != null) {
+    clearTimeout(actionBadgeUpdateTimer);
+  }
+
+  actionBadgeUpdateTimer = setTimeout(() => {
+    actionBadgeUpdateTimer = null;
+    void updateActionDuplicateBadge().catch((error) => {
+      console.warn('Failed to update duplicate tab action badge.', error);
+    });
+  }, delay);
 }
 
 function pushHistoryEvent(record: TabHistoryRecord, event: TabHistoryEvent): void {
@@ -1424,11 +1506,44 @@ function getTelemetry(tabId: number): RuntimeTabTelemetry {
 }
 
 function getTabLastActivityAt(tab: chrome.tabs.Tab): number | null {
-  if (typeof tab.lastAccessed === 'number') return tab.lastAccessed;
-  if (tab.id == null) return null;
+  const tabLastAccessed = typeof tab.lastAccessed === 'number' ? tab.lastAccessed : null;
+  if (tab.id == null) return tabLastAccessed;
 
   const state = runtimeTabs.get(tab.id);
-  return state?.lastActivatedAt ?? state?.openedAt ?? state?.observedAt ?? null;
+  return Math.max(
+    tabLastAccessed ?? 0,
+    state?.lastActivatedAt ?? 0,
+    state?.openedAt ?? 0,
+    state?.observedAt ?? 0
+  ) || null;
+}
+
+function getGroupLastActivityAt(groupId: number, tabs: chrome.tabs.Tab[]): number | null {
+  return Math.max(
+    groupInteractionRecords.get(groupId) ?? 0,
+    getGroupMetadata(groupId).lastInteractedAt ?? 0,
+    ...tabs.map((tab) => getTabLastActivityAt(tab) ?? 0)
+  ) || null;
+}
+
+function markGroupInteracted(groupId: number, at = Date.now()): void {
+  groupInteractionRecords.set(groupId, at);
+  setGroupMetadata(groupId, { lastInteractedAt: at });
+}
+
+function getRuntimeMessageTimeoutMs(request: ExtensionRequest): number {
+  switch (request.type) {
+    case 'tab-manager/get-overview':
+    case 'tab-manager/get-tab-detail':
+    case 'tab-manager/get-bookmarks':
+    case 'tab-manager/get-sessions':
+    case 'tab-manager/get-redirect-tracking-permission':
+    case 'tab-manager/refresh-redirect-tracking':
+    case 'tab-manager/open-dashboard':
+      return RUNTIME_MESSAGE_TIMEOUT_MS;
+    default:
+      return RUNTIME_MUTATION_MESSAGE_TIMEOUT_MS;
+  }
 }
 
 function wasRecentlyAudible(tab: chrome.tabs.Tab, windowMs = 30 * 60_000): boolean {
@@ -1540,6 +1655,7 @@ async function autoCollapseInactiveGroups(): Promise<void> {
   try {
     const settings = await getSettings();
     if (settings.autoCollapseInactiveGroupsMinutes <= 0) return;
+    await ensureGroupMetadataLoaded();
 
     const thresholdAt = Date.now() - settings.autoCollapseInactiveGroupsMinutes * 60_000;
     const [tabs, groups] = await Promise.all([
@@ -1565,10 +1681,8 @@ async function autoCollapseInactiveGroups(): Promise<void> {
       if (!group || group.collapsed) continue;
       if (groupTabs.some((tab) => tab.active)) continue;
 
-      const latestActivityAt = Math.max(
-        ...groupTabs.map((tab) => getTabLastActivityAt(tab) ?? 0)
-      );
-      if (latestActivityAt === 0 || latestActivityAt > thresholdAt) continue;
+      const latestActivityAt = getGroupLastActivityAt(groupId, groupTabs);
+      if (latestActivityAt == null || latestActivityAt > thresholdAt) continue;
 
       try {
         await chrome.tabGroups.update(groupId, { collapsed: true });
@@ -1886,20 +2000,7 @@ export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
 }
 
 async function openDashboardTab(): Promise<void> {
-  const url = chrome.runtime.getURL('/dashboard.html');
-  const dashboardUrlPrefix = chrome.runtime.getURL('/dashboard.html');
-  const existingTabs = await chrome.tabs.query({});
-  const existingTab = existingTabs.find((tab) => tab.url?.startsWith(dashboardUrlPrefix));
-
-  if (existingTab?.id != null) {
-    await chrome.tabs.update(existingTab.id, { active: true, url });
-    if (existingTab.windowId != null) {
-      await chrome.windows.update(existingTab.windowId, { focused: true });
-    }
-    return;
-  }
-
-  await chrome.tabs.create({ url });
+  await openOrRefreshDashboardTab();
 }
 
 function createId(prefix: string): string {
@@ -2862,6 +2963,9 @@ async function updateGroup(
       color: patch.color,
       collapsed: patch.collapsed
     });
+    if (patch.collapsed === false) {
+      markGroupInteracted(groupId);
+    }
   }
 
   if (
@@ -2972,6 +3076,7 @@ export function installBackgroundService(): void {
   void refreshRedirectTrackingEnabled().catch((error) => {
     console.warn('Failed to initialize redirect tracking permission state.', error);
   });
+  scheduleActionDuplicateBadgeUpdate(0);
 
   ensureRedirectTrackingListeners();
 
@@ -2988,6 +3093,7 @@ export function installBackgroundService(): void {
     }
 
     scheduleOverviewInvalidation('created');
+    scheduleActionDuplicateBadgeUpdate();
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
     void trackTabHistory(tab, 'created');
@@ -3020,6 +3126,9 @@ export function installBackgroundService(): void {
 
     if (!relevantUpdate) return;
     scheduleOverviewInvalidation('updated');
+    if (changeInfo.url !== undefined || changeInfo.status !== undefined) {
+      scheduleActionDuplicateBadgeUpdate();
+    }
     if (snapshotRelevantUpdate) {
       scheduleAutoSessionSnapshot();
     }
@@ -3062,18 +3171,21 @@ export function installBackgroundService(): void {
 
   chrome.tabs.onMoved.addListener(() => {
     scheduleOverviewInvalidation('updated');
+    scheduleActionDuplicateBadgeUpdate();
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.tabs.onAttached.addListener(() => {
     scheduleOverviewInvalidation('updated');
+    scheduleActionDuplicateBadgeUpdate();
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
   });
 
   chrome.tabs.onDetached.addListener(() => {
     scheduleOverviewInvalidation('updated');
+    scheduleActionDuplicateBadgeUpdate();
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
   });
@@ -3101,40 +3213,49 @@ export function installBackgroundService(): void {
     runtimeTabs.delete(tabId);
     deleteAutoGroupExemption(tabId);
     scheduleOverviewInvalidation('removed');
+    scheduleActionDuplicateBadgeUpdate();
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
   });
 
-  chrome.tabGroups.onUpdated.addListener(() => {
+  chrome.tabGroups.onUpdated.addListener((group) => {
+    if (group.collapsed === false) {
+      markGroupInteracted(group.id);
+    }
     scheduleOverviewInvalidation('updated');
     scheduleAutoSessionSnapshot();
   });
 
   chrome.tabGroups.onRemoved.addListener((group) => {
     deleteGroupMetadata(group.id);
+    groupInteractionRecords.delete(group.id);
     scheduleOverviewInvalidation('updated');
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
   });
 
-  chrome.windows.onFocusChanged.addListener(async (windowId) => {
-    const now = Date.now();
+  chrome.windows.onFocusChanged.addListener((windowId) => {
+    void (async () => {
+      const now = Date.now();
 
-    if (windowId === chrome.windows.WINDOW_ID_NONE) {
-      for (const activeWindowId of activeWindowSessions.keys()) {
-        stopActiveSession(activeWindowId, now);
+      if (windowId === chrome.windows.WINDOW_ID_NONE) {
+        for (const activeWindowId of activeWindowSessions.keys()) {
+          stopActiveSession(activeWindowId, now);
+        }
+        scheduleOverviewInvalidation('focused');
+        scheduleAutoCollapseInactiveGroupsCheck();
+        return;
+      }
+
+      const [activeTab] = await chrome.tabs.query({ windowId, active: true });
+      if (activeTab?.id != null) {
+        startActiveSession(windowId, activeTab.id, now);
       }
       scheduleOverviewInvalidation('focused');
       scheduleAutoCollapseInactiveGroupsCheck();
-      return;
-    }
-
-    const [activeTab] = await chrome.tabs.query({ windowId, active: true });
-    if (activeTab?.id != null) {
-      startActiveSession(windowId, activeTab.id, now);
-    }
-    scheduleOverviewInvalidation('focused');
-    scheduleAutoCollapseInactiveGroupsCheck();
+    })().catch((error) => {
+      console.warn('Failed to process focused window change.', error);
+    });
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -3210,6 +3331,22 @@ export function installBackgroundService(): void {
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const request = message as ExtensionRequest;
+    let responded = false;
+    const timeout = setTimeout(() => {
+      if (responded) return;
+      responded = true;
+      sendResponse({
+        ok: false,
+        error: `Timed out handling request: ${request.type}`
+      } satisfies ExtensionResult<null>);
+    }, getRuntimeMessageTimeoutMs(request));
+
+    const respond = (response: ExtensionResult<unknown>) => {
+      if (responded) return;
+      responded = true;
+      clearTimeout(timeout);
+      sendResponse(response);
+    };
 
     void (async () => {
       try {
@@ -3377,9 +3514,9 @@ export function installBackgroundService(): void {
             response = { ok: false, error: 'Unknown message.' };
         }
 
-        sendResponse(response);
+        respond(response);
       } catch (error) {
-        sendResponse({
+        respond({
           ok: false,
           error: getErrorMessage(error)
         } satisfies ExtensionResult<null>);

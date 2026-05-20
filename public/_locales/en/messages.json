@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "TabWise - Smart Tab Manager & Organizer"
+    "message": "TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions"
   },
   "extDescription": {
     "message": "Smart tab manager to auto-group tabs, remove duplicate tabs, clean inactive tabs, search tabs, and restore sessions."
   },
   "extActionTitle": {
-    "message": "TabWise - Smart Tab Manager & Organizer"
+    "message": "TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions"
   }
 }

@@ -1127,13 +1127,15 @@ export function OverviewPage({
     if (groups.length === 0) return;
 
     setExpandedGroups((current) => {
-      if (current.size > 0) {
-        return new Set([...current].filter((groupId) => groups.some((entry) => entry.group.id === groupId)));
-      }
-
-      return new Set(
+      const next = new Set(
         groups.filter((entry) => !entry.group.collapsed).map((entry) => entry.group.id)
       );
+
+      if (current.size === next.size && [...current].every((groupId) => next.has(groupId))) {
+        return current;
+      }
+
+      return next;
     });
   }, [groups]);
 

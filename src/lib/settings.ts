@@ -52,7 +52,7 @@ const validGroupColors: readonly TabGroupColor[] = [
 export const defaultSettings: ManagerSettings = {
   launchSurface: 'sidepanel',
   autoRefreshSeconds: 15,
-  autoCollapseInactiveGroupsMinutes: 10,
+  autoCollapseInactiveGroupsMinutes: 30,
   autoSleepInactiveTabsMinutes: 0,
   autoCloseInactiveTabsMinutes: 0,
   autoCloseCondition: 'sleeping-only',
@@ -79,7 +79,58 @@ export const defaultSettings: ManagerSettings = {
 };
 
 export const SETTINGS_KEY = 'manager-settings';
+const SETTINGS_MIGRATIONS_KEY = 'manager-settings-migrations';
 let settingsUpdateQueue: Promise<ManagerSettings> = Promise.resolve(defaultSettings);
+
+interface SettingsMigrationState {
+  autoCollapseDefault30?: boolean;
+}
+
+interface SettingsMigrationResult {
+  raw?: Partial<ManagerSettings>;
+  migrations: SettingsMigrationState;
+  migrationsChanged: boolean;
+  settingsChanged: boolean;
+}
+
+function normalizeSettingsMigrationState(value: unknown): SettingsMigrationState {
+  if (!value || typeof value !== 'object') return {};
+
+  const state = value as Partial<SettingsMigrationState>;
+  return {
+    autoCollapseDefault30: state.autoCollapseDefault30 === true
+  };
+}
+
+function migrateStoredSettings(
+  raw: Partial<ManagerSettings> | undefined,
+  migrations: SettingsMigrationState
+): SettingsMigrationResult {
+  const nextMigrations = { ...migrations };
+  let nextRaw = raw;
+  let migrationsChanged = false;
+  let settingsChanged = false;
+
+  if (!nextMigrations.autoCollapseDefault30) {
+    nextMigrations.autoCollapseDefault30 = true;
+    migrationsChanged = true;
+
+    if (raw?.autoCollapseInactiveGroupsMinutes === 10) {
+      nextRaw = {
+        ...raw,
+        autoCollapseInactiveGroupsMinutes: 30
+      };
+      settingsChanged = true;
+    }
+  }
+
+  return {
+    raw: nextRaw,
+    migrations: nextMigrations,
+    migrationsChanged,
+    settingsChanged
+  };
+}
 
 function normalizeLaunchSurface(value: unknown): LaunchSurface {
   return validLaunchSurfaces.includes(value as LaunchSurface)
@@ -321,10 +372,22 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
 }
 
 export async function getSettings(): Promise<ManagerSettings> {
-  const stored = await chrome.storage.sync.get(SETTINGS_KEY);
+  const stored = await chrome.storage.sync.get([SETTINGS_KEY, SETTINGS_MIGRATIONS_KEY]);
   const raw = stored[SETTINGS_KEY] as Partial<ManagerSettings> | undefined;
+  const migrationResult = migrateStoredSettings(
+    raw,
+    normalizeSettingsMigrationState(stored[SETTINGS_MIGRATIONS_KEY])
+  );
+  const settings = normalizeSettings(migrationResult.raw);
 
-  return normalizeSettings(raw);
+  if (migrationResult.settingsChanged || migrationResult.migrationsChanged) {
+    await chrome.storage.sync.set({
+      ...(migrationResult.settingsChanged ? { [SETTINGS_KEY]: settings } : {}),
+      [SETTINGS_MIGRATIONS_KEY]: migrationResult.migrations
+    });
+  }
+
+  return settings;
 }
 
 export async function updateSettings(
