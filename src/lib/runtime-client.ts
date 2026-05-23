@@ -27,6 +27,8 @@ import type {
 const RUNTIME_REQUEST_TIMEOUT_MS = 20_000;
 const RUNTIME_MUTATION_TIMEOUT_MS = 60_000;
 const SIDE_PANEL_OPEN_TIMEOUT_MS = 4_000;
+const ACTION_POPUP_OPEN_TIMEOUT_MS = 4_000;
+const ACTION_POPUP_PATH = 'popup.html';
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -250,12 +252,35 @@ export async function openLaunchSurface(surface: LaunchSurface): Promise<void> {
     if (opened) return;
   }
 
+  if (surface === 'popup' && chrome.action?.openPopup) {
+    try {
+      await withTimeout(
+        chrome.action.openPopup(),
+        ACTION_POPUP_OPEN_TIMEOUT_MS,
+        'Timed out opening popup.'
+      );
+      return;
+    } catch (error) {
+      console.warn('Failed to open popup, falling back to dashboard.', error);
+    }
+  }
+
   await openDashboardPage();
 }
 
 export async function openPreferredLaunchSurface(): Promise<void> {
   const settings = await getSettings();
   await openLaunchSurface(settings.launchSurface);
+}
+
+export async function syncActionPopupForLaunchSurface(surface: LaunchSurface): Promise<void> {
+  await chrome.action?.setPopup?.({
+    popup: surface === 'popup' ? ACTION_POPUP_PATH : ''
+  });
+
+  await chrome.sidePanel?.setPanelBehavior?.({
+    openPanelOnActionClick: surface === 'sidepanel'
+  });
 }
 
 export async function focusTab(tabId: number, windowId: number): Promise<void> {

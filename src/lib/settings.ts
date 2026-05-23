@@ -16,7 +16,7 @@ import type {
   ThemeMode
 } from './contracts';
 
-const validLaunchSurfaces: readonly LaunchSurface[] = ['sidepanel', 'dashboard'];
+const validLaunchSurfaces: readonly LaunchSurface[] = ['sidepanel', 'popup', 'dashboard'];
 const validRefreshIntervals = new Set([0, 15, 30, 60]);
 export const autoInactiveMinuteChoices = [0, 5, 10, 30, 60, 120] as const;
 const validAutoCollapseInactiveGroupMinutes = new Set<AutoCollapseInactiveGroupsMinutes>(

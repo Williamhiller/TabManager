@@ -23,6 +23,7 @@ import {
   RiFolderLine,
   RiGlobalLine,
   RiDashboardLine,
+  RiLayoutRightLine,
   RiLayoutGridLine,
   RiPriceTag3Line,
   RiPushpin2Line,
@@ -505,9 +506,11 @@ export function OverviewPage({
 
   const config = surfaceConfig[mode];
   const isSidepanel = mode === 'sidepanel';
+  const isCompactWorkspace = mode === 'sidepanel' || mode === 'popup';
+  const hasCompactViewTabs = mode === 'sidepanel';
   const isEmbeddedDashboard = mode === 'dashboard' && embedded;
-  const showingBookmarksManager = mode !== 'popup' && sidepanelView === 'bookmarks';
-  const showingSessionsManager = mode !== 'popup' && sidepanelView === 'sessions';
+  const showingBookmarksManager = hasCompactViewTabs && sidepanelView === 'bookmarks';
+  const showingSessionsManager = hasCompactViewTabs && sidepanelView === 'sessions';
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const locale = resolveLocale(settings.locale);
   const t = getMessages(settings.locale);
@@ -1544,6 +1547,15 @@ export function OverviewPage({
     if (mode === 'popup') window.close();
   };
 
+  const launchSidePanelFromPopup = async () => {
+    try {
+      const opened = await openSidePanel();
+      if (opened) window.close();
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    }
+  };
+
   const handleSmartGrouping = async (strategy: SmartGroupStrategy) => {
     if (visibleTabs.length === 0) return;
 
@@ -2316,7 +2328,7 @@ export function OverviewPage({
 
   const renderUngroupedTabRow = (tab: TabSnapshot) => (
     <SortableTabRow
-      compact={isSidepanel}
+      compact={isCompactWorkspace}
       dragSortingLocked={activeDragTabId !== null || activeDragGroupId !== null}
       dragPreview={activeDragTabId === tab.id}
       displayIndex={getDisplayIndex(tab.id)}
@@ -2377,7 +2389,7 @@ export function OverviewPage({
       <GroupTreeBlock
         autoGroupSaved={autoGroupConfig !== null}
         autoOpenEditMenu={pendingAutoOpenGroupEditorId === entry.group.id}
-        compact={isSidepanel}
+        compact={isCompactWorkspace}
       dragSortingLocked={activeDragTabId !== null || activeDragGroupId !== null}
       key={entry.group.id}
       dragPreviewId={activeDragGroupId}
@@ -2514,22 +2526,36 @@ export function OverviewPage({
   );
 
   return (
-    <div className={isEmbeddedDashboard ? 'tm-dashboard-tabs-embed-root' : 'tm-shell'}>
+    <div
+      className={
+        isEmbeddedDashboard
+          ? 'tm-dashboard-tabs-embed-root'
+          : mode === 'popup'
+            ? 'tm-shell tm-shell-popup'
+            : 'tm-shell'
+      }
+    >
       <div
         className={isEmbeddedDashboard ? 'tm-dashboard-tabs-embed tm-app' : 'tm-app'}
         data-mode={mode}
       >
         <div
-          className={isSidepanel ? 'tm-sidepanel-frame tm-scrollbar' : undefined}
+          className={
+            isSidepanel
+              ? 'tm-sidepanel-frame tm-scrollbar'
+              : mode === 'popup'
+                ? 'tm-popup-frame tm-scrollbar'
+                : undefined
+          }
           data-scrolling={isSidepanel ? 'false' : undefined}
           onScroll={isSidepanel ? () => markScrollbarActive(sidepanelScrollRef.current) : undefined}
           ref={isSidepanel ? sidepanelScrollRef : undefined}
         >
           <section
-            className={`tm-panel tm-searchbar${isSidepanel ? ' tm-searchbar-sidepanel' : ''}`}
+            className={`tm-panel tm-searchbar${isCompactWorkspace ? ' tm-searchbar-sidepanel' : ''}`}
             ref={isSidepanel ? sidepanelHeaderRef : undefined}
           >
-            {mode === 'sidepanel' ? (
+            {isCompactWorkspace ? (
               <>
                 <div className="tm-search-row tm-search-row-sidepanel tm-search-row-sidepanel-primary">
                   <label className="tm-input tm-input-search tm-input-search-sidepanel">
@@ -2541,6 +2567,18 @@ export function OverviewPage({
                     />
                   </label>
                   <div className="tm-sidepanel-settings-popover-root">
+                    {mode === 'popup' ? (
+                      <Tooltip content={t.sidePanel}>
+                        <button
+                          className="tm-button tm-button-sidepanel tm-button-sidepanel-icon"
+                          aria-label={t.sidePanel}
+                          type="button"
+                          onClick={() => void launchSidePanelFromPopup()}
+                        >
+                          <RiLayoutRightLine size={14} />
+                        </button>
+                      </Tooltip>
+                    ) : null}
                     <Tooltip content={t.dashboard}>
                       <button
                         className="tm-button tm-button-sidepanel tm-button-sidepanel-icon tm-sidepanel-dashboard-launcher"
@@ -2554,26 +2592,28 @@ export function OverviewPage({
                   </div>
                 </div>
 
-                <SidepanelViewTabs
-                  activeView={
-                    sidepanelView === 'bookmarks'
-                      ? 'bookmarks'
-                      : sidepanelView === 'sessions'
-                        ? 'sessions'
-                        : 'tabs'
-                  }
-                  bookmarksCount={bookmarks.totalBookmarks}
-                  bookmarksLabel={t.navBookmarks}
-                  label={t.navViews}
-                  meta={bookmarksSearchMeta}
-                  onSwitch={(nextView) => setSidepanelView(nextView)}
-                  sessionsCount={sessions.totalSessions}
-                  sessionsLabel={t.navSnapshots}
-                  tabsCount={allTabs.length}
-                  tabsLabel={t.navTabs}
-                />
+                {hasCompactViewTabs ? (
+                  <SidepanelViewTabs
+                    activeView={
+                      sidepanelView === 'bookmarks'
+                        ? 'bookmarks'
+                        : sidepanelView === 'sessions'
+                          ? 'sessions'
+                          : 'tabs'
+                    }
+                    bookmarksCount={bookmarks.totalBookmarks}
+                    bookmarksLabel={t.navBookmarks}
+                    label={t.navViews}
+                    meta={bookmarksSearchMeta}
+                    onSwitch={(nextView) => setSidepanelView(nextView)}
+                    sessionsCount={sessions.totalSessions}
+                    sessionsLabel={t.navSnapshots}
+                    tabsCount={allTabs.length}
+                    tabsLabel={t.navTabs}
+                  />
+                ) : null}
 
-                {sidepanelView === 'tabs' ? (
+                {!hasCompactViewTabs || sidepanelView === 'tabs' ? (
                   <div className="tm-tree-header tm-tree-header-sidepanel tm-tree-header-sidepanel-merged">
                     <div className="tm-action-overview tm-action-overview-compact tm-action-overview-selection">
                     <Tooltip content={t.selectVisible} disabled={visibleTabs.length === 0}>
@@ -2777,7 +2817,7 @@ export function OverviewPage({
               </div>
             )}
 
-            {!isEmbeddedDashboard && !isSidepanel ? (
+            {!isEmbeddedDashboard && !isCompactWorkspace ? (
               <div>
                 <div className="tm-chip-row">
                   {smartViews
@@ -2803,7 +2843,7 @@ export function OverviewPage({
             ) : null}
             </section>
 
-          {isSidepanel || isEmbeddedDashboard ? null : showTools ? (
+          {isCompactWorkspace || isEmbeddedDashboard ? null : showTools ? (
             <section className="tm-panel tm-action-strip tm-organize-strip">
               <div className="tm-action-primary">
                 <div className="tm-action-overview">
@@ -3013,7 +3053,7 @@ export function OverviewPage({
             </div>
           ) : null}
 
-          {isSidepanel || isEmbeddedDashboard || (isEmbeddedDashboard && dashboardTabsSubView !== 'current') ? null : selectedCount > 0 ? (
+          {isCompactWorkspace || isEmbeddedDashboard || (isEmbeddedDashboard && dashboardTabsSubView !== 'current') ? null : selectedCount > 0 ? (
             <section
               className={
                 isEmbeddedDashboard
@@ -3147,7 +3187,7 @@ export function OverviewPage({
 
           {showingSessionsManager ? (
             <SessionsManagerView
-              isSidepanel={isSidepanel}
+              isSidepanel={isCompactWorkspace}
               locale={locale}
               query={deferredQuery}
               refreshSessions={refreshSessions}
@@ -3158,7 +3198,7 @@ export function OverviewPage({
           ) : showingBookmarksManager ? (
             <BookmarksManagerView
               bookmarks={visibleBookmarks}
-              isSidepanel={isSidepanel}
+              isSidepanel={isCompactWorkspace}
               locale={locale}
               query={deferredQuery}
               refreshBookmarks={refreshBookmarks}
@@ -3203,7 +3243,7 @@ export function OverviewPage({
                   />
                 ) : null
               }
-              isSidepanel={isSidepanel}
+              isSidepanel={isCompactWorkspace}
               markScrollbarActive={markScrollbarActive}
               onDragCancel={resetDragState}
               onDragEnd={(event) => void handleDragEnd(event)}
@@ -3229,8 +3269,14 @@ export function OverviewPage({
           )}
 
         </div>
-        {isSidepanel ? (
-          <div className="tm-sidepanel-footer tm-sidepanel-dashboard-shortcuts">
+        {isCompactWorkspace ? (
+          <div
+            className={
+              isSidepanel
+                ? 'tm-sidepanel-footer tm-sidepanel-dashboard-shortcuts'
+                : 'tm-popup-footer tm-sidepanel-dashboard-shortcuts'
+            }
+          >
             <button
               aria-label={t.navAutomation}
               className="tm-sidepanel-dashboard-shortcut"

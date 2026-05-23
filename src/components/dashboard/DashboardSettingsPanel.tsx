@@ -6,6 +6,7 @@ import {
   RiHistoryLine,
   RiLayoutRightLine,
   RiMoonLine,
+  RiWindowLine,
   RiRadarLine,
   RiSave3Line,
   RiSidebarUnfoldLine,
@@ -112,6 +113,7 @@ export function DashboardSettingsPanel({
                 optionClassName="tm-dashboard-setting-surface-option"
                 options={[
                   { value: 'sidepanel', label: t.sidePanel, disabled: busy, icon: RiLayoutRightLine },
+                  { value: 'popup', label: t.popup, disabled: busy, icon: RiWindowLine },
                   { value: 'dashboard', label: t.dashboard, disabled: busy, icon: RiDashboardLine }
                 ]}
                 value={settings.launchSurface}

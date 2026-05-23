@@ -3031,12 +3031,13 @@
 }
 
 .tm-dashboard-setting-surface-options {
-  width: 100%;
-  max-width: 240px;
+  width: min(100%, 430px);
+  min-width: min(100%, 360px);
 }
 
 .tm-dashboard-setting-surface-switch {
   width: 100%;
+  min-width: 0;
   min-height: 34px;
   border-color: transparent;
   border-radius: 999px;
@@ -3051,13 +3052,22 @@
 }
 
 .tm-dashboard-setting-surface-option {
-  flex: 1 1 0;
+  flex: 1 0 108px;
   min-height: 30px;
+  min-width: 108px;
   gap: 7px;
   justify-content: center;
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.tm-dashboard-setting-surface-option strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tm-dashboard-setting-surface-option svg {
@@ -3067,6 +3077,18 @@
 
 .tm-dashboard-setting-surface-option[data-active='true'] {
   color: var(--tm-brand);
+}
+
+@media (max-width: 980px) {
+  .tm-dashboard-setting-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .tm-dashboard-setting-surface-options {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 :root[data-theme='dark'] .tm-dashboard-setting-chip[data-active='true'] {

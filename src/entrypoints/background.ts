@@ -7,6 +7,11 @@ import { getSettings, SETTINGS_KEY, updateSettings } from '../lib/settings';
 
 let preferredLaunchSurface: LaunchSurface = 'sidepanel';
 const LAUNCH_SURFACE_OPEN_TIMEOUT_MS = 4_000;
+const ACTION_POPUP_PATH = 'popup.html';
+
+function isLaunchSurface(value: unknown): value is LaunchSurface {
+  return value === 'sidepanel' || value === 'popup' || value === 'dashboard';
+}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -26,6 +31,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 async function syncPreferredLaunchSurface(): Promise<void> {
   const settings = await getSettings();
   preferredLaunchSurface = settings.launchSurface;
+  await syncActionBehavior(settings.launchSurface);
 }
 
 async function getStoredLaunchSurface(): Promise<LaunchSurface | null> {
@@ -33,7 +39,7 @@ async function getStoredLaunchSurface(): Promise<LaunchSurface | null> {
   const raw = stored[SETTINGS_KEY] as Partial<ManagerSettings> | undefined;
   const launchSurface = raw?.launchSurface;
 
-  return launchSurface === 'sidepanel' || launchSurface === 'dashboard' ? launchSurface : null;
+  return isLaunchSurface(launchSurface) ? launchSurface : null;
 }
 
 function bindPreferredLaunchSurface(): void {
@@ -41,9 +47,22 @@ function bindPreferredLaunchSurface(): void {
     if (areaName !== 'sync') return;
     const raw = changes[SETTINGS_KEY]?.newValue as Partial<ManagerSettings> | undefined;
     const nextSurface = raw?.launchSurface;
-    if (nextSurface === 'sidepanel' || nextSurface === 'dashboard') {
+    if (isLaunchSurface(nextSurface)) {
       preferredLaunchSurface = nextSurface;
+      void syncActionBehavior(nextSurface).catch((error) => {
+        console.warn('Failed to sync action behavior for launch surface change.', error);
+      });
     }
+  });
+}
+
+async function syncActionBehavior(surface = preferredLaunchSurface): Promise<void> {
+  await chrome.action?.setPopup?.({
+    popup: surface === 'popup' ? ACTION_POPUP_PATH : ''
+  });
+
+  await chrome.sidePanel?.setPanelBehavior?.({
+    openPanelOnActionClick: surface === 'sidepanel'
   });
 }
 
@@ -64,21 +83,32 @@ async function openConfiguredLaunchSurface(tab?: chrome.tabs.Tab): Promise<void>
     }
   }
 
+  if (preferredLaunchSurface === 'popup') {
+    if (chrome.action?.openPopup) {
+      try {
+        await withTimeout(
+          chrome.action.openPopup(),
+          LAUNCH_SURFACE_OPEN_TIMEOUT_MS,
+          'Timed out opening popup from action click.'
+        );
+        return;
+      } catch (error) {
+        console.warn('Failed to open popup from action click, falling back to dashboard.', error);
+      }
+    }
+
+    await openOrRefreshDashboardTab();
+    return;
+  }
+
   await openOrRefreshDashboardTab();
-}
-
-async function configureActionClickBehavior(): Promise<void> {
-  if (!chrome.sidePanel?.setPanelBehavior) return;
-
-  await chrome.sidePanel.setPanelBehavior({
-    openPanelOnActionClick: false
-  });
 }
 
 async function handleInstalled(details: chrome.runtime.InstalledDetails): Promise<void> {
   if (details.reason === 'install') {
     await updateSettings({ launchSurface: 'dashboard' });
     preferredLaunchSurface = 'dashboard';
+    await syncActionBehavior('dashboard');
     await openOrRefreshDashboardTab();
     return;
   }
@@ -88,11 +118,13 @@ async function handleInstalled(details: chrome.runtime.InstalledDetails): Promis
   const storedLaunchSurface = await getStoredLaunchSurface();
   if (storedLaunchSurface != null) {
     preferredLaunchSurface = storedLaunchSurface;
+    await syncActionBehavior(storedLaunchSurface);
     return;
   }
 
   await updateSettings({ launchSurface: 'sidepanel' });
   preferredLaunchSurface = 'sidepanel';
+  await syncActionBehavior('sidepanel');
 }
 
 export default defineBackground(() => {
@@ -113,9 +145,5 @@ export default defineBackground(() => {
 
   void syncPreferredLaunchSurface().catch((error) => {
     console.warn('Failed to initialize preferred launch surface.', error);
-  });
-
-  void configureActionClickBehavior().catch((error) => {
-    console.warn('Failed to configure action click behavior.', error);
   });
 });

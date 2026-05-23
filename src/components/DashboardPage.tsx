@@ -32,7 +32,8 @@ import {
   requestRedirectTrackingPermission,
   subscribeToBookmarksUpdates,
   subscribeToOverviewUpdates,
-  subscribeToSessionsUpdates
+  subscribeToSessionsUpdates,
+  syncActionPopupForLaunchSurface
 } from '../lib/runtime-client';
 import { defaultSettings, getSettings, updateSettings } from '../lib/settings';
 import { autoInactiveMinuteChoices } from '../lib/settings';
@@ -247,8 +248,18 @@ export function DashboardPage() {
   );
 
   const activeViewLabel = navItems.find((item) => item.id === activeView)?.label ?? t.dashboard;
+  const nextLaunchSurface =
+    data.settings.launchSurface === 'dashboard'
+      ? 'sidepanel'
+      : data.settings.launchSurface === 'sidepanel'
+        ? 'popup'
+        : 'dashboard';
   const launchSurfaceTargetLabel =
-    data.settings.launchSurface === 'dashboard' ? t.sidePanel : t.dashboard;
+    nextLaunchSurface === 'sidepanel'
+      ? t.sidePanel
+      : nextLaunchSurface === 'popup'
+        ? t.popup
+        : t.dashboard;
   const languageLabel =
     languageOptions.find((option) => option.value === data.settings.locale)?.label ?? t.localeAuto;
   const viewModel = buildDashboardViewModel({
@@ -263,6 +274,11 @@ export function DashboardPage() {
   const saveSettings = async (patch: Partial<ManagerSettings>) => {
     try {
       const settings = await updateSettings(patch);
+      if (patch.launchSurface) {
+        void syncActionPopupForLaunchSurface(settings.launchSurface).catch((error) => {
+          console.warn('Failed to sync action behavior for launch surface change.', error);
+        });
+      }
       setData((current) => ({ ...current, settings }));
       setError(null);
     } catch (nextError) {
@@ -428,7 +444,7 @@ export function DashboardPage() {
           onCopyShareText={() => void handleCopyShareText()}
           onLaunchSurfaceToggle={() =>
             void saveSettings({
-              launchSurface: data.settings.launchSurface === 'dashboard' ? 'sidepanel' : 'dashboard'
+              launchSurface: nextLaunchSurface
             })
           }
           onOpenStore={handleOpenStore}

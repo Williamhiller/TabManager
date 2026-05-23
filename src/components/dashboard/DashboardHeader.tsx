@@ -1,5 +1,5 @@
 import { FloatingArrow, FloatingPortal, arrow, autoUpdate, flip, offset, shift, useClick, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react';
-import { RiDashboardLine, RiExternalLinkLine, RiFileCopyLine, RiLayoutRightLine, RiMoonLine, RiShareForwardLine, RiSunLine, RiTextSnippet } from '@remixicon/react';
+import { RiDashboardLine, RiExternalLinkLine, RiFileCopyLine, RiLayoutRightLine, RiMoonLine, RiShareForwardLine, RiSunLine, RiTextSnippet, RiWindowLine } from '@remixicon/react';
 import { useRef, useState } from 'react';
 
 import type { ManagerSettings } from '../../lib/contracts';
@@ -161,7 +161,13 @@ export function DashboardHeader({
             onClick={onLaunchSurfaceToggle}
             type="button"
           >
-            {launchSurface === 'dashboard' ? <RiDashboardLine size={22} /> : <RiLayoutRightLine size={22} />}
+            {launchSurface === 'dashboard' ? (
+              <RiDashboardLine size={22} />
+            ) : launchSurface === 'popup' ? (
+              <RiWindowLine size={22} />
+            ) : (
+              <RiLayoutRightLine size={22} />
+            )}
           </button>
         </Tooltip>
         <button

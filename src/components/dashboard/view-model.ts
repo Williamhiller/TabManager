@@ -35,6 +35,17 @@ function makeItem(title: string, subtitle?: string, meta?: string): DashboardLis
   return { meta, subtitle, title };
 }
 
+function getLaunchSurfaceLabel(settings: DashboardData['settings'], t: Messages): string {
+  switch (settings.launchSurface) {
+    case 'popup':
+      return t.popup;
+    case 'dashboard':
+      return t.dashboard;
+    default:
+      return t.sidePanel;
+  }
+}
+
 export function buildDashboardViewModel({
   activeView,
   activeViewLabel,
@@ -218,13 +229,13 @@ export function buildDashboardViewModel({
     metrics: [
       makeMetric(t.theme, resolvedTheme === 'dark' ? t.dark : t.light),
       makeMetric(t.language, languageLabel),
-      makeMetric(t.launchSurface, settings.launchSurface === 'dashboard' ? t.dashboard : t.sidePanel),
+      makeMetric(t.launchSurface, getLaunchSurfaceLabel(settings, t)),
       makeMetric(t.autoRefresh, settings.autoRefreshSeconds === 0 ? t.manualOnly : `${settings.autoRefreshSeconds}s`)
     ],
     items: [
       makeItem(t.theme, settings.theme === 'system' ? `${t.system} · ${resolvedTheme === 'dark' ? t.dark : t.light}` : resolvedTheme === 'dark' ? t.dark : t.light),
       makeItem(t.language, languageLabel),
-      makeItem(t.launchSurface, settings.launchSurface === 'dashboard' ? t.dashboard : t.sidePanel),
+      makeItem(t.launchSurface, getLaunchSurfaceLabel(settings, t)),
       makeItem(t.autoGroup, settings.autoGroupEnabled ? t.enabled : t.disabled)
     ],
     asideTitle: t.workspaceSettings,

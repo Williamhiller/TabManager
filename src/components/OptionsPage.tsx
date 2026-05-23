@@ -7,6 +7,7 @@ import {
   RiHistoryLine,
   RiMoonLine,
   RiSidebarUnfoldLine,
+  RiWindowLine,
 } from '@remixicon/react';
 import { useEffect, useState } from 'react';
 
@@ -20,7 +21,7 @@ import type {
 } from '../lib/contracts';
 import { getErrorMessage } from '../lib/format';
 import { getMessages } from '../lib/i18n';
-import { openDashboardPage, openSidePanel } from '../lib/runtime-client';
+import { openDashboardPage, openSidePanel, syncActionPopupForLaunchSurface } from '../lib/runtime-client';
 import {
   autoInactiveMinuteChoices,
   defaultSettings,
@@ -58,6 +59,11 @@ export function OptionsPage() {
 
     try {
       const next = await updateSettings(patch);
+      if (patch.launchSurface) {
+        void syncActionPopupForLaunchSurface(next.launchSurface).catch((error) => {
+          console.warn('Failed to sync action behavior for launch surface change.', error);
+        });
+      }
       setSettings(next);
       applyTheme(next.theme);
       setStatus(t.save);
@@ -135,7 +141,17 @@ export function OptionsPage() {
                 onClick={() => void save({ launchSurface: 'sidepanel' })}
                 type="button"
               >
+                <RiSidebarUnfoldLine size={14} />
                 {t.sidePanel}
+              </button>
+              <button
+                className="tm-nav-button"
+                data-active={settings.launchSurface === 'popup'}
+                onClick={() => void save({ launchSurface: 'popup' })}
+                type="button"
+              >
+                <RiWindowLine size={14} />
+                {t.popup}
               </button>
               <button
                 className="tm-nav-button"

@@ -1,4 +1,4 @@
-export type LaunchSurface = 'sidepanel' | 'dashboard';
+export type LaunchSurface = 'sidepanel' | 'popup' | 'dashboard';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type LocaleMode = 'system' | 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
 export type AutoCollapseInactiveGroupsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
