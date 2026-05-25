@@ -2,7 +2,7 @@
   min-height: 100vh;
   height: 100vh;
   overflow: hidden;
-  background: var(--tm-surface);
+  background: var(--tm-bg);
 }
 
 .tm-dashboard-page {
@@ -62,7 +62,7 @@
   color: var(--tm-brand);
   font-family: var(--font-display);
   font-size: 1.2rem;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   line-height: 1;
 }
 
@@ -271,17 +271,19 @@
 .tm-dashboard-section-head h2 {
   margin: 0;
   color: var(--tm-text);
-  font-family: var(--font-display);
-  letter-spacing: -0.03em;
+  font-family: var(--font-sans);
+  letter-spacing: 0;
   line-height: 1.05;
 }
 
 .tm-dashboard-section-head h1 {
-  font-size: 1.5rem;
+  font-size: 1.28rem;
+  font-weight: 720;
 }
 
 .tm-dashboard-section-head h2 {
-  font-size: 1.05rem;
+  font-size: 0.98rem;
+  font-weight: 700;
 }
 
 .tm-dashboard-metrics {
@@ -298,10 +300,11 @@
 }
 
 .tm-dashboard-metric-card {
-  padding: 14px 16px;
-  border: 1px solid var(--tm-border);
-  border-radius: 14px;
-  background: var(--tm-surface);
+  padding: 10px 0 12px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--tm-border) 78%, transparent);
+  border-radius: 0;
+  background: transparent;
 }
 
 .tm-dashboard-metric-card span,
@@ -320,10 +323,11 @@
 }
 
 .tm-dashboard-metric-card strong {
-  font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-family: var(--font-sans);
+  font-size: 1.18rem;
+  font-weight: 760;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .tm-dashboard-metric-card small,
@@ -2218,10 +2222,10 @@
 }
 
 .tm-dashboard-dedup-card {
-  border: 1px solid var(--tm-border);
-  border-radius: 18px;
-  background: var(--tm-surface);
-  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--tm-border) 74%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tm-surface) 96%, var(--tm-bg-elevated));
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -2252,9 +2256,10 @@
 }
 
 .tm-dashboard-dedup-card-head h2 {
-  font-family: var(--font-display);
-  font-size: 1.4rem;
-  letter-spacing: -0.03em;
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 760;
+  letter-spacing: 0;
   line-height: 1.1;
   display: flex;
   align-items: center;
@@ -2374,9 +2379,9 @@
 .tm-dashboard-automation-list,
 .tm-dashboard-automation-detail {
   min-height: 0;
-  border: 1px solid var(--tm-border);
-  border-radius: 18px;
-  background: var(--tm-surface);
+  border: 1px solid color-mix(in srgb, var(--tm-border) 74%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tm-surface) 96%, var(--tm-bg-elevated));
 }
 
 .tm-dashboard-automation-list {
@@ -2574,9 +2579,10 @@
 .tm-dashboard-automation-detail-head h2 {
   margin: 0;
   color: var(--tm-text);
-  font-family: var(--font-display);
-  font-size: 1.4rem;
-  letter-spacing: -0.03em;
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 760;
+  letter-spacing: 0;
   line-height: 1.1;
 }
 
@@ -2795,9 +2801,10 @@
 .tm-dashboard-settings-header h1 {
   margin: 0;
   color: var(--tm-text);
-  font-family: var(--font-display);
-  font-size: 1.75rem;
-  letter-spacing: -0.03em;
+  font-family: var(--font-sans);
+  font-size: 1.36rem;
+  font-weight: 760;
+  letter-spacing: 0;
   line-height: 1.1;
 }
 
