@@ -10,6 +10,7 @@
     "build:chrome": "wxt build -b chrome",
     "zip": "wxt zip",
     "lint": "eslint .",
+    "check:auto-groups": "node scripts/check-auto-group-defaults.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
