@@ -1,4 +1,5 @@
 import type { LocaleMode, TabGroupColor } from './contracts';
+import { resolveSupportedLocale } from './locale';
 
 export type AutoGroupPresetLocale = 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
 
@@ -305,38 +306,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
 export function resolveAutoGroupPresetLocale(
   localeMode: LocaleMode | AutoGroupPresetLocale
 ): AutoGroupPresetLocale {
-  if (
-    localeMode === 'en' ||
-    localeMode === 'zh-CN' ||
-    localeMode === 'ja' ||
-    localeMode === 'fr' ||
-    localeMode === 'es' ||
-    localeMode === 'ar'
-  ) {
-    return localeMode;
-  }
-
-  if (typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage) {
-    const language = chrome.i18n.getUILanguage().toLowerCase();
-    if (language.startsWith('zh')) return 'zh-CN';
-    if (language.startsWith('ja')) return 'ja';
-    if (language.startsWith('fr')) return 'fr';
-    if (language.startsWith('es')) return 'es';
-    if (language.startsWith('ar')) return 'ar';
-    return 'en';
-  }
-
-  if (typeof navigator !== 'undefined') {
-    const language = navigator.language.toLowerCase();
-    if (language.startsWith('zh')) return 'zh-CN';
-    if (language.startsWith('ja')) return 'ja';
-    if (language.startsWith('fr')) return 'fr';
-    if (language.startsWith('es')) return 'es';
-    if (language.startsWith('ar')) return 'ar';
-    return 'en';
-  }
-
-  return 'en';
+  return resolveSupportedLocale(localeMode);
 }
 
 function normalizeHostnameValue(value: string): string {
@@ -458,6 +428,16 @@ export function matchesDefaultAutoGroupPresetById(
 
   const context = buildAutoGroupMatchContext(input);
   return matchesPresetMatchers(preset, context);
+}
+
+export function isDefaultAutoGroupPresetTitle(
+  preset: DefaultAutoGroupPreset,
+  title: string | null | undefined
+): boolean {
+  if (!title) return false;
+
+  const normalizedTitle = title.trim();
+  return Object.values(preset.titles).some((presetTitle) => presetTitle === normalizedTitle);
 }
 
 export function getDefaultAutoGroupPresetTitle(

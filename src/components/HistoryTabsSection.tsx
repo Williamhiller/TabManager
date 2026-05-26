@@ -10,7 +10,7 @@ import { Tooltip } from './Tooltip';
 
 export function HistoryTabsSection({
   historyTabs,
-  defaultExpanded = true,
+  defaultExpanded = false,
   collapsible = true,
   locale,
   t,

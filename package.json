@@ -1,6 +1,6 @@
 {
   "name": "tabfriday",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,14 @@
     "build:chrome": "wxt build -b chrome",
     "zip": "wxt zip",
     "lint": "eslint .",
+    "check:active-tab": "node scripts/check-active-tab-highlight.mjs",
+    "check:auto-group-title-sync": "node scripts/check-auto-group-config-title-sync.mjs",
     "check:auto-groups": "node scripts/check-auto-group-defaults.mjs",
+    "check:extension-favicon": "node scripts/check-extension-favicon.mjs",
+    "check:history-tabs": "node scripts/check-history-tabs-default-collapsed.mjs",
+    "check:locale": "node scripts/check-locale-resolution.mjs",
+    "check:temporary-auto-groups": "node scripts/check-temporary-auto-groups.mjs",
+    "check:window-scope": "node scripts/check-window-scoped-automation.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

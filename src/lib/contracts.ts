@@ -52,6 +52,7 @@ export interface GroupTabsOptions {
   groupId?: number;
   title?: string;
   color?: TabGroupColor;
+  autoGroupConfigId?: string | null;
 }
 
 export interface ManagerSettings {

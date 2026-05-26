@@ -1,8 +1,9 @@
 import type { LocaleMode } from './contracts';
+import { resolveSupportedLocale, type SupportedLocale } from './locale';
 
 export const supportedLocales = ['en', 'zh-CN', 'ja', 'fr', 'es', 'ar'] as const;
 
-export type ResolvedLocale = (typeof supportedLocales)[number];
+export type ResolvedLocale = SupportedLocale;
 
 const enMessages = {
     appTitle: 'TabFriday',
@@ -760,27 +761,7 @@ const messages = {
 export type Messages = Record<keyof typeof messages.en, string>;
 
 export function resolveLocale(localeMode: LocaleMode): ResolvedLocale {
-  if (localeMode === 'system') {
-    const language = navigator.language.toLowerCase();
-    if (language.startsWith('zh')) return 'zh-CN';
-    if (language.startsWith('ja')) return 'ja';
-    if (language.startsWith('fr')) return 'fr';
-    if (language.startsWith('es')) return 'es';
-    if (language.startsWith('ar')) return 'ar';
-    return 'en';
-  }
-
-  if (
-    localeMode === 'zh-CN' ||
-    localeMode === 'ja' ||
-    localeMode === 'fr' ||
-    localeMode === 'es' ||
-    localeMode === 'ar'
-  ) {
-    return localeMode;
-  }
-
-  return 'en';
+  return resolveSupportedLocale(localeMode);
 }
 
 export function getMessages(localeMode: LocaleMode): Messages {

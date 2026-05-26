@@ -14,7 +14,11 @@ import { RiAddLine, RiCloseLine, RiDeleteBin6Line, RiDragMove2Line } from '@remi
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 
-import { defaultAutoGroupPresets, getDefaultAutoGroupPresetTitle } from '../../lib/auto-group-defaults';
+import {
+  defaultAutoGroupPresets,
+  getDefaultAutoGroupPresetTitle,
+  isDefaultAutoGroupPresetTitle
+} from '../../lib/auto-group-defaults';
 import { allGroupColors, groupColorTokens } from '../../lib/theme';
 import { getPresetPatternLabels } from '../tab-tree-helpers';
 import type { DashboardAutoGroupPanelProps } from './types';
@@ -39,7 +43,7 @@ export function DashboardAutoGroupPanel({
     const preset = defaultAutoGroupPresets.find((entry) => entry.id === config.presetId);
     if (!preset) return config.title;
 
-    return config.title === preset.titles.en
+    return isDefaultAutoGroupPresetTitle(preset, config.title)
       ? getDefaultAutoGroupPresetTitle(preset, locale)
       : config.title;
   };
@@ -87,8 +91,8 @@ export function DashboardAutoGroupPanel({
   const selectedConfigDisplayTitle = selectedConfig ? getConfigDisplayTitle(selectedConfig) : '';
 
   useEffect(() => {
-    setTitleDraft(selectedConfig?.title ?? '');
-  }, [selectedConfig?.id, selectedConfig?.title]);
+    setTitleDraft(selectedConfigDisplayTitle);
+  }, [selectedConfig?.id, selectedConfigDisplayTitle]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = typeof event.active.id === 'string' ? event.active.id : null;
@@ -176,8 +180,8 @@ export function DashboardAutoGroupPanel({
   const commitTitleDraft = () => {
     if (!selectedConfig) return;
     const nextTitle = titleDraft.trim();
-    if (!nextTitle || nextTitle === selectedConfig.title) {
-      setTitleDraft(selectedConfig.title);
+    if (!nextTitle || nextTitle === selectedConfigDisplayTitle) {
+      setTitleDraft(selectedConfigDisplayTitle);
       return;
     }
 
@@ -198,7 +202,7 @@ export function DashboardAutoGroupPanel({
     onUpdateConfig(selectedConfig.id, {
       presetId: undefined,
       title:
-        selectedPreset && selectedConfig.title === selectedPreset.titles.en
+        selectedPreset && isDefaultAutoGroupPresetTitle(selectedPreset, selectedConfig.title)
           ? getConfigDisplayTitle(selectedConfig)
           : selectedConfig.title,
       websites: merged
@@ -217,7 +221,7 @@ export function DashboardAutoGroupPanel({
     onUpdateConfig(selectedConfig.id, {
       presetId: undefined,
       title:
-        selectedPreset && selectedConfig.title === selectedPreset.titles.en
+        selectedPreset && isDefaultAutoGroupPresetTitle(selectedPreset, selectedConfig.title)
           ? getConfigDisplayTitle(selectedConfig)
           : selectedConfig.title,
       websites: selectedDomainTags.filter((item) => item !== website)

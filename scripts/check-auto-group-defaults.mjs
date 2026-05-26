@@ -6,8 +6,10 @@ import ts from 'typescript';
 
 const rootDir = path.resolve(import.meta.dirname, '..');
 const sourcePath = path.join(rootDir, 'src/lib/auto-group-defaults.ts');
+const localeSourcePath = path.join(rootDir, 'src/lib/locale.ts');
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tabmanager-auto-groups-'));
 const compiledPath = path.join(tempDir, 'auto-group-defaults.mjs');
+const compiledLocalePath = path.join(tempDir, 'locale.mjs');
 
 const source = fs.readFileSync(sourcePath, 'utf8');
 const compiled = ts.transpileModule(source, {
@@ -19,13 +21,28 @@ const compiled = ts.transpileModule(source, {
     strict: true
   },
   fileName: sourcePath
+}).outputText.replace("from './locale'", "from './locale.mjs'");
+const localeSource = fs.readFileSync(localeSourcePath, 'utf8');
+const compiledLocale = ts.transpileModule(localeSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    skipLibCheck: true,
+    strict: true
+  },
+  fileName: localeSourcePath
 }).outputText;
 
 fs.writeFileSync(compiledPath, compiled, 'utf8');
+fs.writeFileSync(compiledLocalePath, compiledLocale, 'utf8');
 
-const { matchDefaultAutoGroupPreset, matchesDefaultAutoGroupPresetById } = await import(
-  path.toNamespacedPath(compiledPath)
-);
+const {
+  defaultAutoGroupPresets,
+  isDefaultAutoGroupPresetTitle,
+  matchDefaultAutoGroupPreset,
+  matchesDefaultAutoGroupPresetById
+} = await import(path.toNamespacedPath(compiledPath));
 
 const expectedPresetCases = [
   ['https://app.apifox.com/project/1', 'development'],
@@ -66,5 +83,12 @@ for (const [url, presetId, expected] of explicitPresetCases) {
   const actual = matchesDefaultAutoGroupPresetById({ url }, presetId);
   assert.equal(actual, expected, `${url} should ${expected ? '' : 'not '}match ${presetId}`);
 }
+
+const socialPreset = defaultAutoGroupPresets.find((preset) => preset.id === 'social');
+assert.ok(socialPreset, 'social preset should exist');
+assert.equal(isDefaultAutoGroupPresetTitle(socialPreset, 'Social'), true);
+assert.equal(isDefaultAutoGroupPresetTitle(socialPreset, '社交'), true);
+assert.equal(isDefaultAutoGroupPresetTitle(socialPreset, '  社交  '), true);
+assert.equal(isDefaultAutoGroupPresetTitle(socialPreset, 'My Social'), false);
 
 fs.rmSync(tempDir, { recursive: true, force: true });
