@@ -1,6 +1,7 @@
 import './dashboard.css';
 
 export { DashboardAside } from './DashboardAside';
+export { DashboardAutoClosePanel } from './DashboardAutoClosePanel';
 export { DashboardDropdown } from './DashboardDropdown';
 export { DashboardAutoGroupPanel } from './DashboardAutoGroupPanel';
 export { DashboardBookmarksPanel } from './DashboardBookmarksPanel';

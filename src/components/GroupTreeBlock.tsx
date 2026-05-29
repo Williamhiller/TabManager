@@ -49,7 +49,6 @@ export function GroupTreeBlock({
   getDisplayIndex,
   openActionMenuTabId,
   labelMap,
-  locale,
   overDropId,
   overDropPosition,
   selectedIds,
@@ -83,7 +82,6 @@ export function GroupTreeBlock({
   getDisplayIndex: (tabId: number) => number;
   openActionMenuTabId: number | null;
   labelMap: Messages;
-  locale: string;
   overDropId: string | null;
   overDropPosition: 'before' | 'after' | 'inside' | null;
   selectedIds: Set<number>;
@@ -474,7 +472,6 @@ export function GroupTreeBlock({
                   key={tab.id}
                   depth={1}
                   labelMap={labelMap}
-                  locale={locale}
                   overDropId={overDropId}
                   overDropPosition={overDropPosition}
                   selectable

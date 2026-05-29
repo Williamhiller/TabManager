@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   DashboardAside,
+  DashboardAutoClosePanel,
   DashboardAutoGroupPanel,
   DashboardBookmarksPanel,
   DashboardDeduplicationPanel,
@@ -18,7 +19,7 @@ import {
 } from './dashboard';
 import { createAutoGroupRule } from './tab-tree-helpers';
 import type { DashboardData, DashboardViewId } from './dashboard';
-import type { AutoGroupConfig, AutoGroupRule, ManagerSettings, ThemeMode } from '../lib/contracts';
+import type { AutoGroupConfig, AutoGroupRule, AutoCloseInactiveTabsMinutes, ManagerSettings, ThemeMode } from '../lib/contracts';
 import { createAutoGroupConfig } from '../lib/auto-group-config';
 import { getErrorMessage } from '../lib/format';
 import { getMessages, resolveLocale } from '../lib/i18n';
@@ -467,6 +468,7 @@ export function DashboardPage() {
             activeView === 'settings' ||
             activeView === 'automation' ||
             activeView === 'deduplication' ||
+            activeView === 'autoclose' ||
             activeView === 'bookmarks' ||
             activeView === 'snapshots'
               ? 'tm-dashboard-frame tm-dashboard-frame-settings'
@@ -492,16 +494,10 @@ export function DashboardPage() {
             />
           ) : activeView === 'settings' ? (
             <DashboardSettingsPanel
-              autoCloseChoices={autoInactiveMinuteChoices}
               autoCollapseChoices={autoInactiveMinuteChoices}
               autoSleepChoices={autoInactiveMinuteChoices}
               busy={false}
               languageOptions={languageOptions}
-              onAutoCleanupWhitelistChange={(entries) => void saveSettings({ autoCleanupWhitelist: entries })}
-              onCloseSleepingOnlyChange={(value) =>
-                void saveSettings({ autoCloseCondition: value ? 'sleeping-only' : 'deep-idle' })
-              }
-              onAutoCloseChange={(minutes) => void saveSettings({ autoCloseInactiveTabsMinutes: minutes })}
               onAutoCollapseChange={(minutes) => void saveSettings({ autoCollapseInactiveGroupsMinutes: minutes })}
               onAutoSleepChange={(minutes) => void saveSettings({ autoSleepInactiveTabsMinutes: minutes })}
               onLocaleChange={(localeMode) => void saveSettings({ locale: localeMode })}
@@ -512,6 +508,12 @@ export function DashboardPage() {
                 void saveSettings({ autoSnapshotsEnabled: !data.settings.autoSnapshotsEnabled })
               }
               onToggleLaunchSurface={(surface) => void saveSettings({ launchSurface: surface })}
+              onToggleSidepanelShowSnapshots={() =>
+                void saveSettings({ sidepanelShowSnapshots: !data.settings.sidepanelShowSnapshots })
+              }
+              onToggleSidepanelShowBookmarks={() =>
+                void saveSettings({ sidepanelShowBookmarks: !data.settings.sidepanelShowBookmarks })
+              }
               redirectTrackingBusy={redirectTrackingBusy}
               redirectTrackingPermission={data.redirectTrackingPermission}
               settings={data.settings}
@@ -553,6 +555,20 @@ export function DashboardPage() {
               onToggleAutoDeduplicateTabs={() =>
                 void saveSettings({ autoDeduplicateTabs: !data.settings.autoDeduplicateTabs })
               }
+              settings={data.settings}
+              t={t}
+            />
+          ) : activeView === 'autoclose' ? (
+            <DashboardAutoClosePanel
+              autoCloseChoices={autoInactiveMinuteChoices}
+              busy={false}
+              onAutoCloseChange={(minutes) => void saveSettings({ autoCloseInactiveTabsMinutes: minutes })}
+              onAutoCloseDomainModeChange={(mode) => void saveSettings({ autoCloseDomainMode: mode })}
+              onAutoCleanupWhitelistChange={(entries) => void saveSettings({ autoCleanupWhitelist: entries })}
+              onToggleAutoClose={() => {
+                const next = data.settings.autoCloseInactiveTabsMinutes > 0 ? 0 : 30;
+                void saveSettings({ autoCloseInactiveTabsMinutes: next as AutoCloseInactiveTabsMinutes });
+              }}
               settings={data.settings}
               t={t}
             />

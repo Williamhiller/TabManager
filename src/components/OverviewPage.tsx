@@ -768,6 +768,15 @@ export function OverviewPage({
   }, [settings.theme]);
 
   useEffect(() => {
+    if (sidepanelView === 'sessions' && !settings.sidepanelShowSnapshots) {
+      setSidepanelView('tabs');
+    }
+    if (sidepanelView === 'bookmarks' && !settings.sidepanelShowBookmarks) {
+      setSidepanelView('tabs');
+    }
+  }, [sidepanelView, settings.sidepanelShowSnapshots, settings.sidepanelShowBookmarks]);
+
+  useEffect(() => {
     if (!status) return;
 
     const timer = window.setTimeout(() => setStatus(null), 2600);
@@ -2335,7 +2344,6 @@ export function OverviewPage({
       menuOpen={openActionMenuTabId === tab.id}
       key={tab.id}
       labelMap={t}
-      locale={locale}
       overDropId={overDropId}
       overDropPosition={overDropPosition}
       selectable
@@ -2398,7 +2406,6 @@ export function OverviewPage({
       expanded={deferredQuery.length > 0 || expandedGroups.has(entry.group.id)}
       group={entry.group}
       labelMap={t}
-      locale={locale}
       overDropId={overDropId}
       overDropPosition={overDropPosition}
       tabs={entry.tabs}
@@ -2592,7 +2599,7 @@ export function OverviewPage({
                   </div>
                 </div>
 
-                {hasCompactViewTabs ? (
+                {hasCompactViewTabs && (settings.sidepanelShowSnapshots || settings.sidepanelShowBookmarks) ? (
                   <SidepanelViewTabs
                     activeView={
                       sidepanelView === 'bookmarks'
@@ -2608,6 +2615,8 @@ export function OverviewPage({
                     onSwitch={(nextView) => setSidepanelView(nextView)}
                     sessionsCount={sessions.totalSessions}
                     sessionsLabel={t.navSnapshots}
+                    showBookmarks={settings.sidepanelShowBookmarks}
+                    showSnapshots={settings.sidepanelShowSnapshots}
                     tabsCount={allTabs.length}
                     tabsLabel={t.navTabs}
                   />

@@ -369,19 +369,6 @@ export function OptionsPage() {
                       </option>
                     ))}
                   </select>
-                  <button
-                    aria-pressed={settings.autoCloseCondition === 'sleeping-only'}
-                    className={settings.autoCloseCondition === 'sleeping-only' ? 'tm-button-primary' : 'tm-button'}
-                    onClick={() =>
-                      void save({
-                        autoCloseCondition:
-                          settings.autoCloseCondition === 'sleeping-only' ? 'deep-idle' : 'sleeping-only'
-                      })
-                    }
-                    type="button"
-                  >
-                    {t.closeSleepingOnly}
-                  </button>
                 </div>
               </div>
 

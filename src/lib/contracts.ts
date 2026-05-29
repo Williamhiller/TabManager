@@ -4,7 +4,7 @@ export type LocaleMode = 'system' | 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
 export type AutoCollapseInactiveGroupsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
 export type AutoSleepInactiveTabsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
 export type AutoCloseInactiveTabsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
-export type AutoCloseCondition = 'sleeping-only' | 'deep-idle';
+export type AutoCloseDomainMode = 'exclude' | 'include' | 'all';
 export type AutoDeduplicationScope = 'global-except-listed' | 'listed-only';
 export type AutoGroupRuleField = 'hostname' | 'url' | 'title';
 export type AutoGroupRuleOperator = 'contains' | 'equals';
@@ -61,7 +61,7 @@ export interface ManagerSettings {
   autoCollapseInactiveGroupsMinutes: AutoCollapseInactiveGroupsMinutes;
   autoSleepInactiveTabsMinutes: AutoSleepInactiveTabsMinutes;
   autoCloseInactiveTabsMinutes: AutoCloseInactiveTabsMinutes;
-  autoCloseCondition: AutoCloseCondition;
+  autoCloseDomainMode: AutoCloseDomainMode;
   autoCleanupWhitelist: string[];
   autoDeduplicateTabs: boolean;
   autoDeduplicationScope: AutoDeduplicationScope;
@@ -74,6 +74,8 @@ export interface ManagerSettings {
   autoGroupConfigs: AutoGroupConfig[];
   theme: ThemeMode;
   locale: LocaleMode;
+  sidepanelShowSnapshots: boolean;
+  sidepanelShowBookmarks: boolean;
 }
 
 export interface TabGroupSnapshot {

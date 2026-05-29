@@ -43,6 +43,7 @@ import {
   matchesDefaultAutoGroupPresetById,
   matchDefaultAutoGroupPreset
 } from './auto-group-defaults';
+import { planAutoDeduplication } from './auto-deduplicate';
 import { updateAutoGroupConfigTitleFromGroup } from './auto-group-config-sync';
 import { openOrRefreshDashboardTab } from './dashboard-tabs';
 import { resolveFavIconUrl } from './favicon';
@@ -1739,27 +1740,36 @@ async function maybeAutoDeduplicateTab(tab: chrome.tabs.Tab): Promise<boolean> {
   if (settings.autoDeduplicationScope === 'global-except-listed' && siteMatched) return false;
   if (settings.autoDeduplicationScope === 'listed-only' && !siteMatched) return false;
 
-  const target = filterSameWindowTabs(await chrome.tabs.query({ windowId: tab.windowId }), tab.windowId)
+  const candidates = filterSameWindowTabs(await chrome.tabs.query({ windowId: tab.windowId }), tab.windowId)
     .filter((candidate) => {
       if (candidate.id == null || candidate.id === tab.id) return false;
       const candidateUrl = candidate.url ?? candidate.pendingUrl ?? '';
       return normalizeAutoDeduplicationUrl(candidateUrl) === normalizedUrl;
     })
-    .sort((first, second) => {
-      const firstActive = first.active ? 1 : 0;
-      const secondActive = second.active ? 1 : 0;
-      if (firstActive !== secondActive) {
-        return secondActive - firstActive;
-      }
+    .map((candidate) => ({
+      id: candidate.id!,
+      active: candidate.active,
+      pinned: candidate.pinned,
+      lastActivityAt: getTabLastActivityAt(candidate)
+    }));
 
-      return (getTabLastActivityAt(second) ?? 0) - (getTabLastActivityAt(first) ?? 0);
-    })[0];
+  const plan = planAutoDeduplication(
+    { id: tab.id, active: tab.active, pinned: tab.pinned },
+    candidates
+  );
 
-  if (target?.id == null) return false;
+  if (plan.kind === 'none') return false;
 
-  await chrome.tabs.update(target.id, { active: true });
-  await chrome.tabs.remove(tab.id);
-  return true;
+  if (plan.kind === 'keepExisting') {
+    await chrome.tabs.update(plan.targetTabId, { active: true });
+    await chrome.tabs.remove(plan.closeTabIds);
+    return plan.closeTabIds.includes(tab.id);
+  }
+
+  if (plan.closeTabIds.length > 0) {
+    await chrome.tabs.remove(plan.closeTabIds);
+  }
+  return false;
 }
 
 async function autoCollapseInactiveGroups(): Promise<void> {
@@ -1863,24 +1873,26 @@ async function autoCloseInactiveTabs(): Promise<void> {
     const thresholdAt = Date.now() - settings.autoCloseInactiveTabsMinutes * 60_000;
     const tabs = await chrome.tabs.query({});
     const closableTabIds: number[] = [];
-    const sleepThresholdAt =
-      settings.autoSleepInactiveTabsMinutes > 0
-        ? Date.now() - settings.autoSleepInactiveTabsMinutes * 60_000
-        : null;
 
     for (const tab of tabs) {
       if (!isAutoCleanupEligible(tab)) continue;
       const tabId = tab.id;
       if (tabId == null) continue;
-      if (matchesAutoCleanupWhitelist(tab, settings.autoCleanupWhitelist)) continue;
+
+      // 根据域名模式过滤（include 模式下空列表等同于 all）
+      const hasDomainList = settings.autoCleanupWhitelist.length > 0;
+      if (hasDomainList) {
+        if (settings.autoCloseDomainMode === 'exclude') {
+          // 排除模式：列表中的域名跳过关闭
+          if (matchesAutoCleanupWhitelist(tab, settings.autoCleanupWhitelist)) continue;
+        } else if (settings.autoCloseDomainMode === 'include') {
+          // 仅限模式：只对列表中的域名启用关闭
+          if (!matchesAutoCleanupWhitelist(tab, settings.autoCleanupWhitelist)) continue;
+        }
+      }
 
       const lastActivityAt = getTabLastActivityAt(tab);
       if (lastActivityAt == null || lastActivityAt > thresholdAt) continue;
-      const isSleeping = tab.discarded || Boolean((tab as chrome.tabs.Tab & { frozen?: boolean }).frozen);
-      if (!isSleeping) {
-        if (settings.autoCloseCondition === 'sleeping-only') continue;
-        if (sleepThresholdAt == null || lastActivityAt > sleepThresholdAt) continue;
-      }
 
       closableTabIds.push(tabId);
     }
@@ -1916,15 +1928,15 @@ async function syncAutoCollapseInactiveGroupsAlarm(): Promise<void> {
 }
 
 function scheduleAutoCollapseInactiveGroupsCheck(): void {
-  void autoCollapseInactiveGroups().catch((error) => {
-    console.warn('Failed to auto-collapse inactive tab groups.', error);
-  });
-  void autoSleepInactiveTabs().catch((error) => {
-    console.warn('Failed to auto-sleep inactive tabs.', error);
-  });
-  void autoCloseInactiveTabs().catch((error) => {
-    console.warn('Failed to auto-close inactive tabs.', error);
-  });
+  void (async () => {
+    try {
+      await autoCollapseInactiveGroups();
+      await autoSleepInactiveTabs();
+      await autoCloseInactiveTabs();
+    } catch (error) {
+      console.warn('Failed to run inactive tab cleanup.', error);
+    }
+  })();
 }
 
 async function getSystemMemory(): Promise<SystemMemorySnapshot | null> {

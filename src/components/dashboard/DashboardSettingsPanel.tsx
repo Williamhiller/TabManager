@@ -1,5 +1,6 @@
 import {
-  RiCloseCircleLine,
+  RiBookmarkLine,
+  RiCameraLine,
   RiDashboardLine,
   RiFolderReduceLine,
   RiGlobalLine,
@@ -14,7 +15,6 @@ import {
 } from '@remixicon/react';
 
 import type {
-  AutoCloseInactiveTabsMinutes,
   AutoCollapseInactiveGroupsMinutes,
   AutoSleepInactiveTabsMinutes,
   LocaleMode,
@@ -24,17 +24,12 @@ import type {
 import { DashboardDropdown } from './DashboardDropdown';
 import type { DashboardLocaleOptionView } from './types';
 import { SegmentedSwitch } from '../SegmentedSwitch';
-import { TagListEditor } from '../TagListEditor';
 
 type DashboardSettingsPanelProps = {
-  autoCloseChoices: readonly AutoCloseInactiveTabsMinutes[];
   autoCollapseChoices: readonly AutoCollapseInactiveGroupsMinutes[];
   autoSleepChoices: readonly AutoSleepInactiveTabsMinutes[];
   busy: boolean;
   languageOptions: DashboardLocaleOptionView[];
-  onAutoCleanupWhitelistChange: (entries: string[]) => void;
-  onCloseSleepingOnlyChange: (value: boolean) => void;
-  onAutoCloseChange: (minutes: AutoCloseInactiveTabsMinutes) => void;
   onAutoCollapseChange: (minutes: AutoCollapseInactiveGroupsMinutes) => void;
   onAutoSleepChange: (minutes: AutoSleepInactiveTabsMinutes) => void;
   onLocaleChange: (locale: LocaleMode) => void;
@@ -43,6 +38,8 @@ type DashboardSettingsPanelProps = {
   onToggleAutoSnapshots: () => void;
   onToggleAutoGroup: () => void;
   onToggleLaunchSurface: (surface: ManagerSettings['launchSurface']) => void;
+  onToggleSidepanelShowSnapshots: () => void;
+  onToggleSidepanelShowBookmarks: () => void;
   redirectTrackingBusy: boolean;
   redirectTrackingPermission: RedirectTrackingPermissionState | null;
   settings: ManagerSettings;
@@ -60,14 +57,10 @@ function getRedirectTrackingDescription(
 }
 
 export function DashboardSettingsPanel({
-  autoCloseChoices,
   autoCollapseChoices,
   autoSleepChoices,
   busy,
   languageOptions,
-  onAutoCleanupWhitelistChange,
-  onCloseSleepingOnlyChange,
-  onAutoCloseChange,
   onAutoCollapseChange,
   onAutoSleepChange,
   onLocaleChange,
@@ -76,6 +69,8 @@ export function DashboardSettingsPanel({
   onToggleAutoSnapshots,
   onToggleAutoGroup,
   onToggleLaunchSurface,
+  onToggleSidepanelShowSnapshots,
+  onToggleSidepanelShowBookmarks,
   redirectTrackingBusy,
   redirectTrackingPermission,
   settings,
@@ -240,6 +235,76 @@ export function DashboardSettingsPanel({
           <section className="tm-dashboard-setting-row">
             <div className="tm-dashboard-setting-copy">
               <span className="tm-dashboard-setting-icon">
+                <RiSidebarUnfoldLine size={14} />
+              </span>
+              <div>
+                <strong>{t.sidepanelViews}</strong>
+                <p>{t.sidepanelViewsSub}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="tm-dashboard-setting-row tm-dashboard-setting-row-nested">
+            <div className="tm-dashboard-setting-copy">
+              <span className="tm-dashboard-setting-icon">
+                <RiCameraLine size={14} />
+              </span>
+              <div>
+                <strong>{t.sidepanelShowSnapshots}</strong>
+                <p>{t.sidepanelShowSnapshotsSub}</p>
+              </div>
+            </div>
+            <div className="tm-dashboard-setting-control">
+              <button
+                aria-pressed={settings.sidepanelShowSnapshots}
+                className="tm-dashboard-switch"
+                data-active={settings.sidepanelShowSnapshots}
+                disabled={busy}
+                onClick={onToggleSidepanelShowSnapshots}
+                type="button"
+              >
+                <span className="tm-dashboard-switch-track">
+                  <span className="tm-dashboard-switch-thumb" />
+                </span>
+                <span className="tm-dashboard-switch-label">
+                  {settings.sidepanelShowSnapshots ? t.enabled : t.disabled}
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <section className="tm-dashboard-setting-row tm-dashboard-setting-row-nested">
+            <div className="tm-dashboard-setting-copy">
+              <span className="tm-dashboard-setting-icon">
+                <RiBookmarkLine size={14} />
+              </span>
+              <div>
+                <strong>{t.sidepanelShowBookmarks}</strong>
+                <p>{t.sidepanelShowBookmarksSub}</p>
+              </div>
+            </div>
+            <div className="tm-dashboard-setting-control">
+              <button
+                aria-pressed={settings.sidepanelShowBookmarks}
+                className="tm-dashboard-switch"
+                data-active={settings.sidepanelShowBookmarks}
+                disabled={busy}
+                onClick={onToggleSidepanelShowBookmarks}
+                type="button"
+              >
+                <span className="tm-dashboard-switch-track">
+                  <span className="tm-dashboard-switch-thumb" />
+                </span>
+                <span className="tm-dashboard-switch-label">
+                  {settings.sidepanelShowBookmarks ? t.enabled : t.disabled}
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <section className="tm-dashboard-setting-row">
+            <div className="tm-dashboard-setting-copy">
+              <span className="tm-dashboard-setting-icon">
                 <RiFolderReduceLine size={14} />
               </span>
               <div>
@@ -281,65 +346,6 @@ export function DashboardSettingsPanel({
                   value: String(minutes)
                 }))}
                 value={String(settings.autoSleepInactiveTabsMinutes)}
-              />
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiCloseCircleLine size={14} />
-              </span>
-              <div>
-                <strong>{t.autoCloseInactiveTabs}</strong>
-                <p>{t.autoCloseInactiveTabsSub}</p>
-              </div>
-            </div>
-            <div className="tm-dashboard-setting-control tm-dashboard-setting-control-inline">
-              <DashboardDropdown
-                ariaLabel={t.autoCloseInactiveTabs}
-                className="tm-dashboard-language tm-dashboard-setting-dropdown"
-                onChange={(value) => onAutoCloseChange(Number(value) as AutoCloseInactiveTabsMinutes)}
-                options={autoCloseChoices.map((minutes) => ({
-                  label: minutes === 0 ? t.never : `${minutes} ${t.minutesShort}`,
-                  value: String(minutes)
-                }))}
-                value={String(settings.autoCloseInactiveTabsMinutes)}
-              />
-              <button
-                aria-pressed={settings.autoCloseCondition === 'sleeping-only'}
-                className="tm-dashboard-switch"
-                data-active={settings.autoCloseCondition === 'sleeping-only'}
-                disabled={busy}
-                onClick={() => onCloseSleepingOnlyChange(settings.autoCloseCondition !== 'sleeping-only')}
-                type="button"
-              >
-                <span className="tm-dashboard-switch-track">
-                  <span className="tm-dashboard-switch-thumb" />
-                </span>
-                <span className="tm-dashboard-switch-label">{t.closeSleepingOnly}</span>
-              </button>
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiGlobalLine size={14} />
-              </span>
-              <div>
-                <strong>{t.autoCleanupWhitelist}</strong>
-                <p>{t.autoCleanupWhitelistSub}</p>
-              </div>
-            </div>
-            <div className="tm-dashboard-setting-control">
-              <TagListEditor
-                ariaLabel={t.autoCleanupWhitelist}
-                disabled={busy}
-                onChange={onAutoCleanupWhitelistChange}
-                placeholder={t.autoCleanupWhitelistPlaceholder}
-                removeLabel={t.removeCondition}
-                value={settings.autoCleanupWhitelist}
               />
             </div>
           </section>

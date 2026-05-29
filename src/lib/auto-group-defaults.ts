@@ -38,7 +38,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'shopping',
     color: 'orange',
-    titles: { en: 'Shopping', 'zh-CN': '购物' },
+    titles: { en: 'Shopping', 'zh-CN': '购物', ja: 'ショッピング', fr: 'Achats', es: 'Compras', ar: 'تسوق' },
     matchers: {
       domains: [
         'amazon.com',
@@ -67,7 +67,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'social',
     color: 'pink',
-    titles: { en: 'Social', 'zh-CN': '社交' },
+    titles: { en: 'Social', 'zh-CN': '社交', ja: 'ソーシャル', fr: 'Réseaux', es: 'Social', ar: 'تواصل' },
     matchers: {
       domains: [
         'twitter.com',
@@ -94,7 +94,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'media',
     color: 'red',
-    titles: { en: 'Media', 'zh-CN': '媒体' },
+    titles: { en: 'Media', 'zh-CN': '媒体', ja: 'メディア', fr: 'Médias', es: 'Medios', ar: 'وسائط' },
     matchers: {
       domains: [
         'youtube.com',
@@ -123,7 +123,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'office',
     color: 'green',
-    titles: { en: 'Office', 'zh-CN': '办公' },
+    titles: { en: 'Office', 'zh-CN': '办公', ja: '仕事', fr: 'Bureau', es: 'Oficina', ar: 'عمل' },
     matchers: {
       domains: [
         'notion.so',
@@ -159,7 +159,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'ai',
     color: 'purple',
-    titles: { en: 'AI', 'zh-CN': 'AI' },
+    titles: { en: 'AI', 'zh-CN': 'AI', ja: 'AI', fr: 'IA', es: 'IA', ar: 'ذكاء اصطناعي' },
     matchers: {
       domains: [
         'openai.com',
@@ -183,7 +183,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'development',
     color: 'cyan',
-    titles: { en: 'Development', 'zh-CN': '开发' },
+    titles: { en: 'Development', 'zh-CN': '开发', ja: '開発', fr: 'Développement', es: 'Desarrollo', ar: 'تطوير' },
     matchers: {
       domains: [
         'github.com',
@@ -210,7 +210,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'news',
     color: 'grey',
-    titles: { en: 'News', 'zh-CN': '新闻' },
+    titles: { en: 'News', 'zh-CN': '新闻', ja: 'ニュース', fr: 'Actualités', es: 'Noticias', ar: 'أخبار' },
     matchers: {
       domains: [
         'news.google.com',
@@ -236,7 +236,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'finance',
     color: 'yellow',
-    titles: { en: 'Finance', 'zh-CN': '金融' },
+    titles: { en: 'Finance', 'zh-CN': '金融', ja: '金融', fr: 'Finance', es: 'Finanzas', ar: 'مالية' },
     matchers: {
       domains: [
         'paypal.com',
@@ -261,7 +261,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'travel',
     color: 'orange',
-    titles: { en: 'Travel', 'zh-CN': '出行' },
+    titles: { en: 'Travel', 'zh-CN': '出行', ja: '旅行', fr: 'Voyage', es: 'Viajes', ar: 'سفر' },
     matchers: {
       domains: [
         'airbnb.com',
@@ -283,7 +283,7 @@ export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
     id: 'learning',
     color: 'green',
-    titles: { en: 'Learning', 'zh-CN': '学习' },
+    titles: { en: 'Learning', 'zh-CN': '学习', ja: '学習', fr: 'Apprentissage', es: 'Aprendizaje', ar: 'تعلم' },
     matchers: {
       domains: [
         'coursera.org',

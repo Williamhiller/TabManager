@@ -1,6 +1,6 @@
 import { defaultAutoGroupPresets } from './auto-group-defaults';
 import type {
-  AutoCloseCondition,
+  AutoCloseDomainMode,
   AutoCloseInactiveTabsMinutes,
   AutoCollapseInactiveGroupsMinutes,
   AutoDeduplicationScope,
@@ -17,6 +17,7 @@ import type {
 } from './contracts';
 
 const validLaunchSurfaces: readonly LaunchSurface[] = ['sidepanel', 'popup', 'dashboard'];
+const validAutoCloseDomainModes: readonly AutoCloseDomainMode[] = ['exclude', 'include', 'all'];
 const validRefreshIntervals = new Set([0, 15, 30, 60]);
 export const autoInactiveMinuteChoices = [0, 5, 10, 30, 60, 120] as const;
 const validAutoCollapseInactiveGroupMinutes = new Set<AutoCollapseInactiveGroupsMinutes>(
@@ -28,7 +29,6 @@ const validAutoSleepInactiveTabsMinutes = new Set<AutoSleepInactiveTabsMinutes>(
 const validAutoCloseInactiveTabsMinutes = new Set<AutoCloseInactiveTabsMinutes>(
   autoInactiveMinuteChoices
 );
-const validAutoCloseConditions: readonly AutoCloseCondition[] = ['sleeping-only', 'deep-idle'];
 const validAutoDeduplicationScopes: readonly AutoDeduplicationScope[] = [
   'global-except-listed',
   'listed-only'
@@ -55,7 +55,7 @@ export const defaultSettings: ManagerSettings = {
   autoCollapseInactiveGroupsMinutes: 30,
   autoSleepInactiveTabsMinutes: 0,
   autoCloseInactiveTabsMinutes: 0,
-  autoCloseCondition: 'sleeping-only',
+  autoCloseDomainMode: 'exclude',
   autoCleanupWhitelist: [],
   autoDeduplicateTabs: false,
   autoDeduplicationScope: 'global-except-listed',
@@ -75,7 +75,9 @@ export const defaultSettings: ManagerSettings = {
     rules: []
   })),
   theme: 'system',
-  locale: 'system'
+  locale: 'system',
+  sidepanelShowSnapshots: false,
+  sidepanelShowBookmarks: false
 };
 
 export const SETTINGS_KEY = 'manager-settings';
@@ -167,10 +169,10 @@ function normalizeAutoCloseInactiveTabsMinutes(value: unknown): AutoCloseInactiv
     : defaultSettings.autoCloseInactiveTabsMinutes;
 }
 
-function normalizeAutoCloseCondition(value: unknown): AutoCloseCondition {
-  return validAutoCloseConditions.includes(value as AutoCloseCondition)
-    ? (value as AutoCloseCondition)
-    : defaultSettings.autoCloseCondition;
+function normalizeAutoCloseDomainMode(value: unknown): AutoCloseDomainMode {
+  return validAutoCloseDomainModes.includes(value as AutoCloseDomainMode)
+    ? (value as AutoCloseDomainMode)
+    : defaultSettings.autoCloseDomainMode;
 }
 
 function normalizeAutoCleanupWhitelist(value: unknown): string[] {
@@ -237,6 +239,14 @@ function normalizeRedirectTrackingEnabled(value: unknown): boolean {
 
 function normalizeAutoDeduplicateTabs(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.autoDeduplicateTabs;
+}
+
+function normalizeSidepanelShowSnapshots(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : defaultSettings.sidepanelShowSnapshots;
+}
+
+function normalizeSidepanelShowBookmarks(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : defaultSettings.sidepanelShowBookmarks;
 }
 
 function normalizeAutoDeduplicationScope(value: unknown): AutoDeduplicationScope {
@@ -353,7 +363,7 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
     autoCloseInactiveTabsMinutes: normalizeAutoCloseInactiveTabsMinutes(
       raw?.autoCloseInactiveTabsMinutes
     ),
-    autoCloseCondition: normalizeAutoCloseCondition(raw?.autoCloseCondition),
+    autoCloseDomainMode: normalizeAutoCloseDomainMode(raw?.autoCloseDomainMode),
     autoCleanupWhitelist: normalizeAutoCleanupWhitelist(raw?.autoCleanupWhitelist),
     autoDeduplicateTabs: normalizeAutoDeduplicateTabs(raw?.autoDeduplicateTabs),
     autoDeduplicationScope: normalizeAutoDeduplicationScope(raw?.autoDeduplicationScope),
@@ -367,7 +377,9 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
       .map((config) => config.presetId!),
     autoGroupConfigs,
     theme: normalizeTheme(raw?.theme),
-    locale: normalizeLocale(raw?.locale)
+    locale: normalizeLocale(raw?.locale),
+    sidepanelShowSnapshots: normalizeSidepanelShowSnapshots(raw?.sidepanelShowSnapshots),
+    sidepanelShowBookmarks: normalizeSidepanelShowBookmarks(raw?.sidepanelShowBookmarks)
   };
 }
 

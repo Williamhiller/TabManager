@@ -77,4 +77,7 @@ export function applyTheme(theme: ThemeMode): void {
   const resolvedTheme = resolveTheme(theme);
   document.documentElement.dataset.theme = resolvedTheme;
   document.documentElement.style.colorScheme = resolvedTheme;
+  try {
+    localStorage.setItem('tm-theme', theme);
+  } catch (e) {}
 }

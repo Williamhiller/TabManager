@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { SegmentedSwitch } from './SegmentedSwitch';
 
+type SidepanelView = 'tabs' | 'sessions' | 'bookmarks';
+
 interface SidepanelViewTabsProps {
-  activeView: 'tabs' | 'sessions' | 'bookmarks';
+  activeView: SidepanelView;
   tabsCount: number;
   sessionsCount: number;
   bookmarksCount: number;
@@ -10,9 +12,11 @@ interface SidepanelViewTabsProps {
   label: string;
   meta?: string | null;
   bookmarksAction?: ReactNode;
-  onSwitch: (nextView: 'tabs' | 'sessions' | 'bookmarks') => void;
+  onSwitch: (nextView: SidepanelView) => void;
   sessionsLabel: string;
   tabsLabel: string;
+  showSnapshots?: boolean;
+  showBookmarks?: boolean;
 }
 
 export function SidepanelViewTabs({
@@ -26,8 +30,22 @@ export function SidepanelViewTabs({
   bookmarksAction,
   onSwitch,
   sessionsLabel,
-  tabsLabel
+  tabsLabel,
+  showSnapshots = false,
+  showBookmarks = false
 }: SidepanelViewTabsProps) {
+  const options: Array<{ value: SidepanelView; label: string; meta: number }> = [
+    { value: 'tabs', label: tabsLabel, meta: tabsCount }
+  ];
+
+  if (showSnapshots) {
+    options.push({ value: 'sessions', label: sessionsLabel, meta: sessionsCount });
+  }
+
+  if (showBookmarks) {
+    options.push({ value: 'bookmarks', label: bookmarksLabel, meta: bookmarksCount });
+  }
+
   return (
     <>
       <div className="tm-sidepanel-view-tabs-row">
@@ -36,11 +54,7 @@ export function SidepanelViewTabs({
           className="tm-sidepanel-view-tabs"
           onChange={onSwitch}
           optionClassName="tm-sidepanel-view-tab"
-          options={[
-            { value: 'tabs', label: tabsLabel, meta: tabsCount },
-            { value: 'sessions', label: sessionsLabel, meta: sessionsCount },
-            { value: 'bookmarks', label: bookmarksLabel, meta: bookmarksCount }
-          ]}
+          options={options}
           value={activeView}
         />
         {bookmarksAction && activeView === 'bookmarks' ? (

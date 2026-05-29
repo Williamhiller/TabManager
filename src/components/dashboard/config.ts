@@ -1,5 +1,6 @@
 import {
   RiBookmarkLine,
+  RiCloseCircleLine,
   RiFilterOffLine,
   RiHistoryLine,
   RiLayoutGridLine,
@@ -27,5 +28,6 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { id: 'bookmarks', labelKey: 'navBookmarks', icon: RiBookmarkLine },
   { id: 'automation', labelKey: 'navAutomation', icon: RiNodeTree },
   { id: 'deduplication', labelKey: 'autoDeduplicate', icon: RiFilterOffLine },
+  { id: 'autoclose', labelKey: 'autoCloseInactiveTabs', icon: RiCloseCircleLine },
   { id: 'settings', labelKey: 'settings', icon: RiSettings3Line }
 ];

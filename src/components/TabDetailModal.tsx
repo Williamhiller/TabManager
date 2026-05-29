@@ -30,6 +30,7 @@ export function TabDetailModal({
     [detail?.history]
   );
   const detailTitle = tab?.title ?? t.details;
+  const detailSubtitle = tab ? getTabDetailSubtitle(tab.url, tab.hostname) : t.detailSummary;
   const detailChips = tab
     ? [tab.group?.title ?? t.ungrouped, tab.status, ...(tab.pinned ? [t.pin] : []), ...(tab.muted ? [t.mute] : [])]
     : [];
@@ -126,7 +127,7 @@ export function TabDetailModal({
                 {tab?.url ? (
                   <div className="tm-detail-heading-link">
                     <span className="tm-detail-heading-url" title={tab.url}>
-                      {tab.url}
+                      {detailSubtitle}
                     </span>
                     <Tooltip content={t.copyUrl}>
                       <button
@@ -247,6 +248,16 @@ export function TabDetailModal({
       </motion.div>
     </motion.div>
   );
+}
+
+function getTabDetailSubtitle(url: string, hostname: string): string {
+  if (hostname) return hostname;
+
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url;
+  }
 }
 
 function formatTimelineTime(timestamp: number | null | undefined, locale: string): string {

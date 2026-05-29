@@ -39,10 +39,30 @@ fs.writeFileSync(compiledLocalePath, compiledLocale, 'utf8');
 
 const {
   defaultAutoGroupPresets,
+  getDefaultAutoGroupPresetTitle,
   isDefaultAutoGroupPresetTitle,
   matchDefaultAutoGroupPreset,
   matchesDefaultAutoGroupPresetById
 } = await import(path.toNamespacedPath(compiledPath));
+
+const supportedLocales = ['en', 'zh-CN', 'ja', 'fr', 'es', 'ar'];
+
+for (const preset of defaultAutoGroupPresets) {
+  for (const locale of supportedLocales) {
+    const title = getDefaultAutoGroupPresetTitle(preset, locale);
+    assert.ok(title, `${preset.id} should have a ${locale} title`);
+    assert.equal(
+      preset.titles[locale],
+      title,
+      `${preset.id} should not fall back to English for ${locale}`
+    );
+    assert.equal(
+      isDefaultAutoGroupPresetTitle(preset, title),
+      true,
+      `${preset.id} should recognize its ${locale} title as a default title`
+    );
+  }
+}
 
 const expectedPresetCases = [
   ['https://app.apifox.com/project/1', 'development'],

@@ -38,7 +38,6 @@ import { defaultAnimateLayoutChanges, useSortable } from '@dnd-kit/sortable';
 
 import type { Messages } from '../lib/i18n';
 import type { TabSnapshot } from '../lib/contracts';
-import { formatDuration, formatRelativeTime } from '../lib/format';
 import { IconButton } from './IconButton';
 import { Tooltip } from './Tooltip';
 import { blockDrag } from './tab-tree-helpers';
@@ -51,7 +50,6 @@ const SORTABLE_REORDER_TRANSITION = {
 export function SortableTabRow({
   tab,
   labelMap,
-  locale,
   displayIndex,
   selected,
   selectable,
@@ -74,7 +72,6 @@ export function SortableTabRow({
 }: {
   tab: TabSnapshot;
   labelMap: Messages;
-  locale: string;
   displayIndex: number;
   selected: boolean;
   selectable: boolean;
@@ -228,17 +225,11 @@ export function SortableTabRow({
             </span>
           ) : null}
         </div>
-        <div className="tm-tab-subline">
-          <span className="tm-tab-subline-primary" title={tab.url}>{tab.url}</span>
-          <span aria-hidden="true">·</span>
-          <span>{formatRelativeTime(tab.lastAccessed, locale)}</span>
-          {!compact ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{formatDuration(tab.telemetry.totalActiveMs)}</span>
-            </>
-          ) : null}
-        </div>
+        {!compact ? (
+          <div className="tm-tab-subline">
+            <span className="tm-tab-subline-primary" title={tab.url}>{tab.url}</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="tm-row-actions-overlay" data-tab-action-root="true">
