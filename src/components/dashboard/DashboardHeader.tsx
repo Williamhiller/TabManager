@@ -1,4 +1,4 @@
-import { FloatingArrow, FloatingPortal, arrow, autoUpdate, flip, offset, shift, useClick, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react';
+import { FloatingArrow, FloatingPortal, arrow, autoUpdate, flip, offset, shift, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react';
 import { RiDashboardLine, RiExternalLinkLine, RiFileCopyLine, RiLayoutRightLine, RiMoonLine, RiShareForwardLine, RiSunLine, RiTextSnippet, RiWindowLine } from '@remixicon/react';
 import { useRef, useState } from 'react';
 
@@ -17,6 +17,7 @@ type DashboardHeaderProps = {
   shareOpenStoreLabel: string;
   onCopyShareLink: () => void;
   onCopyShareText: () => void;
+  onNativeShare?: () => Promise<boolean>;
   onOpenStore: () => void;
   onLaunchSurfaceToggle: () => void;
   onThemeToggle: () => void;
@@ -37,6 +38,7 @@ export function DashboardHeader({
   shareOpenStoreLabel,
   onCopyShareLink,
   onCopyShareText,
+  onNativeShare,
   onOpenStore,
   onLaunchSurfaceToggle,
   onThemeToggle,
@@ -48,6 +50,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const shareArrowRef = useRef<SVGSVGElement | null>(null);
+  const nativeShareAvailable = typeof navigator !== 'undefined' && !!navigator.share;
   const {
     refs: shareMenuRefs,
     floatingStyles: shareMenuStyles,
@@ -62,10 +65,17 @@ export function DashboardHeader({
     whileElementsMounted: autoUpdate,
     middleware: [offset(10), flip({ padding: 8 }), shift({ padding: 8 }), arrow({ element: shareArrowRef, padding: 10 })]
   });
-  const shareMenuClick = useClick(shareMenuContext, { event: 'mousedown' });
   const shareMenuDismiss = useDismiss(shareMenuContext);
   const shareMenuRole = useRole(shareMenuContext, { role: 'menu' });
-  const { getReferenceProps, getFloatingProps } = useInteractions([shareMenuClick, shareMenuDismiss, shareMenuRole]);
+  const { getReferenceProps, getFloatingProps } = useInteractions([shareMenuDismiss, shareMenuRole]);
+
+  const handleShareButtonClick = async () => {
+    if (onNativeShare && nativeShareAvailable) {
+      const shared = await onNativeShare();
+      if (shared) return;
+    }
+    setShareMenuOpen((prev) => !prev);
+  };
 
   return (
     <header className="tm-dashboard-header">
@@ -88,6 +98,7 @@ export function DashboardHeader({
                 data-open={shareMenuOpen}
                 title={shareLabel}
                 type="button"
+                onClick={handleShareButtonClick}
                 {...getReferenceProps()}
               >
                 <RiShareForwardLine size={17} />

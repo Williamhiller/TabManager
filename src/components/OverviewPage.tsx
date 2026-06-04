@@ -632,7 +632,10 @@ export function OverviewPage({
       changes: Record<string, chrome.storage.StorageChange>,
       areaName: string
     ) => {
-      if (areaName !== 'sync' || !changes[SETTINGS_KEY]) return;
+      const isSettingsChange =
+        (areaName === 'sync' && changes[SETTINGS_KEY]) ||
+        (areaName === 'local' && changes['tab-manager/settings-fallback']);
+      if (!isSettingsChange) return;
 
       void (async () => {
         try {
@@ -1629,9 +1632,14 @@ export function OverviewPage({
 
     await execute(t.savedAsAutoGroup, async () => {
       const latestSettings = await getSettings();
+      // Re-read the overview so we use the current tabs (not a stale snapshot
+      // from when the user clicked the button).
+      const freshOverview = await getOverview();
+      const freshTabs = freshOverview?.tabs.filter((tab) => tab.groupId === group.id) ?? tabs;
+
       const latestExistingConfig =
         latestSettings.autoGroupConfigs.find((config) => config.id === group.autoGroupConfigId) ??
-        findAutoGroupConfigForGroup(latestSettings.autoGroupConfigs, group.title, tabs);
+        findAutoGroupConfigForGroup(latestSettings.autoGroupConfigs, group.title, freshTabs);
       if (latestExistingConfig) {
         setSettings(latestSettings);
         await updateGroup(group.id, { autoGroupConfigId: latestExistingConfig.id });
@@ -1641,7 +1649,7 @@ export function OverviewPage({
 
       const config = createAutoGroupConfig(group.title || t.newGroup, {
         color: group.color as TabGroupColor,
-        tabs
+        tabs: freshTabs
       });
       const nextSettings = await updateSettings({
         autoGroupEnabled: true,

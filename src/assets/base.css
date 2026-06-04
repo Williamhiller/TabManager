@@ -3666,6 +3666,14 @@ button:disabled {
     @apply h-5 w-5 min-w-5;
   }
 
+  .tm-app[data-mode='sidepanel'] .tm-favicon-small {
+    @apply h-4 w-4 min-w-4;
+  }
+
+  .tm-app[data-mode='sidepanel'] .tm-tab-favicon-slot {
+    @apply h-4 w-4;
+  }
+
   .tm-drag-frame {
     background: color-mix(in srgb, var(--tm-bg-elevated) 74%, var(--tm-drag-frame-grey));
     border: 1px solid color-mix(in srgb, var(--tm-border-strong) 78%, var(--tm-drag-frame-grey));

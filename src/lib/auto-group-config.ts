@@ -1,4 +1,5 @@
 import type { AutoGroupConfig, TabGroupColor, TabSnapshot } from './contracts';
+import { normalizeHostname } from './shared-utils';
 
 function createConfigId(): string {
   const id =
@@ -7,10 +8,6 @@ function createConfigId(): string {
       : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   return `custom:${id}`;
-}
-
-function normalizeHostname(hostname: string): string {
-  return hostname.trim().toLowerCase().replace(/^www\./, '');
 }
 
 export function getAutoGroupWebsitesFromTabs(tabs: TabSnapshot[]): string[] {

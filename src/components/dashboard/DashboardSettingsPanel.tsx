@@ -37,6 +37,7 @@ type DashboardSettingsPanelProps = {
   onToggleShowHistory: () => void;
   onToggleAutoSnapshots: () => void;
   onToggleAutoGroup: () => void;
+  onToggleBlockChromeAutoGroup: () => void;
   onToggleLaunchSurface: (surface: ManagerSettings['launchSurface']) => void;
   onToggleSidepanelShowSnapshots: () => void;
   onToggleSidepanelShowBookmarks: () => void;
@@ -68,6 +69,7 @@ export function DashboardSettingsPanel({
   onToggleShowHistory,
   onToggleAutoSnapshots,
   onToggleAutoGroup,
+  onToggleBlockChromeAutoGroup,
   onToggleLaunchSurface,
   onToggleSidepanelShowSnapshots,
   onToggleSidepanelShowBookmarks,
@@ -169,6 +171,35 @@ export function DashboardSettingsPanel({
                 </span>
                 <span className="tm-dashboard-switch-label">
                   {settings.autoGroupEnabled ? t.enabled : t.disabled}
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <section className="tm-dashboard-setting-row">
+            <div className="tm-dashboard-setting-copy">
+              <span className="tm-dashboard-setting-icon">
+                <RiWindowLine size={14} />
+              </span>
+              <div>
+                <strong>{t.blockChromeAutoGroup}</strong>
+                <p>{t.blockChromeAutoGroupSub}</p>
+              </div>
+            </div>
+            <div className="tm-dashboard-setting-control">
+              <button
+                aria-pressed={settings.blockChromeAutoGroup}
+                className="tm-dashboard-switch"
+                data-active={settings.blockChromeAutoGroup}
+                disabled={busy}
+                onClick={onToggleBlockChromeAutoGroup}
+                type="button"
+              >
+                <span className="tm-dashboard-switch-track">
+                  <span className="tm-dashboard-switch-thumb" />
+                </span>
+                <span className="tm-dashboard-switch-label">
+                  {settings.blockChromeAutoGroup ? t.enabled : t.disabled}
                 </span>
               </button>
             </div>

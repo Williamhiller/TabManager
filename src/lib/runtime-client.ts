@@ -1,5 +1,6 @@
 import { openOrRefreshDashboardTab } from './dashboard-tabs';
 import { getSettings } from './settings';
+import { withTimeout, redirectTrackingPermissions } from './shared-utils';
 import type {
   BookmarkNodeSnapshot,
   BookmarksInvalidatedMessage,
@@ -29,21 +30,6 @@ const RUNTIME_MUTATION_TIMEOUT_MS = 60_000;
 const SIDE_PANEL_OPEN_TIMEOUT_MS = 4_000;
 const ACTION_POPUP_OPEN_TIMEOUT_MS = 4_000;
 const ACTION_POPUP_PATH = 'popup.html';
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-    promise
-      .then((value) => {
-        window.clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        window.clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
 
 async function sendRequest<T>(
   request: ExtensionRequest,
@@ -176,11 +162,6 @@ export async function getSessions(): Promise<SessionsSnapshot> {
   if (!response.ok) throw new Error(response.error);
   return response.data;
 }
-
-const redirectTrackingPermissions: chrome.permissions.Permissions = {
-  permissions: ['webNavigation', 'webRequest'],
-  origins: ['http://*/*', 'https://*/*']
-};
 
 export async function getRedirectTrackingPermissionState(): Promise<RedirectTrackingPermissionState> {
   const response = await sendRequest<RedirectTrackingPermissionState>({

@@ -30,20 +30,13 @@ export function normalizeDraftRule(rule: Partial<AutoGroupRule>): AutoGroupRule 
 }
 
 export function getPresetPatternLabels(preset: DefaultAutoGroupPreset): string[] {
-  return preset.patterns.flatMap((pattern) =>
-    pattern.source
-      .replace(/^\(/, '')
-      .replace(/\)$/, '')
-      .split('|')
-      .map((item) =>
-        item
-          .replace(/\\\./g, '.')
-          .replace(/\\\//g, '/')
-          .replace(/\\/g, '')
-          .trim()
-      )
-      .filter(Boolean)
-  );
+  const { matchers } = preset;
+  return [
+    ...(matchers.domains ?? []),
+    ...(matchers.hostLabels ?? []),
+    ...(matchers.paths ?? []),
+    ...(matchers.keywords ?? [])
+  ];
 }
 
 export function groupChipStyle(color: TabGroupColor): {

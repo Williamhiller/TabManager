@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   DashboardAside,
@@ -40,7 +40,7 @@ import { defaultSettings, getSettings, updateSettings } from '../lib/settings';
 import { autoInactiveMinuteChoices } from '../lib/settings';
 import { applyTheme, resolveTheme } from '../lib/theme';
 
-const STORE_SHARE_URL = 'https://chromewebstore.google.com/detail/auto-tab-groups-tab-bookm/mnimeepnfdjhdkigakdfknjmcblpolga?authuser=0&hl=zh-CN';
+const STORE_SHARE_URL = 'https://chromewebstore.google.com/detail/auto-tab-groups-tab-bookm/mnimeepnfdjhdkigakdfknjmcblpolga';
 
 function getInitialDashboardView(): DashboardViewId {
   if (typeof window === 'undefined') return DASHBOARD_DEFAULT_VIEW;
@@ -77,7 +77,7 @@ export function DashboardPage() {
   const t = getMessages(data.settings.locale);
   const resolvedTheme = resolveTheme(data.settings.theme);
 
-  const refreshSessions = async () => {
+  const refreshSessions = useCallback(async () => {
     try {
       const sessions = await getSessions();
       setData((current) => ({ ...current, sessions }));
@@ -87,10 +87,21 @@ export function DashboardPage() {
       setError(message);
       throw nextError;
     }
-  };
+  }, []);
 
   useEffect(() => {
     applyTheme(data.settings.theme);
+  }, [data.settings.theme]);
+
+  useEffect(() => {
+    if (data.settings.theme !== 'system') return;
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncTheme = () => applyTheme('system');
+
+    syncTheme();
+    media.addEventListener('change', syncTheme);
+    return () => media.removeEventListener('change', syncTheme);
   }, [data.settings.theme]);
 
   useEffect(() => {
@@ -197,7 +208,10 @@ export function DashboardPage() {
       changes: Record<string, chrome.storage.StorageChange>,
       areaName: string
     ) => {
-      if (areaName !== 'sync' || !changes['manager-settings']) return;
+      const isSettingsChange =
+        (areaName === 'sync' && changes['manager-settings']) ||
+        (areaName === 'local' && changes['tab-manager/settings-fallback']);
+      if (!isSettingsChange) return;
       void (async () => {
         try {
           const settings = await getSettings();
@@ -272,7 +286,7 @@ export function DashboardPage() {
     t
   });
 
-  const saveSettings = async (patch: Partial<ManagerSettings>) => {
+  const saveSettings = useCallback(async (patch: Partial<ManagerSettings>) => {
     try {
       const settings = await updateSettings(patch);
       if (patch.launchSurface) {
@@ -285,14 +299,19 @@ export function DashboardPage() {
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     }
-  };
+  }, []);
 
-  const toggleRedirectTracking = async () => {
+  const toggleRedirectTracking = useCallback(async () => {
     if (redirectTrackingBusy) return;
 
     setRedirectTrackingBusy(true);
     try {
-      if (data.settings.redirectTrackingEnabled) {
+      // Read the current setting from storage instead of relying on the
+      // closure value, which may be stale if a previous toggle triggered
+      // a re-render while this callback was still being created.
+      const currentSettings = await getSettings();
+
+      if (currentSettings.redirectTrackingEnabled) {
         const settings = await updateSettings({ redirectTrackingEnabled: false });
         await removeRedirectTrackingPermission();
         const redirectTrackingPermission = await refreshRedirectTracking();
@@ -330,17 +349,17 @@ export function DashboardPage() {
     } finally {
       setRedirectTrackingBusy(false);
     }
-  };
+  }, [redirectTrackingBusy]);
 
-  const handleThemeToggle = () => {
+  const handleThemeToggle = useCallback(() => {
     const nextTheme: ThemeMode =
       resolvedTheme === 'dark'
         ? 'light'
         : 'dark';
     void saveSettings({ theme: nextTheme });
-  };
+  }, [resolvedTheme, saveSettings]);
 
-  const copySharePayload = async (payload: string, feedback: string) => {
+  const copySharePayload = useCallback(async (payload: string, feedback: string) => {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(payload);
@@ -353,7 +372,7 @@ export function DashboardPage() {
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     }
-  };
+  }, [t.shareUnsupported]);
 
   const handleCopyShareLink = async () => {
     await copySharePayload(STORE_SHARE_URL, t.shareCopied);
@@ -361,6 +380,16 @@ export function DashboardPage() {
 
   const handleCopyShareText = async () => {
     await copySharePayload(`${t.shareText}\n${STORE_SHARE_URL}`, t.shareTextCopied);
+  };
+
+  const handleNativeShare = async () => {
+    if (!navigator.share) return false;
+    try {
+      await navigator.share({ title: 'TabFriday', text: t.shareText, url: STORE_SHARE_URL });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleOpenStore = () => {
@@ -443,6 +472,7 @@ export function DashboardPage() {
           launchSurfaceToggleLabel={t.switchLaunchSurface.replace('{surface}', launchSurfaceTargetLabel)}
           onCopyShareLink={() => void handleCopyShareLink()}
           onCopyShareText={() => void handleCopyShareText()}
+          onNativeShare={handleNativeShare}
           onLaunchSurfaceToggle={() =>
             void saveSettings({
               launchSurface: nextLaunchSurface
@@ -503,6 +533,9 @@ export function DashboardPage() {
               onLocaleChange={(localeMode) => void saveSettings({ locale: localeMode })}
               onRedirectTrackingToggle={() => void toggleRedirectTracking()}
               onToggleAutoGroup={() => void saveSettings({ autoGroupEnabled: !data.settings.autoGroupEnabled })}
+              onToggleBlockChromeAutoGroup={() =>
+                void saveSettings({ blockChromeAutoGroup: !data.settings.blockChromeAutoGroup })
+              }
               onToggleShowHistory={() => void saveSettings({ showHistory: !data.settings.showHistory })}
               onToggleAutoSnapshots={() =>
                 void saveSettings({ autoSnapshotsEnabled: !data.settings.autoSnapshotsEnabled })

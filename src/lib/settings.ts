@@ -1,4 +1,5 @@
 import { defaultAutoGroupPresets } from './auto-group-defaults';
+import { normalizeWebsitePattern } from './shared-utils';
 import type {
   AutoCloseDomainMode,
   AutoCloseInactiveTabsMinutes,
@@ -15,6 +16,89 @@ import type {
   TabGroupColor,
   ThemeMode
 } from './contracts';
+
+const SYNC_STORAGE_ITEM_LIMIT = 8_192; // 8KB per item
+const SYNC_STORAGE_FALLBACK_KEY = 'tab-manager/settings-fallback';
+// Embedded in sync data itself so the marker and the data are written in a
+// single chrome.storage.sync.set call (atomic).  This avoids the race where
+// the service worker dies between writing the data and writing a separate marker.
+const SYNC_AUTHORED_AT_KEY = '__syncAuthoredAt';
+// Marker for minimal sync data that should not be used as authoritative.
+const SYNC_MINIMAL_MARKER = '__syncMinimal';
+
+function getStorageByteSize(data: unknown): number {
+  try {
+    return new Blob([JSON.stringify(data)]).size;
+  } catch {
+    return 0;
+  }
+}
+
+async function saveSettingsToStorage(key: string, settings: ManagerSettings): Promise<void> {
+  const size = getStorageByteSize(settings);
+
+  if (size <= SYNC_STORAGE_ITEM_LIMIT) {
+    // Data fits in sync — embed a timestamp so loadSettingsFromStorage knows
+    // this is a full, authoritative copy.
+    const tagged = { ...settings, [SYNC_AUTHORED_AT_KEY]: Date.now() };
+    await chrome.storage.sync.set({ [key]: tagged });
+    // Clear any previous fallback — the sync copy now has everything.
+    await chrome.storage.local.remove(SYNC_STORAGE_FALLBACK_KEY);
+  } else {
+    // Data too large for sync storage, fall back to local.
+    console.warn(`Settings size (${size} bytes) exceeds sync storage limit. Using local storage.`);
+    await chrome.storage.local.set({ [SYNC_STORAGE_FALLBACK_KEY]: settings });
+    // Save a minimal version to sync for cross-device awareness.
+    // Include SYNC_MINIMAL_MARKER to signal this is an incomplete copy.
+    const minimal = { ...settings, autoGroupConfigs: [], [SYNC_MINIMAL_MARKER]: true };
+    await chrome.storage.sync.set({ [key]: minimal });
+  }
+}
+
+async function loadSettingsFromStorage(key: string): Promise<Partial<ManagerSettings> | undefined> {
+  // Try sync first
+  const syncResult = await chrome.storage.sync.get(key);
+  if (syncResult[key]) {
+    const syncData = syncResult[key] as Record<string, unknown>;
+
+    // The syncAuthoredAt marker is embedded directly in the sync data.
+    // If it exists, the sync copy is a full, authoritative write.
+    if (syncData[SYNC_AUTHORED_AT_KEY]) {
+      // Strip the internal marker before returning.
+      const { [SYNC_AUTHORED_AT_KEY]: _, ...rest } = syncData;
+      return rest as Partial<ManagerSettings>;
+    }
+
+    // If the sync data has the minimal marker, it's an incomplete copy.
+    // Always prefer the local fallback in this case.
+    const isMinimal = syncData[SYNC_MINIMAL_MARKER] === true;
+
+    // No marker → the sync copy is likely minimal (settings exceeded the sync
+    // limit).  Prefer the local fallback if one exists.
+    const localResult = await chrome.storage.local.get(SYNC_STORAGE_FALLBACK_KEY);
+    const fallback = localResult[SYNC_STORAGE_FALLBACK_KEY] as
+      | Partial<ManagerSettings>
+      | undefined;
+    if (fallback) {
+      return fallback;
+    }
+
+    // No local fallback — only return sync data if it's not minimal.
+    // Minimal data without fallback means the full settings are lost.
+    if (isMinimal) {
+      console.warn('Sync data is minimal and no local fallback found. Settings may be incomplete.');
+    }
+    return syncData as unknown as Partial<ManagerSettings>;
+  }
+
+  // Try local fallback
+  const localResult = await chrome.storage.local.get(SYNC_STORAGE_FALLBACK_KEY);
+  if (localResult[SYNC_STORAGE_FALLBACK_KEY]) {
+    return localResult[SYNC_STORAGE_FALLBACK_KEY] as Partial<ManagerSettings>;
+  }
+
+  return undefined;
+}
 
 const validLaunchSurfaces: readonly LaunchSurface[] = ['sidepanel', 'popup', 'dashboard'];
 const validAutoCloseDomainModes: readonly AutoCloseDomainMode[] = ['exclude', 'include', 'all'];
@@ -34,7 +118,7 @@ const validAutoDeduplicationScopes: readonly AutoDeduplicationScope[] = [
   'listed-only'
 ];
 const validThemes: readonly ThemeMode[] = ['light', 'dark', 'system'];
-const validLocales: readonly LocaleMode[] = ['system', 'en', 'zh-CN', 'ja', 'fr', 'es', 'ar'];
+const validLocales: readonly LocaleMode[] = ['system', 'en', 'zh-CN', 'ja', 'fr', 'es', 'ar', 'ru', 'el', 'ko'];
 const validRuleFields: readonly AutoGroupRuleField[] = ['hostname', 'url', 'title'];
 const validRuleOperators: readonly AutoGroupRuleOperator[] = ['contains', 'equals'];
 const validGroupColors: readonly TabGroupColor[] = [
@@ -60,6 +144,7 @@ export const defaultSettings: ManagerSettings = {
   autoDeduplicateTabs: false,
   autoDeduplicationScope: 'global-except-listed',
   autoDeduplicationSites: [],
+  blockChromeAutoGroup: true,
   autoGroupEnabled: true,
   autoSnapshotsEnabled: true,
   showHistory: true,
@@ -209,6 +294,10 @@ function normalizeAutoDeduplicationSites(value: unknown): string[] {
   return normalized;
 }
 
+function normalizeBlockChromeAutoGroup(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : defaultSettings.blockChromeAutoGroup;
+}
+
 function normalizeTheme(value: unknown): ThemeMode {
   return validThemes.includes(value as ThemeMode) ? (value as ThemeMode) : defaultSettings.theme;
 }
@@ -278,7 +367,7 @@ function normalizeWebsites(value: unknown): string[] {
 
   return value
     .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
+    .map((item) => normalizeWebsitePattern(item))
     .filter(Boolean);
 }
 
@@ -368,6 +457,7 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
     autoDeduplicateTabs: normalizeAutoDeduplicateTabs(raw?.autoDeduplicateTabs),
     autoDeduplicationScope: normalizeAutoDeduplicationScope(raw?.autoDeduplicationScope),
     autoDeduplicationSites: normalizeAutoDeduplicationSites(raw?.autoDeduplicationSites),
+    blockChromeAutoGroup: normalizeBlockChromeAutoGroup(raw?.blockChromeAutoGroup),
     autoGroupEnabled: normalizeAutoGroupEnabled(raw?.autoGroupEnabled),
     autoSnapshotsEnabled: normalizeAutoSnapshotsEnabled(raw?.autoSnapshotsEnabled),
     showHistory: normalizeShowHistory(raw?.showHistory),
@@ -384,19 +474,21 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
 }
 
 export async function getSettings(): Promise<ManagerSettings> {
-  const stored = await chrome.storage.sync.get([SETTINGS_KEY, SETTINGS_MIGRATIONS_KEY]);
-  const raw = stored[SETTINGS_KEY] as Partial<ManagerSettings> | undefined;
+  const [raw, migrationsRaw] = await Promise.all([
+    loadSettingsFromStorage(SETTINGS_KEY),
+    chrome.storage.sync.get(SETTINGS_MIGRATIONS_KEY).then((r) => r[SETTINGS_MIGRATIONS_KEY])
+  ]);
   const migrationResult = migrateStoredSettings(
     raw,
-    normalizeSettingsMigrationState(stored[SETTINGS_MIGRATIONS_KEY])
+    normalizeSettingsMigrationState(migrationsRaw)
   );
   const settings = normalizeSettings(migrationResult.raw);
 
   if (migrationResult.settingsChanged || migrationResult.migrationsChanged) {
-    await chrome.storage.sync.set({
-      ...(migrationResult.settingsChanged ? { [SETTINGS_KEY]: settings } : {}),
-      [SETTINGS_MIGRATIONS_KEY]: migrationResult.migrations
-    });
+    await saveSettingsToStorage(SETTINGS_KEY, settings);
+    if (migrationResult.migrationsChanged) {
+      await chrome.storage.sync.set({ [SETTINGS_MIGRATIONS_KEY]: migrationResult.migrations });
+    }
   }
 
   return settings;
@@ -406,14 +498,23 @@ export async function updateSettings(
   patch: Partial<ManagerSettings>
 ): Promise<ManagerSettings> {
   const nextUpdate = settingsUpdateQueue
-    .catch(() => getSettings())
+    .catch(async () => {
+      // Previous update failed — recover by reading current settings.
+      // Guard against getSettings() also failing (e.g. storage temporarily
+      // unavailable) so the queue chain does not stay rejected.
+      try {
+        return await getSettings();
+      } catch {
+        return defaultSettings;
+      }
+    })
     .then(async () => {
       const next = normalizeSettings({
         ...(await getSettings()),
         ...patch
       });
 
-      await chrome.storage.sync.set({ [SETTINGS_KEY]: next });
+      await saveSettingsToStorage(SETTINGS_KEY, next);
       return next;
     });
 

@@ -1,6 +1,6 @@
 export type LaunchSurface = 'sidepanel' | 'popup' | 'dashboard';
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type LocaleMode = 'system' | 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
+export type LocaleMode = 'system' | 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar' | 'ru' | 'el' | 'ko';
 export type AutoCollapseInactiveGroupsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
 export type AutoSleepInactiveTabsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
 export type AutoCloseInactiveTabsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
@@ -66,6 +66,7 @@ export interface ManagerSettings {
   autoDeduplicateTabs: boolean;
   autoDeduplicationScope: AutoDeduplicationScope;
   autoDeduplicationSites: string[];
+  blockChromeAutoGroup: boolean;
   autoGroupEnabled: boolean;
   autoSnapshotsEnabled: boolean;
   showHistory: boolean;

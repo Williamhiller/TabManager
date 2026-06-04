@@ -1,7 +1,7 @@
 import type { LocaleMode, TabGroupColor } from './contracts';
 import { resolveSupportedLocale } from './locale';
 
-export type AutoGroupPresetLocale = 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar';
+export type AutoGroupPresetLocale = 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar' | 'ru' | 'el' | 'ko';
 
 export interface AutoGroupPresetMatchers {
   domains?: string[];
@@ -15,7 +15,6 @@ export interface DefaultAutoGroupPreset {
   color: TabGroupColor;
   titles: { en: string; 'zh-CN': string } & Partial<Record<AutoGroupPresetLocale, string>>;
   matchers: AutoGroupPresetMatchers;
-  patterns: RegExp[];
 }
 
 interface AutoGroupMatchInput {
@@ -31,8 +30,6 @@ interface AutoGroupMatchContext {
   source: string;
   title: string;
 }
-
-type DefaultAutoGroupPresetDefinition = Omit<DefaultAutoGroupPreset, 'patterns'>;
 
 export const defaultAutoGroupPresets: DefaultAutoGroupPreset[] = [
   createDefaultAutoGroupPreset({
@@ -322,24 +319,10 @@ function normalizeMatcherValue(value: string): string {
   return value.trim().replace(/^www\./, '').replace(/^\/+/, '').replace(/\/+$/, '').toLowerCase();
 }
 
-function createPatternFromMatcherLabel(label: string): RegExp {
-  return new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-}
-
 function createDefaultAutoGroupPreset(
-  preset: DefaultAutoGroupPresetDefinition
+  preset: DefaultAutoGroupPreset
 ): DefaultAutoGroupPreset {
-  const labels = [
-    ...(preset.matchers.domains ?? []),
-    ...(preset.matchers.hostLabels ?? []),
-    ...(preset.matchers.paths ?? []),
-    ...(preset.matchers.keywords ?? [])
-  ];
-
-  return {
-    ...preset,
-    patterns: labels.map(createPatternFromMatcherLabel)
-  };
+  return preset;
 }
 
 function buildAutoGroupMatchContext(input: AutoGroupMatchInput): AutoGroupMatchContext {

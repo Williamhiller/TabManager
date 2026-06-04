@@ -32,6 +32,15 @@ const dashboardBookmarkCopy = {
   },
   ar: {
     refresh: 'تحديث الإشارات'
+  },
+  ru: {
+    refresh: 'Обновить закладки'
+  },
+  el: {
+    refresh: 'Ανανέωση σελιδοδεικτών'
+  },
+  ko: {
+    refresh: '북마크 새로고침'
   }
 } as const;
 

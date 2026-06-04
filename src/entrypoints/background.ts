@@ -4,6 +4,7 @@ import { installBackgroundService } from '../lib/background-service';
 import type { LaunchSurface, ManagerSettings } from '../lib/contracts';
 import { openOrRefreshDashboardTab } from '../lib/dashboard-tabs';
 import { getSettings, SETTINGS_KEY, updateSettings } from '../lib/settings';
+import { withTimeout } from '../lib/shared-utils';
 
 let preferredLaunchSurface: LaunchSurface = 'sidepanel';
 const LAUNCH_SURFACE_OPEN_TIMEOUT_MS = 4_000;
@@ -11,21 +12,6 @@ const ACTION_POPUP_PATH = 'popup.html';
 
 function isLaunchSurface(value: unknown): value is LaunchSurface {
   return value === 'sidepanel' || value === 'popup' || value === 'dashboard';
-}
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
 }
 
 async function syncPreferredLaunchSurface(): Promise<void> {
@@ -44,15 +30,25 @@ async function getStoredLaunchSurface(): Promise<LaunchSurface | null> {
 
 function bindPreferredLaunchSurface(): void {
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'sync') return;
-    const raw = changes[SETTINGS_KEY]?.newValue as Partial<ManagerSettings> | undefined;
-    const nextSurface = raw?.launchSurface;
-    if (isLaunchSurface(nextSurface)) {
-      preferredLaunchSurface = nextSurface;
-      void syncActionBehavior(nextSurface).catch((error) => {
-        console.warn('Failed to sync action behavior for launch surface change.', error);
-      });
-    }
+    // Settings may be stored in sync or local (fallback for large configs).
+    const isSettingsChange =
+      (areaName === 'sync' && changes[SETTINGS_KEY]) ||
+      (areaName === 'local' && changes['tab-manager/settings-fallback']);
+    if (!isSettingsChange) return;
+    // When settings fall back to local storage, the sync change event does not
+    // contain the full settings.  Read from storage to get the authoritative
+    // value regardless of which area triggered the change.
+    void getSettings().then((settings) => {
+      const nextSurface = settings.launchSurface;
+      if (isLaunchSurface(nextSurface)) {
+        preferredLaunchSurface = nextSurface;
+        void syncActionBehavior(nextSurface).catch((error) => {
+          console.warn('Failed to sync action behavior for launch surface change.', error);
+        });
+      }
+    }).catch((error) => {
+      console.warn('Failed to read settings for launch surface change.', error);
+    });
   });
 }
 

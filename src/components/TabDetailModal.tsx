@@ -1,11 +1,59 @@
 import { RiArticleLine, RiCloseLine, RiFileCopyLine, RiGlobalLine, RiTimeLine } from '@remixicon/react';
 import { motion } from 'motion/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import type { TabDetailSnapshot, TabHistoryEvent } from '../lib/contracts';
 import { formatDuration, formatRelativeTime } from '../lib/format';
 import type { Messages, ResolvedLocale } from '../lib/i18n';
 import { Tooltip } from './Tooltip';
+
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function useFocusTrap(enabled: boolean) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    // Focus the first focusable element inside the container
+    const firstFocusable = container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    firstFocusable?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+
+      const focusableElements = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      if (focusableElements.length === 0) return;
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey) {
+        if (document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [enabled]);
+
+  return containerRef;
+}
 
 export function TabDetailModal({
   detail,
@@ -24,11 +72,24 @@ export function TabDetailModal({
   onCopyUrl: (url: string) => void;
   onClose: () => void;
 }) {
+  const focusTrapRef = useFocusTrap(true);
   const tab = detail?.tab ?? null;
   const timelineEvents = useMemo(
     () => getCompactTimelineEvents(detail?.history ?? []),
     [detail?.history]
   );
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
   const detailTitle = tab?.title ?? t.details;
   const detailSubtitle = tab ? getTabDetailSubtitle(tab.url, tab.hostname) : t.detailSummary;
   const detailChips = tab
@@ -38,11 +99,11 @@ export function TabDetailModal({
     ? [
         {
           label: t.openedLabel,
-          value: formatRelativeTime(tab.telemetry.openedAt ?? tab.telemetry.observedAt, locale)
+          value: formatRelativeTime(tab.telemetry.openedAt ?? tab.telemetry.observedAt, locale, t.unknown)
         },
         {
           label: t.lastActiveLabel,
-          value: formatRelativeTime(tab.lastAccessed ?? tab.telemetry.lastActivatedAt, locale)
+          value: formatRelativeTime(tab.lastAccessed ?? tab.telemetry.lastActivatedAt, locale, t.unknown)
         },
         {
           label: t.activeTimeLabel,
@@ -100,6 +161,7 @@ export function TabDetailModal({
         />
 
         <motion.section
+          ref={focusTrapRef as React.Ref<HTMLElement>}
           aria-label={t.details}
           aria-modal="true"
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -211,7 +273,7 @@ export function TabDetailModal({
                               <strong className="tm-timeline-title" title={event.title}>
                                 {getTimelineEventTitle(event)}
                               </strong>
-                              <span className="tm-timeline-time">{formatTimelineTime(event.at, locale)}</span>
+                              <span className="tm-timeline-time">{formatTimelineTime(event.at, locale, t.unknown)}</span>
                             </div>
                             <div className="tm-timeline-meta">
                               <span className="tm-timeline-url" title={event.url || event.hostname}>
@@ -260,8 +322,8 @@ function getTabDetailSubtitle(url: string, hostname: string): string {
   }
 }
 
-function formatTimelineTime(timestamp: number | null | undefined, locale: string): string {
-  if (timestamp == null) return 'Unknown';
+function formatTimelineTime(timestamp: number | null | undefined, locale: string, fallback = 'Unknown'): string {
+  if (timestamp == null) return fallback;
 
   return new Intl.DateTimeFormat(locale, {
     hour: '2-digit',

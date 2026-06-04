@@ -50,6 +50,7 @@ import { resolveFavIconUrl } from './favicon';
 import { getErrorMessage } from './format';
 import { getSettings, SETTINGS_KEY, updateSettings } from './settings';
 import { filterSameWindowTabs, findSameWindowGroup } from './window-scope';
+import { normalizeHostname, normalizeWebsitePattern, allGroupColors, redirectTrackingPermissions } from './shared-utils';
 
 interface RuntimeTabState {
   observedAt: number;
@@ -161,17 +162,6 @@ const observedGroupTitles = new Map<number, string>();
 const autoGroupExemptionRecords = new Map<number, AutoGroupExemptionRecord>();
 const sessionRecords = new Map<string, SessionRecord>();
 const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
-const groupColors: TabGroupColor[] = [
-  'grey',
-  'blue',
-  'red',
-  'yellow',
-  'green',
-  'pink',
-  'purple',
-  'cyan',
-  'orange'
-];
 const TAB_HISTORY_STORAGE_KEY = 'tab-manager/tab-history';
 const GROUP_METADATA_STORAGE_KEY = 'tab-manager/group-metadata';
 const AUTO_GROUP_EXEMPTIONS_STORAGE_KEY = 'tab-manager/auto-group-exemptions';
@@ -213,12 +203,30 @@ let redirectHistoryStateListenerInstalled = false;
 let autoSessionTimer: ReturnType<typeof setTimeout> | null = null;
 let autoSessionCaptureInFlight = false;
 
-function ensureRuntimeTab(tabId: number, observedAt = Date.now()): RuntimeTabState {
+function ensureRuntimeTab(
+  tabId: number,
+  observedAt = Date.now(),
+  lastAccessed?: number | null
+): RuntimeTabState {
   const existing = runtimeTabs.get(tabId);
-  if (existing) return existing;
+  if (existing) {
+    // When called during seed, prefer the Chrome-reported lastAccessed if it is
+    // more recent than the stored observedAt.  This keeps the value accurate
+    // across service-worker restarts without resetting it to Date.now().
+    if (typeof lastAccessed === 'number' && lastAccessed > existing.observedAt) {
+      existing.observedAt = lastAccessed;
+    }
+    return existing;
+  }
+
+  // For pre-existing tabs (seed), prefer Chrome's lastAccessed so that tabs
+  // that have been idle for a long time are not falsely marked as "just active".
+  // For newly created tabs (no lastAccessed), fall back to Date.now().
+  const effectiveObservedAt =
+    typeof lastAccessed === 'number' && lastAccessed > 0 ? lastAccessed : observedAt;
 
   const created: RuntimeTabState = {
-    observedAt,
+    observedAt: effectiveObservedAt,
     openedAt: null,
     lastActivatedAt: null,
     lastAudibleAt: null,
@@ -270,14 +278,35 @@ async function seedRuntimeState(): Promise<void> {
   const liveIds = new Set<number>();
 
   observedGroupTitles.clear();
+  const liveGroupIds = new Set<number>();
   for (const group of groups) {
     observedGroupTitles.set(group.id, group.title ?? '');
+    liveGroupIds.add(group.id);
+  }
+
+  // Clean up interaction records for groups that no longer exist.
+  for (const groupId of [...groupInteractionRecords.keys()]) {
+    if (!liveGroupIds.has(groupId)) {
+      groupInteractionRecords.delete(groupId);
+    }
   }
 
   for (const tab of tabs) {
     if (tab.id == null) continue;
     liveIds.add(tab.id);
-    ensureRuntimeTab(tab.id, now);
+    // Use Chrome's lastAccessed (when available) so that pre-existing tabs
+    // that have been idle for a long time keep an accurate observedAt instead
+    // of being reset to Date.now() on every service-worker restart.
+    const tabLastAccessed = typeof tab.lastAccessed === 'number' ? tab.lastAccessed : null;
+    const state = ensureRuntimeTab(tab.id, now, tabLastAccessed);
+
+    // Restore totalActiveMs from persisted tab history so the running total
+    // survives service-worker restarts instead of resetting to 0.
+    const persistedRecord = tabHistoryRecords.get(tab.id);
+    if (persistedRecord?.telemetry?.totalActiveMs) {
+      state.totalActiveMs = persistedRecord.telemetry.totalActiveMs;
+    }
+
     await trackTabHistory(tab, 'seed');
   }
 
@@ -311,8 +340,17 @@ async function seedRuntimeState(): Promise<void> {
   }
 }
 
+let tabHistoryLoadFailedAt = 0;
+const LOAD_RETRY_COOLDOWN_MS = 5_000;
+
 async function ensureTabHistoryLoaded(): Promise<void> {
   if (tabHistoryLoadPromise) return tabHistoryLoadPromise;
+
+  // After a failure, wait before retrying to avoid a thundering herd when
+  // multiple callers retry simultaneously.
+  if (tabHistoryLoadFailedAt && Date.now() - tabHistoryLoadFailedAt < LOAD_RETRY_COOLDOWN_MS) {
+    throw new Error('Tab history load is in cooldown period after previous failure.');
+  }
 
   tabHistoryLoadPromise = (async () => {
     try {
@@ -344,7 +382,10 @@ async function ensureTabHistoryLoaded(): Promise<void> {
           return true;
         })
       );
+
+      tabHistoryLoadFailedAt = 0;
     } catch (error) {
+      tabHistoryLoadFailedAt = Date.now();
       tabHistoryLoadPromise = null;
       throw error;
     }
@@ -381,8 +422,14 @@ function hydrateGroupMetadataRecords(
   }
 }
 
+let groupMetadataLoadFailedAt = 0;
+
 async function ensureGroupMetadataLoaded(): Promise<void> {
   if (groupMetadataLoadPromise) return groupMetadataLoadPromise;
+
+  if (groupMetadataLoadFailedAt && Date.now() - groupMetadataLoadFailedAt < LOAD_RETRY_COOLDOWN_MS) {
+    throw new Error('Group metadata load is in cooldown period after previous failure.');
+  }
 
   groupMetadataLoadPromise = (async () => {
     try {
@@ -394,7 +441,9 @@ async function ensureGroupMetadataLoaded(): Promise<void> {
           | null
           | undefined
       );
+      groupMetadataLoadFailedAt = 0;
     } catch (error) {
+      groupMetadataLoadFailedAt = Date.now();
       groupMetadataLoadPromise = null;
       throw error;
     }
@@ -430,8 +479,14 @@ function hydrateAutoGroupExemptionRecords(
   }
 }
 
+let autoGroupExemptionLoadFailedAt = 0;
+
 async function ensureAutoGroupExemptionsLoaded(): Promise<void> {
   if (autoGroupExemptionLoadPromise) return autoGroupExemptionLoadPromise;
+
+  if (autoGroupExemptionLoadFailedAt && Date.now() - autoGroupExemptionLoadFailedAt < LOAD_RETRY_COOLDOWN_MS) {
+    throw new Error('Auto group exemptions load is in cooldown period after previous failure.');
+  }
 
   autoGroupExemptionLoadPromise = (async () => {
     try {
@@ -443,7 +498,9 @@ async function ensureAutoGroupExemptionsLoaded(): Promise<void> {
           | null
           | undefined
       );
+      autoGroupExemptionLoadFailedAt = 0;
     } catch (error) {
+      autoGroupExemptionLoadFailedAt = Date.now();
       autoGroupExemptionLoadPromise = null;
       throw error;
     }
@@ -494,8 +551,14 @@ function hydrateSessionRecords(raw: Partial<PersistedSessionsState> | Record<str
   trimAutoSessions();
 }
 
+let sessionsLoadFailedAt = 0;
+
 async function ensureSessionsLoaded(): Promise<void> {
   if (sessionsLoadPromise) return sessionsLoadPromise;
+
+  if (sessionsLoadFailedAt && Date.now() - sessionsLoadFailedAt < LOAD_RETRY_COOLDOWN_MS) {
+    throw new Error('Sessions load is in cooldown period after previous failure.');
+  }
 
   sessionsLoadPromise = (async () => {
     try {
@@ -507,7 +570,9 @@ async function ensureSessionsLoaded(): Promise<void> {
           | null
           | undefined
       );
+      sessionsLoadFailedAt = 0;
     } catch (error) {
+      sessionsLoadFailedAt = Date.now();
       sessionsLoadPromise = null;
       throw error;
     }
@@ -564,15 +629,21 @@ function scheduleTabHistoryPersist(): void {
   }, 120);
 }
 
+let groupMetadataPersistInFlight = false;
+
 function scheduleGroupMetadataPersist(): void {
   if (persistGroupMetadataTimer != null) return;
 
   persistGroupMetadataTimer = setTimeout(() => {
     persistGroupMetadataTimer = null;
+    groupMetadataPersistInFlight = true;
     void chrome.storage.local
       .set({ [GROUP_METADATA_STORAGE_KEY]: serializeGroupMetadataRecords() })
       .catch((error) => {
         console.warn('Failed to persist group metadata.', error);
+      })
+      .finally(() => {
+        groupMetadataPersistInFlight = false;
       });
   }, 120);
 }
@@ -749,15 +820,6 @@ function matchesSelectedAutoGroupPresets(
   return presetIds.some((presetId) => matchesDefaultAutoGroupPresetById(tab, presetId));
 }
 
-function normalizeWebsitePattern(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, '')
-    .replace(/^www\./, '')
-    .replace(/\/.*$/, '');
-}
-
 function matchesWebsitePattern(tab: chrome.tabs.Tab, value: string): boolean {
   const expected = normalizeWebsitePattern(value);
   if (!expected) return false;
@@ -898,6 +960,7 @@ async function cleanupRestoredAutoGroups(): Promise<void> {
   }
 
   const tabsToUngroup: number[] = [];
+  const groupsToCleanup: number[] = [];
 
   for (const group of groups) {
     const groupTabs = tabsByGroup.get(group.id) ?? [];
@@ -925,13 +988,19 @@ async function cleanupRestoredAutoGroups(): Promise<void> {
     if (!groupTabs.every((tab) => matchesAutoGroupConfig(tab, titleMatchedConfig))) continue;
 
     tabsToUngroup.push(...groupTabs.map((tab) => tab.id).filter((tabId): tabId is number => tabId != null));
-    deleteGroupMetadata(group.id);
+    groupsToCleanup.push(group.id);
   }
 
   const nonEmptyTabIds = asNonEmptyTabIds(uniqueTabIds(tabsToUngroup));
   if (!nonEmptyTabIds) return;
 
+  // Ungroup tabs first, then delete metadata.  If ungrouping partially fails,
+  // the metadata is preserved so the group can still be recognized as an
+  // auto-group on the next matching tab.
   await chrome.tabs.ungroup(nonEmptyTabIds);
+  for (const groupId of groupsToCleanup) {
+    deleteGroupMetadata(groupId);
+  }
   scheduleOverviewInvalidation('updated');
   scheduleAutoSessionSnapshot();
 }
@@ -1165,7 +1234,7 @@ function createUrlHistoryEvent(
     id: `${tabId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
     at: Date.now(),
     kind,
-    title: patch.title ?? normalizeHostname(url) ?? 'Navigation',
+    title: patch.title ?? (normalizeHostname(url) || 'Navigation'),
     url,
     hostname: normalizeHostname(url),
     ...patch
@@ -1336,7 +1405,7 @@ async function recordNavigationStart(
     details.url,
     {
       at: Math.round(details.timeStamp),
-      title: normalizeHostname(details.url) ?? 'Navigation started'
+      title: normalizeHostname(details.url) || 'Navigation started'
     },
     { skipIfLastUrl: true }
   );
@@ -1399,11 +1468,6 @@ async function flushRedirectEvents(tabId: number): Promise<void> {
     });
   }
 }
-
-const redirectTrackingPermissions: chrome.permissions.Permissions = {
-  permissions: ['webNavigation', 'webRequest'],
-  origins: ['http://*/*', 'https://*/*']
-};
 
 async function getRedirectTrackingPermissionState(): Promise<RedirectTrackingPermissionState> {
   if (!chrome.permissions?.contains) {
@@ -1604,14 +1668,6 @@ function archiveClosedTabHistory(tabId: number, closedAt = Date.now()): void {
 
   tabHistoryRecords.delete(tabId);
   scheduleTabHistoryPersist();
-}
-
-function normalizeHostname(url: string): string {
-  try {
-    return new URL(url).hostname || url;
-  } catch {
-    return url;
-  }
 }
 
 function getTelemetry(tabId: number): RuntimeTabTelemetry {
@@ -3142,7 +3198,7 @@ function colorFromLabel(label: string): TabGroupColor {
     hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   }
 
-  return groupColors[hash % groupColors.length] ?? 'blue';
+  return allGroupColors[hash % allGroupColors.length] ?? 'blue';
 }
 
 async function smartGroupTabs(
@@ -3196,7 +3252,9 @@ async function smartGroupTabs(
 }
 
 export function installBackgroundService(): void {
-  void seedRuntimeState();
+  // seedRuntimeState must complete before the first auto-cleanup check,
+  // otherwise runtimeTabs is empty and tabs could be prematurely auto-closed.
+  const seedPromise = seedRuntimeState();
   startAutoSessionSnapshots();
   void (async () => {
     await syncDefaultAutoGroupTitles();
@@ -3211,7 +3269,11 @@ export function installBackgroundService(): void {
   void syncAutoCollapseInactiveGroupsAlarm().catch((error) => {
     console.warn('Failed to schedule inactive group auto-collapse.', error);
   });
-  scheduleAutoCollapseInactiveGroupsCheck();
+  // Delay the initial auto-cleanup until seedRuntimeState has populated
+  // runtimeTabs so that activity timestamps are accurate.
+  void seedPromise.then(() => scheduleAutoCollapseInactiveGroupsCheck()).catch((error) => {
+    console.warn('Failed to run initial inactive tab cleanup after seed.', error);
+  });
   void refreshRedirectTrackingEnabled().catch((error) => {
     console.warn('Failed to initialize redirect tracking permission state.', error);
   });
@@ -3225,7 +3287,7 @@ export function installBackgroundService(): void {
     const state = ensureRuntimeTab(tab.id);
     state.openedAt = Date.now();
     state.autoDeduplicationPendingFromCreate =
-      normalizeAutoDeduplicationUrl(tab.url ?? tab.pendingUrl ?? '') == null;
+      normalizeAutoDeduplicationUrl(tab.url ?? tab.pendingUrl ?? '') != null;
 
     if (tab.active) {
       startActiveSession(tab.windowId, tab.id);
@@ -3236,9 +3298,28 @@ export function installBackgroundService(): void {
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
     void trackTabHistory(tab, 'created');
-    void maybeAutoGroupTab(tab).catch((error) => {
-      console.warn('Failed to auto group created tab.', error);
-    });
+
+    // When blockChromeAutoGroup is enabled, remove Chrome's automatic group
+    // assignment so the tab starts ungrouped.  The extension's own auto-group
+    // rules (maybeAutoGroupTab) can still re-group it afterward.
+    // Must complete before maybeAutoGroupTab to avoid race condition.
+    void (async () => {
+      try {
+        if ((tab.groupId ?? -1) >= 0) {
+          const settings = await getSettings();
+          if (settings.blockChromeAutoGroup && tab.id != null) {
+            await chrome.tabs.ungroup(tab.id);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to ungroup tab from Chrome auto-group.', error);
+      }
+
+      // Run auto-group after blockChromeAutoGroup to ensure correct ordering.
+      void maybeAutoGroupTab(tab).catch((error) => {
+        console.warn('Failed to auto group created tab.', error);
+      });
+    })();
   });
 
   chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
@@ -3408,9 +3489,13 @@ export function installBackgroundService(): void {
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'sync' && changes[SETTINGS_KEY]) {
-      const oldSettings = changes[SETTINGS_KEY].oldValue as Partial<ManagerSettings> | undefined;
-      const newSettings = changes[SETTINGS_KEY].newValue as Partial<ManagerSettings> | undefined;
+    const settingsChanged =
+      (areaName === 'sync' && changes[SETTINGS_KEY]) ||
+      (areaName === 'local' && changes['tab-manager/settings-fallback']);
+
+    if (settingsChanged) {
+      const oldSettings = changes[SETTINGS_KEY]?.oldValue as Partial<ManagerSettings> | undefined;
+      const newSettings = changes[SETTINGS_KEY]?.newValue as Partial<ManagerSettings> | undefined;
       const localeChanged = oldSettings?.locale !== newSettings?.locale;
 
       void syncAutoCollapseInactiveGroupsAlarm().catch((error) => {
@@ -3431,6 +3516,9 @@ export function installBackgroundService(): void {
     }
 
     if (areaName === 'local' && changes[GROUP_METADATA_STORAGE_KEY]) {
+      // Skip hydration when the change was triggered by our own persist cycle
+      // to avoid clearing and reloading the same data unnecessarily.
+      if (groupMetadataPersistInFlight) return;
       try {
         hydrateGroupMetadataRecords(
           changes[GROUP_METADATA_STORAGE_KEY].newValue as

@@ -130,6 +130,9 @@ export function OptionsPage() {
                 <option value="fr">{t.localeFrench}</option>
                 <option value="es">{t.localeSpanish}</option>
                 <option value="ar">{t.localeArabic}</option>
+                <option value="ru">{t.localeRussian}</option>
+                <option value="el">{t.localeGreek}</option>
+                <option value="ko">{t.localeKorean}</option>
               </select>
             </div>
 

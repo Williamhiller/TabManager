@@ -1,8 +1,9 @@
 import type { RemixiconComponentType } from '@remixicon/react';
+import { memo } from 'react';
 
 import { blockDrag } from './tab-tree-helpers';
 
-export function IconButton({
+export const IconButton = memo(function IconButton({
   icon: Icon,
   label,
   danger,
@@ -27,4 +28,4 @@ export function IconButton({
       <Icon size={14} />
     </button>
   );
-}
+});

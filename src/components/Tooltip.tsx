@@ -14,7 +14,7 @@ import {
   useInteractions,
   useRole
 } from '@floating-ui/react';
-import { useRef, useState, type ReactNode } from 'react';
+import { memo, useRef, useState, type ReactNode } from 'react';
 
 interface TooltipProps {
   children: ReactNode;
@@ -24,7 +24,7 @@ interface TooltipProps {
   arrowPadding?: number;
 }
 
-export function Tooltip({
+export const Tooltip = memo(function Tooltip({
   children,
   content,
   disabled = false,
@@ -93,4 +93,4 @@ export function Tooltip({
       ) : null}
     </>
   );
-}
+});

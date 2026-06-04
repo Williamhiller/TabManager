@@ -24,6 +24,15 @@ const dashboardSnapshotCopy = {
   },
   ar: {
     refresh: 'تحديث اللقطات'
+  },
+  ru: {
+    refresh: 'Обновить снимки'
+  },
+  el: {
+    refresh: 'Ανανέωση στιγμιότυπων'
+  },
+  ko: {
+    refresh: '스냅샷 새로고침'
   }
 } as const;
 

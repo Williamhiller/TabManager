@@ -1,18 +1,9 @@
 import type { TabGroupColor, ThemeMode } from './contracts';
+import { allGroupColors } from './shared-utils';
 
 export type ResolvedTheme = 'light' | 'dark';
 
-export const allGroupColors: TabGroupColor[] = [
-  'grey',
-  'blue',
-  'red',
-  'yellow',
-  'green',
-  'pink',
-  'purple',
-  'cyan',
-  'orange'
-];
+export { allGroupColors };
 
 export const groupColorTokens: Record<
   TabGroupColor,
@@ -79,5 +70,34 @@ export function applyTheme(theme: ThemeMode): void {
   document.documentElement.style.colorScheme = resolvedTheme;
   try {
     localStorage.setItem('tm-theme', theme);
-  } catch (e) {}
+  } catch {
+    // localStorage may be unavailable in some contexts; ignore silently
+  }
+}
+
+let systemThemeCleanup: (() => void) | null = null;
+
+/**
+ * Subscribe to OS-level theme changes so the UI reacts in real time
+ * when the user's system switches between light and dark mode.
+ * Only effective when the active theme is "system".
+ * Returns an unsubscribe function.
+ */
+export function watchSystemThemeChanges(getTheme: () => ThemeMode): () => void {
+  // Clean up any previous listener
+  systemThemeCleanup?.();
+  systemThemeCleanup = null;
+
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+  const handler = () => {
+    if (getTheme() === 'system') {
+      applyTheme('system');
+    }
+  };
+
+  mediaQuery.addEventListener('change', handler);
+  systemThemeCleanup = () => mediaQuery.removeEventListener('change', handler);
+
+  return systemThemeCleanup;
 }

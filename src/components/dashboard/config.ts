@@ -19,7 +19,10 @@ export const DASHBOARD_LANGUAGE_OPTIONS: DashboardLocaleOption[] = [
   { value: 'ja', labelKey: 'localeJapanese' },
   { value: 'fr', labelKey: 'localeFrench' },
   { value: 'es', labelKey: 'localeSpanish' },
-  { value: 'ar', labelKey: 'localeArabic' }
+  { value: 'ar', labelKey: 'localeArabic' },
+  { value: 'ru', labelKey: 'localeRussian' },
+  { value: 'el', labelKey: 'localeGreek' },
+  { value: 'ko', labelKey: 'localeKorean' }
 ];
 
 export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [

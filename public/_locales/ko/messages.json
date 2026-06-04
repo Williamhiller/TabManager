@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "TabFriday - 탭 관리자: 그룹, 중복 탭 및 세션"
+  },
+  "extDescription": {
+    "message": "자동 그룹화, 중복 탭 제거, 비활성 탭 정리, 탭 검색 및 세션 복원을 위한 스마트 탭 관리자."
+  },
+  "extActionTitle": {
+    "message": "TabFriday - 탭 관리자: 그룹, 중복 탭 및 세션"
+  }
+}

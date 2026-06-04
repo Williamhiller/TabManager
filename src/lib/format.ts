@@ -28,15 +28,27 @@ export function formatDuration(ms: number | null | undefined): string {
   return `${days}d ${hours % 24}h`;
 }
 
+const rtfCache = new Map<string, Intl.RelativeTimeFormat>();
+
+function getRelativeTimeFormat(locale: string): Intl.RelativeTimeFormat {
+  let rtf = rtfCache.get(locale);
+  if (!rtf) {
+    rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+    rtfCache.set(locale, rtf);
+  }
+  return rtf;
+}
+
 export function formatRelativeTime(
   timestamp: number | null | undefined,
-  locale = 'en'
+  locale = 'en',
+  fallback = 'Unknown'
 ): string {
-  if (timestamp == null) return 'Unknown';
+  if (timestamp == null) return fallback;
 
   const delta = timestamp - Date.now();
   const abs = Math.abs(delta);
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  const rtf = getRelativeTimeFormat(locale);
 
   if (abs < 60_000) return rtf.format(Math.round(delta / 1000), 'second');
   if (abs < 3_600_000) return rtf.format(Math.round(delta / 60_000), 'minute');
