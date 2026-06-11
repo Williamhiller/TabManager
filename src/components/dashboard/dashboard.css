@@ -94,6 +94,36 @@
   min-width: 0;
 }
 
+.tm-dashboard-feedback-button {
+  min-width: 0;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--tm-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tm-text-secondary);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tm-dashboard-feedback-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tm-dashboard-feedback-button:hover {
+  background: var(--tm-surface-muted);
+  border-color: var(--tm-border-strong);
+  color: var(--tm-text);
+}
+
 .tm-dashboard-share-anchor {
   position: relative;
   display: inline-flex;
@@ -145,11 +175,31 @@
 }
 
 .tm-dashboard-share-menu {
-  width: min(220px, calc(100vw - 24px));
+  width: min(240px, calc(100vw - 24px));
+}
+
+.tm-dashboard-share-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tm-dashboard-share-menu-divider {
+  height: 1px;
+  background: var(--tm-border);
+  margin: 6px 0;
 }
 
 .tm-dashboard-share-menu-button {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tm-dashboard-share-menu-button svg {
+  flex-shrink: 0;
+  color: var(--tm-text-secondary);
 }
 
 .tm-dashboard-frame {
@@ -426,6 +476,27 @@
 
 .tm-dashboard-theme-toggle:hover {
   background: var(--tm-surface-muted);
+}
+
+.tm-dashboard-launch-surface-toggle {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--tm-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tm-text-secondary);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tm-dashboard-launch-surface-toggle:hover {
+  background: var(--tm-surface-muted);
+  border-color: var(--tm-border-strong);
+  color: var(--tm-text);
 }
 
 .tm-dashboard-main-settings {
@@ -2928,6 +2999,26 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
+}
+
+.tm-dashboard-setting-button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--tm-border);
+  border-radius: 6px;
+  background: var(--tm-surface);
+  color: var(--tm-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tm-dashboard-setting-button:hover {
+  background: var(--tm-surface-muted);
+  border-color: var(--tm-border-strong);
+  color: var(--tm-text);
 }
 
 .tm-dashboard-setting-control-inline {

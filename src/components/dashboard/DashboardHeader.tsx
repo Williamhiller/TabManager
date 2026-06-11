@@ -1,5 +1,5 @@
 import { FloatingArrow, FloatingPortal, arrow, autoUpdate, flip, offset, shift, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react';
-import { RiDashboardLine, RiExternalLinkLine, RiFileCopyLine, RiLayoutRightLine, RiMoonLine, RiShareForwardLine, RiSunLine, RiTextSnippet, RiWindowLine } from '@remixicon/react';
+import { RiDashboardLine, RiExternalLinkLine, RiFeedbackLine, RiFileCopyLine, RiLayoutRightLine, RiMailLine, RiMoonLine, RiShareForwardLine, RiSunLine, RiTextSnippet, RiTwitterXLine, RiWindowLine } from '@remixicon/react';
 import { useRef, useState } from 'react';
 
 import type { ManagerSettings } from '../../lib/contracts';
@@ -8,6 +8,7 @@ import { Tooltip } from '../Tooltip';
 import dashboardLogo from '../../assets/icons/icon-128.png';
 
 type DashboardHeaderProps = {
+  feedbackLabel: string;
   launchSurface: ManagerSettings['launchSurface'];
   shareCta: string;
   shareFeedback: string | null;
@@ -15,12 +16,17 @@ type DashboardHeaderProps = {
   shareCopyLabel: string;
   shareCopyTextLabel: string;
   shareOpenStoreLabel: string;
+  shareTwitterLabel: string;
+  shareEmailLabel: string;
   onCopyShareLink: () => void;
   onCopyShareText: () => void;
-  onNativeShare?: () => Promise<boolean>;
+  onShareTwitter: () => void;
+  onShareEmail: () => void;
   onOpenStore: () => void;
+  onFeedback: () => void;
   onLaunchSurfaceToggle: () => void;
   onThemeToggle: () => void;
+  launchSurfaceCurrentLabel: string;
   launchSurfaceToggleLabel: string;
   tagline: string;
   themeLabel: string;
@@ -29,6 +35,7 @@ type DashboardHeaderProps = {
 };
 
 export function DashboardHeader({
+  feedbackLabel,
   launchSurface,
   shareCta,
   shareFeedback,
@@ -36,12 +43,17 @@ export function DashboardHeader({
   shareCopyLabel,
   shareCopyTextLabel,
   shareOpenStoreLabel,
+  shareTwitterLabel,
+  shareEmailLabel,
   onCopyShareLink,
   onCopyShareText,
-  onNativeShare,
+  onShareTwitter,
+  onShareEmail,
   onOpenStore,
+  onFeedback,
   onLaunchSurfaceToggle,
   onThemeToggle,
+  launchSurfaceCurrentLabel,
   launchSurfaceToggleLabel,
   tagline,
   themeLabel,
@@ -50,7 +62,6 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const shareArrowRef = useRef<SVGSVGElement | null>(null);
-  const nativeShareAvailable = typeof navigator !== 'undefined' && !!navigator.share;
   const {
     refs: shareMenuRefs,
     floatingStyles: shareMenuStyles,
@@ -69,12 +80,13 @@ export function DashboardHeader({
   const shareMenuRole = useRole(shareMenuContext, { role: 'menu' });
   const { getReferenceProps, getFloatingProps } = useInteractions([shareMenuDismiss, shareMenuRole]);
 
-  const handleShareButtonClick = async () => {
-    if (onNativeShare && nativeShareAvailable) {
-      const shared = await onNativeShare();
-      if (shared) return;
-    }
+  const handleShareButtonClick = () => {
     setShareMenuOpen((prev) => !prev);
+  };
+
+  const handleShareAction = (action: () => void) => {
+    setShareMenuOpen(false);
+    action();
   };
 
   return (
@@ -88,6 +100,18 @@ export function DashboardHeader({
       </div>
 
       <div className="tm-dashboard-header-actions">
+        <Tooltip content={feedbackLabel}>
+          <button
+            aria-label={feedbackLabel}
+            className="tm-dashboard-feedback-button"
+            onClick={onFeedback}
+            title={feedbackLabel}
+            type="button"
+          >
+            <RiFeedbackLine size={16} />
+            <span>{feedbackLabel}</span>
+          </button>
+        </Tooltip>
         <div className="tm-dashboard-share-cluster">
           <Tooltip content={shareLabel}>
             <div className="tm-dashboard-share-anchor">
@@ -116,39 +140,51 @@ export function DashboardHeader({
                 {...getFloatingProps()}
               >
                 <div className="tm-dashboard-compact-menu-title">{shareLabel}</div>
-                <button
-                  className="tm-header-group-picker-button tm-dashboard-share-menu-button"
-                  onClick={() => {
-                    setShareMenuOpen(false);
-                    onCopyShareLink();
-                  }}
-                  type="button"
-                >
-                  <RiFileCopyLine size={13} />
-                  <span>{shareCopyLabel}</span>
-                </button>
-                <button
-                  className="tm-header-group-picker-button tm-dashboard-share-menu-button"
-                  onClick={() => {
-                    setShareMenuOpen(false);
-                    onCopyShareText();
-                  }}
-                  type="button"
-                >
-                  <RiTextSnippet size={13} />
-                  <span>{shareCopyTextLabel}</span>
-                </button>
-                <button
-                  className="tm-header-group-picker-button tm-dashboard-share-menu-button"
-                  onClick={() => {
-                    setShareMenuOpen(false);
-                    onOpenStore();
-                  }}
-                  type="button"
-                >
-                  <RiExternalLinkLine size={13} />
-                  <span>{shareOpenStoreLabel}</span>
-                </button>
+                <div className="tm-dashboard-share-menu-group">
+                  <button
+                    className="tm-header-group-picker-button tm-dashboard-share-menu-button"
+                    onClick={() => handleShareAction(onShareTwitter)}
+                    type="button"
+                  >
+                    <RiTwitterXLine size={14} />
+                    <span>{shareTwitterLabel}</span>
+                  </button>
+                  <button
+                    className="tm-header-group-picker-button tm-dashboard-share-menu-button"
+                    onClick={() => handleShareAction(onShareEmail)}
+                    type="button"
+                  >
+                    <RiMailLine size={14} />
+                    <span>{shareEmailLabel}</span>
+                  </button>
+                </div>
+                <div className="tm-dashboard-share-menu-divider" />
+                <div className="tm-dashboard-share-menu-group">
+                  <button
+                    className="tm-header-group-picker-button tm-dashboard-share-menu-button"
+                    onClick={() => handleShareAction(onCopyShareLink)}
+                    type="button"
+                  >
+                    <RiFileCopyLine size={14} />
+                    <span>{shareCopyLabel}</span>
+                  </button>
+                  <button
+                    className="tm-header-group-picker-button tm-dashboard-share-menu-button"
+                    onClick={() => handleShareAction(onCopyShareText)}
+                    type="button"
+                  >
+                    <RiTextSnippet size={14} />
+                    <span>{shareCopyTextLabel}</span>
+                  </button>
+                  <button
+                    className="tm-header-group-picker-button tm-dashboard-share-menu-button"
+                    onClick={() => handleShareAction(onOpenStore)}
+                    type="button"
+                  >
+                    <RiExternalLinkLine size={14} />
+                    <span>{shareOpenStoreLabel}</span>
+                  </button>
+                </div>
                 <FloatingArrow
                   ref={shareArrowRef}
                   className="tm-header-group-picker-arrow"
@@ -168,17 +204,18 @@ export function DashboardHeader({
         <Tooltip content={launchSurfaceToggleLabel}>
           <button
             aria-label={launchSurfaceToggleLabel}
-            className="tm-dashboard-theme-toggle"
+            className="tm-dashboard-launch-surface-toggle"
             onClick={onLaunchSurfaceToggle}
             type="button"
           >
             {launchSurface === 'dashboard' ? (
-              <RiDashboardLine size={22} />
+              <RiDashboardLine size={16} />
             ) : launchSurface === 'popup' ? (
-              <RiWindowLine size={22} />
+              <RiWindowLine size={16} />
             ) : (
-              <RiLayoutRightLine size={22} />
+              <RiLayoutRightLine size={16} />
             )}
+            <span>{launchSurfaceCurrentLabel}</span>
           </button>
         </Tooltip>
         <button

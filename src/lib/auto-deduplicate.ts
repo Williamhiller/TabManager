@@ -11,6 +11,8 @@ export interface AutoDeduplicateCandidateTab {
   lastActivityAt?: number | null;
 }
 
+export type AutoDeduplicateKeepStrategy = 'newest' | 'existing';
+
 export type AutoDeduplicatePlan =
   | { kind: 'none' }
   | { kind: 'keepCurrent'; closeTabIds: number[] }
@@ -28,7 +30,8 @@ function sortByRecentActivity(
 
 export function planAutoDeduplication(
   currentTab: AutoDeduplicateCurrentTab,
-  duplicateTabs: AutoDeduplicateCandidateTab[]
+  duplicateTabs: AutoDeduplicateCandidateTab[],
+  keepStrategy: AutoDeduplicateKeepStrategy = 'newest'
 ): AutoDeduplicatePlan {
   const closeableDuplicates = duplicateTabs.filter((tab) => tab.id !== currentTab.id);
   if (closeableDuplicates.length === 0) return { kind: 'none' };
@@ -42,6 +45,20 @@ export function planAutoDeduplication(
       kind: 'keepExisting',
       targetTabId: target.id,
       closeTabIds: [currentTab.id, ...closeableDuplicates.filter((tab) => !tab.pinned).map((tab) => tab.id)]
+    };
+  }
+
+  if (keepStrategy === 'existing' && !currentTab.pinned) {
+    const [target] = [...closeableDuplicates].sort(sortByRecentActivity);
+    if (!target) return { kind: 'none' };
+
+    return {
+      kind: 'keepExisting',
+      targetTabId: target.id,
+      closeTabIds: [
+        currentTab.id,
+        ...closeableDuplicates.filter((tab) => !tab.pinned && tab.id !== target.id).map((tab) => tab.id)
+      ]
     };
   }
 

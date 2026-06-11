@@ -6,6 +6,7 @@ export type AutoSleepInactiveTabsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
 export type AutoCloseInactiveTabsMinutes = 0 | 5 | 10 | 30 | 60 | 120;
 export type AutoCloseDomainMode = 'exclude' | 'include' | 'all';
 export type AutoDeduplicationScope = 'global-except-listed' | 'listed-only';
+export type AutoDeduplicationKeep = 'newest' | 'existing';
 export type AutoGroupRuleField = 'hostname' | 'url' | 'title';
 export type AutoGroupRuleOperator = 'contains' | 'equals';
 export type TabGroupColor =
@@ -64,6 +65,7 @@ export interface ManagerSettings {
   autoCloseDomainMode: AutoCloseDomainMode;
   autoCleanupWhitelist: string[];
   autoDeduplicateTabs: boolean;
+  autoDeduplicationKeep: AutoDeduplicationKeep;
   autoDeduplicationScope: AutoDeduplicationScope;
   autoDeduplicationSites: string[];
   blockChromeAutoGroup: boolean;

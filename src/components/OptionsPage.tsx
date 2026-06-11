@@ -289,6 +289,20 @@ export function OptionsPage() {
                   {settings.autoDeduplicateTabs ? (
                     <>
                       <select
+                        aria-label={t.autoDeduplicationKeep}
+                        className="tm-select tm-settings-select"
+                        disabled={busy}
+                        onChange={(event) =>
+                          void save({
+                            autoDeduplicationKeep: event.target.value as typeof settings.autoDeduplicationKeep
+                          })
+                        }
+                        value={settings.autoDeduplicationKeep}
+                      >
+                        <option value="newest">{t.autoDeduplicationKeepNewest}</option>
+                        <option value="existing">{t.autoDeduplicationKeepExisting}</option>
+                      </select>
+                      <select
                         aria-label={t.behavior}
                         className="tm-select tm-settings-select"
                         disabled={busy}

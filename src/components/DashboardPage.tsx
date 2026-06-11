@@ -41,6 +41,7 @@ import { autoInactiveMinuteChoices } from '../lib/settings';
 import { applyTheme, resolveTheme } from '../lib/theme';
 
 const STORE_SHARE_URL = 'https://chromewebstore.google.com/detail/auto-tab-groups-tab-bookm/mnimeepnfdjhdkigakdfknjmcblpolga';
+const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdtLzy85a3JHn3ynbEjY0JmR6PPSdXYtWtzFHNPEQ4eHcQq3Q/viewform';
 
 function getInitialDashboardView(): DashboardViewId {
   if (typeof window === 'undefined') return DASHBOARD_DEFAULT_VIEW;
@@ -382,18 +383,23 @@ export function DashboardPage() {
     await copySharePayload(`${t.shareText}\n${STORE_SHARE_URL}`, t.shareTextCopied);
   };
 
-  const handleNativeShare = async () => {
-    if (!navigator.share) return false;
-    try {
-      await navigator.share({ title: 'TabFriday', text: t.shareText, url: STORE_SHARE_URL });
-      return true;
-    } catch {
-      return false;
-    }
+  const handleShareTwitter = () => {
+    const tweetText = encodeURIComponent(`${t.shareText}\n\n${STORE_SHARE_URL}`);
+    window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank', 'noopener,noreferrer,width=600,height=400');
+  };
+
+  const handleShareEmail = () => {
+    const subject = encodeURIComponent('TabFriday - Tab Manager Extension');
+    const body = encodeURIComponent(`${t.shareText}\n\n${STORE_SHARE_URL}`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
   };
 
   const handleOpenStore = () => {
     window.open(STORE_SHARE_URL, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleFeedback = () => {
+    window.open(FEEDBACK_FORM_URL, '_blank', 'noopener,noreferrer');
   };
 
   const saveAutoGroupConfigs = async (configs: AutoGroupConfig[]) => {
@@ -468,11 +474,21 @@ export function DashboardPage() {
     <div className="tm-shell tm-dashboard-shell">
       <div className="tm-dashboard-page">
         <DashboardHeader
+          feedbackLabel={t.feedback}
           launchSurface={data.settings.launchSurface}
+          launchSurfaceCurrentLabel={
+            data.settings.launchSurface === 'sidepanel'
+              ? t.sidePanel
+              : data.settings.launchSurface === 'popup'
+                ? t.popup
+                : t.dashboard
+          }
           launchSurfaceToggleLabel={t.switchLaunchSurface.replace('{surface}', launchSurfaceTargetLabel)}
           onCopyShareLink={() => void handleCopyShareLink()}
           onCopyShareText={() => void handleCopyShareText()}
-          onNativeShare={handleNativeShare}
+          onShareTwitter={handleShareTwitter}
+          onShareEmail={handleShareEmail}
+          onFeedback={handleFeedback}
           onLaunchSurfaceToggle={() =>
             void saveSettings({
               launchSurface: nextLaunchSurface
@@ -482,9 +498,11 @@ export function DashboardPage() {
           shareCta={t.shareCta}
           shareCopyLabel={t.copyStoreLink}
           shareCopyTextLabel={t.copyShareText}
+          shareEmailLabel={t.shareEmail}
           shareFeedback={shareFeedback}
           shareLabel={t.shareApp}
           shareOpenStoreLabel={t.openStorePage}
+          shareTwitterLabel={t.shareTwitter}
           tagline={`· ${t.appTagline}`}
           onThemeToggle={handleThemeToggle}
           themeChoice={resolvedTheme}
@@ -579,6 +597,9 @@ export function DashboardPage() {
           ) : activeView === 'deduplication' ? (
             <DashboardDeduplicationPanel
               busy={false}
+              onDeduplicationKeepChange={(keep) =>
+                void saveSettings({ autoDeduplicationKeep: keep })
+              }
               onDeduplicationScopeChange={(scope) =>
                 void saveSettings({ autoDeduplicationScope: scope })
               }

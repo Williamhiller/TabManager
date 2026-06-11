@@ -84,6 +84,7 @@ export type DashboardAutoGroupPanelProps = {
 
 export type DashboardDeduplicationPanelProps = {
   busy: boolean;
+  onDeduplicationKeepChange: (keep: ManagerSettings['autoDeduplicationKeep']) => void;
   onDeduplicationScopeChange: (scope: ManagerSettings['autoDeduplicationScope']) => void;
   onDeduplicationSitesChange: (entries: string[]) => void;
   onToggleAutoDeduplicateTabs: () => void;

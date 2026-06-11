@@ -4,6 +4,7 @@ import type {
   AutoCloseDomainMode,
   AutoCloseInactiveTabsMinutes,
   AutoCollapseInactiveGroupsMinutes,
+  AutoDeduplicationKeep,
   AutoDeduplicationScope,
   AutoSleepInactiveTabsMinutes,
   AutoGroupConfig,
@@ -65,7 +66,8 @@ async function loadSettingsFromStorage(key: string): Promise<Partial<ManagerSett
     // If it exists, the sync copy is a full, authoritative write.
     if (syncData[SYNC_AUTHORED_AT_KEY]) {
       // Strip the internal marker before returning.
-      const { [SYNC_AUTHORED_AT_KEY]: _, ...rest } = syncData;
+      const rest = { ...syncData };
+      delete rest[SYNC_AUTHORED_AT_KEY];
       return rest as Partial<ManagerSettings>;
     }
 
@@ -117,6 +119,7 @@ const validAutoDeduplicationScopes: readonly AutoDeduplicationScope[] = [
   'global-except-listed',
   'listed-only'
 ];
+const validAutoDeduplicationKeep: readonly AutoDeduplicationKeep[] = ['newest', 'existing'];
 const validThemes: readonly ThemeMode[] = ['light', 'dark', 'system'];
 const validLocales: readonly LocaleMode[] = ['system', 'en', 'zh-CN', 'ja', 'fr', 'es', 'ar', 'ru', 'el', 'ko'];
 const validRuleFields: readonly AutoGroupRuleField[] = ['hostname', 'url', 'title'];
@@ -142,6 +145,7 @@ export const defaultSettings: ManagerSettings = {
   autoCloseDomainMode: 'exclude',
   autoCleanupWhitelist: [],
   autoDeduplicateTabs: false,
+  autoDeduplicationKeep: 'newest',
   autoDeduplicationScope: 'global-except-listed',
   autoDeduplicationSites: [],
   blockChromeAutoGroup: true,
@@ -330,6 +334,12 @@ function normalizeAutoDeduplicateTabs(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.autoDeduplicateTabs;
 }
 
+function normalizeAutoDeduplicationKeep(value: unknown): AutoDeduplicationKeep {
+  return validAutoDeduplicationKeep.includes(value as AutoDeduplicationKeep)
+    ? (value as AutoDeduplicationKeep)
+    : defaultSettings.autoDeduplicationKeep;
+}
+
 function normalizeSidepanelShowSnapshots(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.sidepanelShowSnapshots;
 }
@@ -455,6 +465,7 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
     autoCloseDomainMode: normalizeAutoCloseDomainMode(raw?.autoCloseDomainMode),
     autoCleanupWhitelist: normalizeAutoCleanupWhitelist(raw?.autoCleanupWhitelist),
     autoDeduplicateTabs: normalizeAutoDeduplicateTabs(raw?.autoDeduplicateTabs),
+    autoDeduplicationKeep: normalizeAutoDeduplicationKeep(raw?.autoDeduplicationKeep),
     autoDeduplicationScope: normalizeAutoDeduplicationScope(raw?.autoDeduplicationScope),
     autoDeduplicationSites: normalizeAutoDeduplicationSites(raw?.autoDeduplicationSites),
     blockChromeAutoGroup: normalizeBlockChromeAutoGroup(raw?.blockChromeAutoGroup),

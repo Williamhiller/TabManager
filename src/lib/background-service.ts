@@ -1787,8 +1787,6 @@ async function maybeAutoDeduplicateTab(tab: chrome.tabs.Tab): Promise<boolean> {
   const normalizedUrl = normalizeAutoDeduplicationUrl(url);
   if (!normalizedUrl) return false;
 
-  state.autoDeduplicationPendingFromCreate = false;
-
   const settings = await getSettings();
   if (!settings.autoDeduplicateTabs) return false;
 
@@ -1809,9 +1807,14 @@ async function maybeAutoDeduplicateTab(tab: chrome.tabs.Tab): Promise<boolean> {
       lastActivityAt: getTabLastActivityAt(candidate)
     }));
 
+  if (candidates.length === 0) return false;
+
+  state.autoDeduplicationPendingFromCreate = false;
+
   const plan = planAutoDeduplication(
     { id: tab.id, active: tab.active, pinned: tab.pinned },
-    candidates
+    candidates,
+    settings.autoDeduplicationKeep
   );
 
   if (plan.kind === 'none') return false;
@@ -3286,8 +3289,7 @@ export function installBackgroundService(): void {
 
     const state = ensureRuntimeTab(tab.id);
     state.openedAt = Date.now();
-    state.autoDeduplicationPendingFromCreate =
-      normalizeAutoDeduplicationUrl(tab.url ?? tab.pendingUrl ?? '') != null;
+    state.autoDeduplicationPendingFromCreate = true;
 
     if (tab.active) {
       startActiveSession(tab.windowId, tab.id);
@@ -3304,6 +3306,13 @@ export function installBackgroundService(): void {
     // rules (maybeAutoGroupTab) can still re-group it afterward.
     // Must complete before maybeAutoGroupTab to avoid race condition.
     void (async () => {
+      if (normalizeAutoDeduplicationUrl(tab.url ?? tab.pendingUrl ?? '') != null) {
+        const deduplicated = await maybeAutoDeduplicateTab(tab);
+        if (deduplicated) {
+          return;
+        }
+      }
+
       try {
         if ((tab.groupId ?? -1) >= 0) {
           const settings = await getSettings();
@@ -3354,7 +3363,7 @@ export function installBackgroundService(): void {
     }
     scheduleAutoCollapseInactiveGroupsCheck();
     void (async () => {
-      if (changeInfo.url !== undefined) {
+      if (changeInfo.url !== undefined || changeInfo.status === 'complete') {
         const deduplicated = await maybeAutoDeduplicateTab(tab);
         if (deduplicated) {
           return;

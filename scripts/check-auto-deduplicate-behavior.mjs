@@ -49,12 +49,39 @@ assert.deepEqual(
   planAutoDeduplication(
     { id: 3, active: true, pinned: false },
     [
+      { id: 1, active: false, pinned: false, lastActivityAt: 100 },
+      { id: 2, active: false, pinned: false, lastActivityAt: 200 }
+    ],
+    'newest'
+  ),
+  { kind: 'keepCurrent', closeTabIds: [1, 2] },
+  'newest strategy should keep the newly opened duplicate active'
+);
+
+assert.deepEqual(
+  planAutoDeduplication(
+    { id: 3, active: true, pinned: false },
+    [
+      { id: 1, active: false, pinned: false, lastActivityAt: 100 },
+      { id: 2, active: false, pinned: false, lastActivityAt: 200 }
+    ],
+    'existing'
+  ),
+  { kind: 'keepExisting', targetTabId: 2, closeTabIds: [3, 1] },
+  'existing strategy should focus the most recently used existing duplicate'
+);
+
+assert.deepEqual(
+  planAutoDeduplication(
+    { id: 3, active: true, pinned: false },
+    [
       { id: 1, active: false, pinned: true, lastActivityAt: 100 },
       { id: 2, active: false, pinned: false, lastActivityAt: 200 }
-    ]
+    ],
+    'newest'
   ),
   { kind: 'keepExisting', targetTabId: 1, closeTabIds: [3, 2] },
-  'an existing pinned duplicate should be preserved and focused'
+  'an existing pinned duplicate should be preserved and focused even with newest strategy'
 );
 
 assert.deepEqual(
@@ -89,6 +116,46 @@ assert.deepEqual(
 );
 
 const backgroundSource = fs.readFileSync(backgroundSourcePath, 'utf8');
+const onCreatedBody =
+  backgroundSource.match(
+    /chrome\.tabs\.onCreated\.addListener\(\(tab\) => \{(?<body>[\s\S]*?)^\s*\}\);/m
+  )?.groups?.body ?? '';
+
+assert.match(
+  onCreatedBody,
+  /autoDeduplicationPendingFromCreate\s*=\s*true/,
+  'new tabs should remain pending for auto deduplication until their first trackable URL'
+);
+assert.match(
+  onCreatedBody,
+  /maybeAutoDeduplicateTab\(tab\)/,
+  'auto deduplication should run for tabs that are created with an initial trackable URL'
+);
+
+const maybeAutoDeduplicateBody =
+  backgroundSource.match(
+    /async function maybeAutoDeduplicateTab\(tab: chrome\.tabs\.Tab\): Promise<boolean> \{(?<body>[\s\S]*?)^\}/m
+  )?.groups?.body ?? '';
+
+const pendingClearIndex = maybeAutoDeduplicateBody.indexOf(
+  'state.autoDeduplicationPendingFromCreate = false'
+);
+const settingsGateIndex = maybeAutoDeduplicateBody.indexOf('if (!settings.autoDeduplicateTabs)');
+const candidatesIndex = maybeAutoDeduplicateBody.indexOf('const candidates =');
+assert.ok(
+  pendingClearIndex > settingsGateIndex && pendingClearIndex > candidatesIndex,
+  'auto deduplication should keep pending state until settings and duplicate candidates are confirmed'
+);
+
+const onUpdatedBody =
+  backgroundSource.match(
+    /chrome\.tabs\.onUpdated\.addListener\(\(_tabId, changeInfo, tab\) => \{(?<body>[\s\S]*?)^\s*\}\);/m
+  )?.groups?.body ?? '';
+assert.match(
+  onUpdatedBody,
+  /changeInfo\.url !== undefined \|\| changeInfo\.status === 'complete'/,
+  'auto deduplication should retry when a newly opened tab finishes loading'
+);
 assert.doesNotMatch(
   backgroundSource,
   /await\s+chrome\.tabs\.update\(target\.id,\s*\{\s*active:\s*true\s*\}\);\s*await\s+chrome\.tabs\.remove\(tab\.id\)/s,

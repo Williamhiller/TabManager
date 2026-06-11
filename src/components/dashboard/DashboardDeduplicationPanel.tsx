@@ -6,6 +6,7 @@ import type { DashboardDeduplicationPanelProps } from './types';
 
 export function DashboardDeduplicationPanel({
   busy,
+  onDeduplicationKeepChange,
   onDeduplicationScopeChange,
   onDeduplicationSitesChange,
   onToggleAutoDeduplicateTabs,
@@ -24,6 +25,10 @@ export function DashboardDeduplicationPanel({
     settings.autoDeduplicationScope === 'listed-only'
       ? t.autoDeduplicationIncludedSitesPlaceholder
       : t.autoDeduplicationExcludedSitesPlaceholder;
+  const keepDescription =
+    settings.autoDeduplicationKeep === 'existing'
+      ? t.autoDeduplicationKeepExistingSub
+      : t.autoDeduplicationKeepNewestSub;
 
   return (
     <main className="tm-dashboard-main tm-dashboard-main-automation">
@@ -66,6 +71,39 @@ export function DashboardDeduplicationPanel({
 
           <section className="tm-dashboard-dedup-card">
             <div className="tm-dashboard-dedup-card-body tm-dashboard-dedup-card-body-stack">
+              <section className="tm-dashboard-dedup-section">
+                <div className="tm-dashboard-dedup-card-head">
+                  <span className="tm-dashboard-setting-icon">
+                    <RiGlobalLine size={14} />
+                  </span>
+                  <div>
+                    <h3>{t.autoDeduplicationKeep}</h3>
+                    <p>{keepDescription}</p>
+                  </div>
+                </div>
+
+                <div className="tm-dashboard-dedup-card-body">
+                  <DashboardDropdown
+                    ariaLabel={t.autoDeduplicationKeep}
+                    className="tm-dashboard-language tm-dashboard-dedup-dropdown"
+                    onChange={(value) =>
+                      onDeduplicationKeepChange(value as typeof settings.autoDeduplicationKeep)
+                    }
+                    options={[
+                      {
+                        label: t.autoDeduplicationKeepNewest,
+                        value: 'newest'
+                      },
+                      {
+                        label: t.autoDeduplicationKeepExisting,
+                        value: 'existing'
+                      }
+                    ]}
+                    value={settings.autoDeduplicationKeep}
+                  />
+                </div>
+              </section>
+
               <section className="tm-dashboard-dedup-section">
                 <div className="tm-dashboard-dedup-card-head">
                   <span className="tm-dashboard-setting-icon">
