@@ -1,3 +1,9 @@
+import type {
+  KeyboardShortcutsConfig,
+  ShortcutAction,
+  ShortcutConfig
+} from './keyboard-shortcuts/types';
+
 export type LaunchSurface = 'sidepanel' | 'popup' | 'dashboard';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type LocaleMode = 'system' | 'en' | 'zh-CN' | 'ja' | 'fr' | 'es' | 'ar' | 'ru' | 'el' | 'ko';
@@ -342,7 +348,15 @@ export type ExtensionRequest =
       position: 'before' | 'after';
     }
   | { type: 'tab-manager/update-group'; groupId: number; patch: TabGroupUpdatePatch }
-  | { type: 'tab-manager/smart-group-tabs'; tabIds: number[]; strategy: SmartGroupStrategy };
+  | { type: 'tab-manager/smart-group-tabs'; tabIds: number[]; strategy: SmartGroupStrategy }
+  | { type: 'tab-manager/get-shortcut-config' }
+  | { type: 'tab-manager/update-shortcut-config'; patch: Partial<KeyboardShortcutsConfig> }
+  | { type: 'tab-manager/update-single-shortcut'; shortcutId: string; patch: Partial<ShortcutConfig> }
+  | { type: 'tab-manager/execute-action'; action: ShortcutAction }
+  | { type: 'tab-manager/get-actions' }
+  | { type: 'tab-manager/get-tabs' }
+  | { type: 'tab-manager/focus-tab'; tabId: number }
+  | { type: 'tab-manager/toggle-command-palette' };
 
 export type ExtensionResult<T = null> =
   | { ok: true; data: T }

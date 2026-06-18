@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "TabFriday - Gestor de pestañas: grupos, duplicados y sesiones"
+    "message": "TabFriday - Agrupa pestañas con reglas personalizadas"
   },
   "extDescription": {
-    "message": "Gestor inteligente para agrupar pestañas, eliminar duplicadas, limpiar pestañas inactivas, buscar y restaurar sesiones."
+    "message": "¿Muchas pestañas? Agrupa por sitio, tema o reglas. Elimina duplicados, silencia, suspende y cierra inactivas. Gratis para siempre."
   },
   "extActionTitle": {
-    "message": "TabFriday - Gestor de pestañas: grupos, duplicados y sesiones"
+    "message": "TabFriday - Agrupa pestañas con reglas personalizadas"
   }
 }

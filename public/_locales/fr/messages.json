@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "TabFriday - Gestion d'onglets : groupes, doublons et sessions"
+    "message": "TabFriday - Groupes d'onglets avec règles personnalisées"
   },
   "extDescription": {
-    "message": "Gestionnaire d'onglets intelligent pour regrouper, supprimer les doublons, nettoyer les onglets inactifs, rechercher et restaurer les sessions."
+    "message": "Trop d'onglets ? Groupes auto par site, sujet ou règles. Doublons supprimés, onglets muets, en veille ou fermés. Gratuit."
   },
   "extActionTitle": {
-    "message": "TabFriday - Gestion d'onglets : groupes, doublons et sessions"
+    "message": "TabFriday - Groupes d'onglets avec règles personnalisées"
   }
 }

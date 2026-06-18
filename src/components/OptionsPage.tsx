@@ -4,7 +4,6 @@ import {
   RiFileCopyLine,
   RiFolderReduceLine,
   RiGlobalLine,
-  RiHistoryLine,
   RiMoonLine,
   RiSidebarUnfoldLine,
   RiWindowLine,
@@ -31,12 +30,15 @@ import {
 import { applyTheme } from '../lib/theme';
 import { TagListEditor } from './TagListEditor';
 
+type SettingsTab = 'general';
+
 const refreshChoices = [0, 15, 30, 60];
 
 export function OptionsPage() {
   const [settings, setSettings] = useState<ManagerSettings>(defaultSettings);
   const [status, setStatus] = useState('Loading…');
   const [busy, setBusy] = useState(true);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const t = getMessages(settings.locale);
 
   useEffect(() => {
@@ -101,6 +103,18 @@ export function OptionsPage() {
 
         <section className="tm-layout">
           <div className="tm-panel tm-sidebar">
+            <div className="tm-sidebar-section">
+              <button
+                className="tm-nav-button"
+                data-active={activeTab === 'general'}
+                onClick={() => setActiveTab('general')}
+                type="button"
+              >
+                <RiGlobalLine size={14} />
+                General
+              </button>
+            </div>
+
             <div className="tm-sidebar-section">
               <p className="tm-section-title">{t.theme}</p>
               <select
@@ -192,25 +206,6 @@ export function OptionsPage() {
                       </button>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              <div className="tm-panel-muted p-3">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <RiHistoryLine size={14} />
-                    <h3 className="text-sm font-semibold">{t.showHistory}</h3>
-                  </div>
-                  <p className="tm-subtle">{t.showHistorySub}</p>
-                  <button
-                    aria-pressed={settings.showHistory}
-                    className={settings.showHistory ? 'tm-button-primary' : 'tm-button'}
-                    disabled={busy}
-                    onClick={() => void save({ showHistory: !settings.showHistory })}
-                    type="button"
-                  >
-                    {settings.showHistory ? t.enabled : t.disabled}
-                  </button>
                 </div>
               </div>
 

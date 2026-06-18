@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabFriday Global Screenshots 1280×800</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #f0ebe3;
+        --muted: #a09688;
+        --amber: #e8922e;
+        --teal: #2eb88a;
+        --blue: #6882d4;
+        --green: #4ea86e;
+        --red: #e05555;
+        --card: rgba(255,255,255,0.04);
+        --border: rgba(255,255,255,0.06);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: #111;
+      }
+
+      .canvas {
+        position: relative;
+        width: 1280px; height: 800px;
+        overflow: hidden;
+        background: linear-gradient(160deg, #1e1a16 0%, #1a2018 45%, #161e1a 100%);
+        color: var(--ink);
+      }
+      .canvas::before {
+        content: ""; position: absolute; inset: 0;
+        background:
+          radial-gradient(circle at 90% 10%, rgba(232,146,46,0.08), transparent 35%),
+          radial-gradient(circle at 10% 90%, rgba(46,184,138,0.06), transparent 35%);
+      }
+      .canvas::after {
+        content: ""; position: absolute; inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(255,255,255,0.015) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.015) 1px, transparent 1px);
+        background-size: 28px 28px;
+      }
+
+      .ring { position: absolute; border-radius: 999px; pointer-events: none; z-index: 0; }
+      .ring-1 { width: 300px; height: 300px; right: -60px; top: -60px; border: 9px solid rgba(232,146,46,0.06); }
+      .ring-2 { width: 200px; height: 200px; left: 50%; bottom: 80px; border: 7px solid rgba(46,184,138,0.04); }
+
+      /* ── Top bar ── */
+      .topbar {
+        position: relative; z-index: 2;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 24px 48px;
+      }
+      .topbar-brand {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 18px; font-weight: 800;
+      }
+      .topbar-brand img { width: 32px; height: 32px; border-radius: 8px; }
+      .topbar-badge {
+        display: inline-flex; align-items: center;
+        height: 26px; padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(232,146,46,0.10);
+        color: var(--amber);
+        font-size: 11px; font-weight: 720;
+      }
+
+      /* ── Content ── */
+      .content {
+        position: relative; z-index: 1;
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 28px;
+        padding: 0 48px 40px;
+        height: calc(100% - 80px);
+      }
+
+      /* ── Left panel ── */
+      .panel {
+        display: flex; flex-direction: column;
+        padding: 18px;
+        border-radius: 16px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      }
+      .panel-head {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .panel-brand {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 13px; font-weight: 800;
+      }
+      .panel-brand img { width: 18px; height: 18px; border-radius: 5px; }
+      .panel-status {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 10px; font-weight: 700; color: var(--teal);
+      }
+      .panel-status::before {
+        content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--teal);
+      }
+      .panel-search {
+        height: 30px; padding: 0 11px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: rgba(255,255,255,0.025);
+        display: flex; align-items: center;
+        font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,0.2);
+        margin-bottom: 12px;
+      }
+      .panel-tabs {
+        display: grid; grid-template-columns: 1fr 1fr 1fr;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: rgba(255,255,255,0.02);
+        margin-bottom: 14px;
+      }
+      .panel-tab {
+        height: 26px; display: flex; align-items: center; justify-content: center;
+        border-radius: 7px;
+        font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.25);
+      }
+      .panel-tab.active {
+        background: rgba(255,255,255,0.06);
+        color: rgba(255,255,255,0.75);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
+      .panel-toolbar {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 12px;
+        font-size: 10.5px; font-weight: 700; color: var(--muted);
+      }
+      .panel-actions { display: flex; gap: 5px; }
+      .panel-action {
+        width: 22px; height: 22px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: rgba(255,255,255,0.03);
+      }
+      .panel-groups { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+      .panel-group-head {
+        display: flex; align-items: center; gap: 7px;
+        padding: 5px 0;
+        font-size: 12px; font-weight: 800;
+      }
+      .panel-dot { width: 7px; height: 7px; border-radius: 3px; }
+      .panel-dot.d1 { background: var(--amber); }
+      .panel-dot.d2 { background: var(--teal); }
+      .panel-dot.d3 { background: var(--blue); }
+      .panel-items { display: flex; flex-direction: column; gap: 2px; }
+      .panel-item {
+        display: grid; grid-template-columns: 20px 1fr auto;
+        gap: 7px; align-items: center;
+        padding: 6px 7px;
+        border-radius: 7px;
+        background: rgba(255,255,255,0.015);
+        border: 1px solid rgba(255,255,255,0.02);
+      }
+      .panel-idx { font-size: 9px; font-weight: 800; color: var(--muted); }
+      .panel-title {
+        font-size: 11px; font-weight: 750;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .panel-url {
+        font-size: 9.5px; font-weight: 600; color: var(--muted);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .panel-time { font-size: 9.5px; font-weight: 700; color: var(--muted); }
+
+      /* ── Right area ── */
+      .right-area {
+        display: flex; flex-direction: column;
+        gap: 20px;
+      }
+
+      .hero h1 {
+        font-size: 38px; line-height: 1.05; font-weight: 900;
+        letter-spacing: -0.8px;
+      }
+      .hero h1 em { font-style: normal; color: var(--amber); }
+      .hero p {
+        margin-top: 10px;
+        font-size: 14px; line-height: 1.45; font-weight: 600;
+        color: var(--muted); max-width: 820px;
+        white-space: nowrap;
+      }
+
+      /* ── Mock cards (real UI style) ── */
+      .mocks {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        flex: 1;
+      }
+      .mock-card {
+        padding: 18px 20px;
+        border-radius: 14px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        backdrop-filter: blur(12px);
+        display: flex; flex-direction: column;
+      }
+      .mock-head {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .mock-title {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 14px; font-weight: 800;
+      }
+      .mock-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 8px;
+        font-size: 13px; color: #fff; font-weight: 800;
+      }
+      .mock-icon.i-amber { background: var(--amber); }
+      .mock-icon.i-teal { background: var(--teal); }
+      .mock-icon.i-blue { background: var(--blue); }
+      .mock-icon.i-green { background: var(--green); }
+      .mock-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        height: 20px; padding: 0 8px;
+        border-radius: 999px;
+        font-size: 9.5px; font-weight: 700;
+      }
+      .mock-badge.b-amber { background: rgba(232,146,46,0.10); color: var(--amber); }
+      .mock-badge.b-teal { background: rgba(46,184,138,0.10); color: var(--teal); }
+      .mock-badge.b-blue { background: rgba(104,130,212,0.10); color: var(--blue); }
+      .mock-badge.b-green { background: rgba(78,168,110,0.10); color: var(--green); }
+      .mock-badge::before {
+        content: ""; width: 4px; height: 4px; border-radius: 50%;
+        background: currentColor;
+      }
+
+      /* Mock rows */
+      .mock-rows { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+      .mock-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 9px 12px;
+        border-radius: 9px;
+        background: rgba(255,255,255,0.015);
+        border: 1px solid rgba(255,255,255,0.025);
+      }
+      .mock-row-dot {
+        width: 10px; height: 10px; border-radius: 4px; flex-shrink: 0;
+      }
+      .mock-row-info { flex: 1; min-width: 0; }
+      .mock-row-title {
+        font-size: 12px; font-weight: 750;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .mock-row-sub {
+        font-size: 10px; font-weight: 600; color: var(--muted);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        margin-top: 1px;
+      }
+      .mock-row-right {
+        font-size: 11px; font-weight: 800; color: var(--muted);
+        flex-shrink: 0;
+      }
+
+      /* Mock search */
+      .mock-search {
+        height: 32px; padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: rgba(255,255,255,0.025);
+        display: flex; align-items: center;
+        font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.2);
+        margin-bottom: 12px;
+      }
+
+      /* Mock tabs */
+      .mock-tabs {
+        display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: rgba(255,255,255,0.02);
+        margin-bottom: 12px;
+      }
+      .mock-tab {
+        height: 26px; display: flex; align-items: center; justify-content: center;
+        border-radius: 7px;
+        font-size: 9.5px; font-weight: 700; color: rgba(255,255,255,0.25);
+      }
+      .mock-tab.active {
+        background: rgba(255,255,255,0.06);
+        color: rgba(255,255,255,0.75);
+      }
+
+      /* Mock list items (for snapshots) */
+      .mock-list { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+      .mock-list-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px;
+        border-radius: 9px;
+        background: rgba(255,255,255,0.015);
+        border: 1px solid rgba(255,255,255,0.025);
+      }
+      .mock-list-icon {
+        width: 32px; height: 32px; border-radius: 8px;
+        display: grid; place-items: center;
+        font-size: 14px; color: #fff; font-weight: 800;
+        flex-shrink: 0;
+      }
+      .mock-list-info { flex: 1; min-width: 0; }
+      .mock-list-title {
+        font-size: 12px; font-weight: 750;
+      }
+      .mock-list-sub {
+        font-size: 10px; font-weight: 600; color: var(--muted);
+        margin-top: 1px;
+      }
+      .mock-list-count {
+        font-size: 13px; font-weight: 800; color: var(--muted);
+      }
+
+      /* Tab Switcher floating panel mock */
+      .switcher-panel {
+        flex: 1;
+        display: flex; flex-direction: column;
+        padding: 20px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--border);
+        box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+        backdrop-filter: blur(12px);
+        color: var(--ink);
+      }
+      .sp-search {
+        display: flex; align-items: center; gap: 10px;
+        height: 40px; padding: 0 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.3);
+      }
+      .sp-search-icon {
+        width: 20px; height: 20px;
+        color: rgba(255,255,255,0.3); flex-shrink: 0;
+      }
+      .sp-favicons {
+        display: flex; align-items: center; gap: 8px;
+        padding: 16px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .sp-fav {
+        width: 40px; height: 40px; border-radius: 10px;
+        display: grid; place-items: center;
+        font-size: 20px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.06);
+        flex-shrink: 0;
+      }
+      .sp-fav.active {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+        background: rgba(255,255,255,0.08);
+      }
+      .sp-selected {
+        padding: 18px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .sp-selected-head {
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .sp-selected-title {
+        font-size: 18px; font-weight: 700;
+      }
+      .sp-selected-badge {
+        display: inline-flex; align-items: center;
+        height: 22px; padding: 0 10px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.06);
+        font-size: 12px; font-weight: 600; color: var(--muted);
+      }
+      .sp-selected-url {
+        margin-top: 4px;
+        font-size: 14px; font-weight: 500; color: var(--muted);
+      }
+      .sp-shortcuts {
+        display: flex; align-items: center; gap: 16px;
+        padding-top: 16px;
+        flex-wrap: wrap;
+      }
+      .sp-shortcut {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 12px; font-weight: 500; color: var(--muted);
+      }
+      .sp-key {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 24px; height: 22px; padding: 0 6px;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 5px;
+        background: rgba(255,255,255,0.04);
+        font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
+        font-family: inherit;
+      }
+      .sp-key-row {
+        display: inline-flex; gap: 3px;
+      }
+
+      /* Kbd */
+      .kbd {
+        display: inline-flex; align-items: center; gap: 4px;
+        margin-top: 10px;
+      }
+      .kbd-key {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 30px; height: 28px; padding: 0 8px;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 7px;
+        background: rgba(255,255,255,0.04);
+        font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.8);
+        font-family: inherit;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      }
+      .kbd-plus { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+      /* ── Bottom bar ── */
+      .bottombar {
+        position: absolute; z-index: 2;
+        bottom: 0; left: 0; right: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 48px;
+        border-top: 1px solid var(--border);
+        background: rgba(20,18,14,0.6);
+        backdrop-filter: blur(8px);
+      }
+      .bottombar-left {
+        display: flex; align-items: center; gap: 14px;
+        font-size: 11.5px; font-weight: 700; color: var(--muted);
+      }
+      .bottombar-dot {
+        width: 4px; height: 4px; border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+      }
+      .bottombar-right {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 11px; font-weight: 700; color: var(--teal);
+      }
+      .bottombar-right::before {
+        content: "✓";
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 16px; height: 16px; border-radius: 50%;
+        background: rgba(46,184,138,0.15);
+        font-size: 10px;
+      }
+
+      /* ── Variant overrides ── */
+      .variant-panel .content { grid-template-columns: 1fr 380px; }
+      .variant-panel .features { display: none; }
+      .variant-panel .hero { display: flex; flex-direction: column; justify-content: center; height: 100%; }
+
+      .variant-switcher .content { grid-template-columns: 1fr 1fr; align-items: center; }
+      .variant-switcher .hero { display: flex; flex-direction: column; justify-content: center; height: 100%; }
+      .variant-switcher .mocks { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="canvas" id="canvas">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+
+      <div class="topbar">
+        <div class="topbar-brand">
+          <img src="../../../src/assets/icons/icon-128.png" alt="" />
+          <span>TabFriday</span>
+        </div>
+        <div class="topbar-badge" id="topbar-badge">Tab Management</div>
+      </div>
+
+      <div class="content" id="content">
+        <!-- Left panel -->
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-brand">
+              <img src="../../../src/assets/icons/icon-128.png" alt="" />
+              <span>TabFriday</span>
+            </div>
+            <span class="panel-status">Ready</span>
+          </div>
+          <div class="panel-search">Search title, site, or group...</div>
+          <div class="panel-tabs">
+            <div class="panel-tab active" id="pt1">Tabs 7</div>
+            <div class="panel-tab" id="pt2">Snapshots 10</div>
+            <div class="panel-tab" id="pt3">Bookmarks 38</div>
+          </div>
+          <div class="panel-toolbar">
+            <span id="panel-group-count">3 groups</span>
+            <div class="panel-actions">
+              <span class="panel-action"></span>
+              <span class="panel-action"></span>
+              <span class="panel-action"></span>
+            </div>
+          </div>
+          <div class="panel-groups" id="panel-groups">
+            <div class="panel-group">
+              <div class="panel-group-head"><span class="panel-dot d1"></span><span>Shopping</span></div>
+              <div class="panel-items">
+                <div class="panel-item">
+                  <span class="panel-idx">01</span>
+                  <div><div class="panel-title">Amazon.com</div><div class="panel-url">amazon.com · 2m ago</div></div>
+                  <span class="panel-time">2m</span>
+                </div>
+                <div class="panel-item">
+                  <span class="panel-idx">02</span>
+                  <div><div class="panel-title">Electronics, Cars, Fashion</div><div class="panel-url">ebay.com · 3m ago</div></div>
+                  <span class="panel-time">3m</span>
+                </div>
+              </div>
+            </div>
+            <div class="panel-group">
+              <div class="panel-group-head"><span class="panel-dot d2"></span><span>AI Tools</span></div>
+              <div class="panel-items">
+                <div class="panel-item">
+                  <span class="panel-idx">03</span>
+                  <div><div class="panel-title">ChatGPT</div><div class="panel-url">chat.openai.com · 5m ago</div></div>
+                  <span class="panel-time">5m</span>
+                </div>
+              </div>
+            </div>
+            <div class="panel-group">
+              <div class="panel-group-head"><span class="panel-dot d3"></span><span>Development</span></div>
+              <div class="panel-items">
+                <div class="panel-item">
+                  <span class="panel-idx">04</span>
+                  <div><div class="panel-title">GitHub - TabFriday</div><div class="panel-url">github.com · 8m ago</div></div>
+                  <span class="panel-time">8m</span>
+                </div>
+                <div class="panel-item">
+                  <span class="panel-idx">05</span>
+                  <div><div class="panel-title">Stack Overflow</div><div class="panel-url">stackoverflow.com · 12m ago</div></div>
+                  <span class="panel-time">12m</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right area -->
+        <div class="right-area" id="right-area">
+          <div class="hero">
+            <h1 id="hero-title">Let Chrome tabs <em>organize themselves.</em></h1>
+            <p id="hero-desc">Auto-group messy windows, clean duplicates, and recover work sessions when you need them.</p>
+          </div>
+          <div class="mocks" id="mocks">
+            <!-- Mock 1: Auto Group -->
+            <div class="mock-card">
+              <div class="mock-head">
+                <div class="mock-title"><span class="mock-icon i-amber">G</span> Auto Group</div>
+                <span class="mock-badge b-amber">5 rules</span>
+              </div>
+              <div class="mock-rows">
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--amber)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">amazon.com, ebay.com</div>
+                    <div class="mock-row-sub">→ Shopping</div>
+                  </div>
+                  <span class="mock-row-right">ON</span>
+                </div>
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--teal)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">chat.openai.com, claude.ai</div>
+                    <div class="mock-row-sub">→ AI Tools</div>
+                  </div>
+                  <span class="mock-row-right">ON</span>
+                </div>
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--blue)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">github.com, stackoverflow.com</div>
+                    <div class="mock-row-sub">→ Development</div>
+                  </div>
+                  <span class="mock-row-right">ON</span>
+                </div>
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--green)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">youtube.com, netflix.com</div>
+                    <div class="mock-row-sub">→ Entertainment</div>
+                  </div>
+                  <span class="mock-row-right">ON</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mock 2: Dedup -->
+            <div class="mock-card">
+              <div class="mock-head">
+                <div class="mock-title"><span class="mock-icon i-teal">C</span> Dedup & Cleanup</div>
+                <span class="mock-badge b-teal">3 found</span>
+              </div>
+              <div class="mock-rows">
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--red)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">Amazon.com</div>
+                    <div class="mock-row-sub">amazon.com — duplicate</div>
+                  </div>
+                  <span class="mock-row-right">×2</span>
+                </div>
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--red)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">ChatGPT</div>
+                    <div class="mock-row-sub">chat.openai.com — duplicate</div>
+                  </div>
+                  <span class="mock-row-right">×3</span>
+                </div>
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--amber)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">Muted: 4 pages</div>
+                    <div class="mock-row-sub">Auto-muted noisy tabs</div>
+                  </div>
+                  <span class="mock-row-right">🔇</span>
+                </div>
+                <div class="mock-row">
+                  <span class="mock-row-dot" style="background:var(--blue)"></span>
+                  <div class="mock-row-info">
+                    <div class="mock-row-title">Sleeping: 6 tabs</div>
+                    <div class="mock-row-sub">Inactive tabs suspended</div>
+                  </div>
+                  <span class="mock-row-right">💤</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mock 3: Tab Switcher -->
+            <div class="mock-card">
+              <div class="mock-head">
+                <div class="mock-title"><span class="mock-icon i-blue">K</span> Tab Switcher</div>
+                <div class="kbd" style="margin:0">
+                  <span class="kbd-key" style="min-width:24px;height:22px;font-size:11px">⌘</span>
+                  <span class="kbd-plus" style="font-size:9px">+</span>
+                  <span class="kbd-key" style="min-width:24px;height:22px;font-size:11px">⇧</span>
+                  <span class="kbd-plus" style="font-size:9px">+</span>
+                  <span class="kbd-key" style="min-width:24px;height:22px;font-size:11px">K</span>
+                </div>
+              </div>
+              <div class="switcher-panel">
+                <div class="sp-search">
+                  <svg class="sp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  Search tabs...
+                </div>
+                <div class="sp-favicons">
+                  <div class="sp-fav" style="background:rgba(255,69,0,0.15);color:#ff4500;font-size:16px">R</div>
+                  <div class="sp-fav active">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" fill="#4285f4"/></svg>
+                  </div>
+                  <div class="sp-fav" style="font-size:14px">🧩</div>
+                  <div class="sp-fav" style="font-size:14px">🐋</div>
+                  <div class="sp-fav" style="font-size:14px">🦊</div>
+                </div>
+                <div class="sp-selected">
+                  <div class="sp-selected-head">
+                    <span class="sp-selected-title">Google</span>
+                    <span class="sp-selected-badge">Active</span>
+                  </div>
+                  <div class="sp-selected-url">www.google.com/</div>
+                </div>
+                <div class="sp-shortcuts">
+                  <span class="sp-shortcut">
+                    <span class="sp-key-row"><span class="sp-key">←</span><span class="sp-key">→</span><span class="sp-key">↑</span><span class="sp-key">↓</span></span>
+                    switch
+                  </span>
+                  <span class="sp-shortcut">
+                    <span class="sp-key">↵</span>
+                    go to tab
+                  </span>
+                  <span class="sp-shortcut">
+                    <span class="sp-key">del</span>
+                    close tab
+                  </span>
+                  <span class="sp-shortcut">
+                    <span class="sp-key">esc</span>
+                    close
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mock 4: Snapshots -->
+            <div class="mock-card">
+              <div class="mock-head">
+                <div class="mock-title"><span class="mock-icon i-green">S</span> Snapshots</div>
+                <span class="mock-badge b-green">7 saved</span>
+              </div>
+              <div class="mock-list">
+                <div class="mock-list-item">
+                  <div class="mock-list-icon" style="background:var(--amber)">W</div>
+                  <div class="mock-list-info">
+                    <div class="mock-list-title">Work Session</div>
+                    <div class="mock-list-sub">12 tabs · 2 hours ago</div>
+                  </div>
+                  <span class="mock-list-count">12</span>
+                </div>
+                <div class="mock-list-item">
+                  <div class="mock-list-icon" style="background:var(--teal)">R</div>
+                  <div class="mock-list-info">
+                    <div class="mock-list-title">Research</div>
+                    <div class="mock-list-sub">8 tabs · Yesterday</div>
+                  </div>
+                  <span class="mock-list-count">8</span>
+                </div>
+                <div class="mock-list-item">
+                  <div class="mock-list-icon" style="background:var(--blue)">S</div>
+                  <div class="mock-list-info">
+                    <div class="mock-list-title">Shopping Compare</div>
+                    <div class="mock-list-sub">6 tabs · 3 days ago</div>
+                  </div>
+                  <span class="mock-list-count">6</span>
+                </div>
+                <div class="mock-list-item">
+                  <div class="mock-list-icon" style="background:var(--green)">L</div>
+                  <div class="mock-list-info">
+                    <div class="mock-list-title">Learning</div>
+                    <div class="mock-list-sub">15 tabs · Last week</div>
+                  </div>
+                  <span class="mock-list-count">15</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottombar">
+        <div class="bottombar-left">
+          <span id="bottom-feature">Tab Management</span>
+          <span class="bottombar-dot"></span>
+          <span>Chrome Extension</span>
+          <span class="bottombar-dot"></span>
+          <span>Free Forever</span>
+        </div>
+        <div class="bottombar-right">No signup required</div>
+      </div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const key = params.get('shot') ?? 'tabs';
+
+      const variants = {
+        tabs: {
+          badge: 'Auto Tab Organizer',
+          title: 'Let Chrome tabs <em>organize themselves.</em>',
+          desc: 'Auto-group messy windows, clean duplicates, and recover work sessions when you need them.',
+          bottom: 'Tab Management',
+          pt1: 'Tabs 7', pt2: 'Snapshots 10', pt3: 'Bookmarks 38',
+          groups: '3 groups',
+        },
+        autogroup: {
+          badge: 'Auto Group',
+          title: 'Auto-group tabs <em>by rules.</em>',
+          desc: 'Route tabs by site, topic, domain, or custom rules. Set once, runs forever.',
+          bottom: 'Auto Group Rules',
+          pt1: 'Rules 5', pt2: 'Groups 8', pt3: 'Activity',
+          groups: '5 rules active',
+        },
+        dedup: {
+          badge: 'Duplicate Cleanup',
+          title: 'Remove duplicates <em>automatically.</em>',
+          desc: 'Clean duplicate tabs and control where deduplication should apply.',
+          bottom: 'Duplicate Cleanup',
+          pt1: 'Duplicates 3', pt2: 'Cleaned 12', pt3: 'History',
+          groups: '3 duplicates',
+        },
+        sidepanel: {
+          badge: 'Side Panel',
+          title: 'Manage tabs <em>beside your browser.</em>',
+          desc: 'Work from the side panel while you browse. Always in reach, never in the way.',
+          bottom: 'Side Panel Workspace',
+          pt1: 'Tabs 7', pt2: 'Snapshots 10', pt3: 'Bookmarks 38',
+          groups: '3 groups',
+        },
+        switcher: {
+          badge: 'Tab Switcher',
+          title: 'Find any tab <em>instantly.</em>',
+          desc: 'Search open tabs, history, bookmarks & snapshots. Jump to any tab in one keystroke.',
+          bottom: 'Tab Switcher',
+          pt1: 'Tabs 24', pt2: 'History 156', pt3: 'Bookmarks 38',
+          groups: '24 open tabs',
+        },
+      };
+
+      const v = variants[key] ?? variants.tabs;
+      document.getElementById('topbar-badge').textContent = v.badge;
+      document.getElementById('hero-title').innerHTML = v.title;
+      document.getElementById('hero-desc').textContent = v.desc;
+      document.getElementById('bottom-feature').textContent = v.bottom;
+      document.getElementById('pt1').textContent = v.pt1;
+      document.getElementById('pt2').textContent = v.pt2;
+      document.getElementById('pt3').textContent = v.pt3;
+      document.getElementById('panel-group-count').textContent = v.groups;
+
+      if (key === 'sidepanel') {
+        document.getElementById('canvas').classList.add('variant-panel');
+      }
+      if (key === 'switcher') {
+        document.getElementById('canvas').classList.add('variant-switcher');
+        document.getElementById('right-area').innerHTML = `
+          <div class="hero">
+            <h1>${v.title}</h1>
+            <p>${v.desc}</p>
+            <div class="kbd" style="margin-top:16px">
+              <span class="kbd-key">⌘</span><span class="kbd-plus">+</span>
+              <span class="kbd-key">⇧</span><span class="kbd-plus">+</span>
+              <span class="kbd-key">K</span>
+            </div>
+          </div>
+          <div class="switcher-panel" style="flex:1;margin:0">
+            <div class="sp-search">
+              <svg class="sp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              Search tabs...
+            </div>
+            <div class="sp-favicons">
+              <div class="sp-fav" style="background:rgba(255,69,0,0.15);color:#ff4500;font-size:16px">R</div>
+              <div class="sp-fav active">
+                <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" fill="#4285f4"/></svg>
+              </div>
+              <div class="sp-fav" style="font-size:14px">🧩</div>
+              <div class="sp-fav" style="font-size:14px">🐋</div>
+              <div class="sp-fav" style="font-size:14px">🦊</div>
+            </div>
+            <div class="sp-selected">
+              <div class="sp-selected-head">
+                <span class="sp-selected-title">Google</span>
+                <span class="sp-selected-badge">Active</span>
+              </div>
+              <div class="sp-selected-url">www.google.com/</div>
+            </div>
+            <div class="sp-shortcuts">
+              <span class="sp-shortcut">
+                <span class="sp-key-row"><span class="sp-key">←</span><span class="sp-key">→</span><span class="sp-key">↑</span><span class="sp-key">↓</span></span>
+                switch
+              </span>
+              <span class="sp-shortcut">
+                <span class="sp-key">↵</span>
+                go to tab
+              </span>
+              <span class="sp-shortcut">
+                <span class="sp-key">del</span>
+                close tab
+              </span>
+              <span class="sp-shortcut">
+                <span class="sp-key">esc</span>
+                close
+              </span>
+            </div>
+          </div>
+        `;
+      }
+    </script>
+  </body>
+</html>

@@ -517,6 +517,7 @@ export function DashboardPage() {
             activeView === 'automation' ||
             activeView === 'deduplication' ||
             activeView === 'autoclose' ||
+            activeView === 'shortcuts' ||
             activeView === 'bookmarks' ||
             activeView === 'snapshots'
               ? 'tm-dashboard-frame tm-dashboard-frame-settings'
@@ -550,21 +551,10 @@ export function DashboardPage() {
               onAutoSleepChange={(minutes) => void saveSettings({ autoSleepInactiveTabsMinutes: minutes })}
               onLocaleChange={(localeMode) => void saveSettings({ locale: localeMode })}
               onRedirectTrackingToggle={() => void toggleRedirectTracking()}
-              onToggleAutoGroup={() => void saveSettings({ autoGroupEnabled: !data.settings.autoGroupEnabled })}
               onToggleBlockChromeAutoGroup={() =>
                 void saveSettings({ blockChromeAutoGroup: !data.settings.blockChromeAutoGroup })
               }
-              onToggleShowHistory={() => void saveSettings({ showHistory: !data.settings.showHistory })}
-              onToggleAutoSnapshots={() =>
-                void saveSettings({ autoSnapshotsEnabled: !data.settings.autoSnapshotsEnabled })
-              }
               onToggleLaunchSurface={(surface) => void saveSettings({ launchSurface: surface })}
-              onToggleSidepanelShowSnapshots={() =>
-                void saveSettings({ sidepanelShowSnapshots: !data.settings.sidepanelShowSnapshots })
-              }
-              onToggleSidepanelShowBookmarks={() =>
-                void saveSettings({ sidepanelShowBookmarks: !data.settings.sidepanelShowBookmarks })
-              }
               redirectTrackingBusy={redirectTrackingBusy}
               redirectTrackingPermission={data.redirectTrackingPermission}
               settings={data.settings}
@@ -646,9 +636,13 @@ export function DashboardPage() {
             />
           ) : activeView === 'snapshots' ? (
             <DashboardSnapshotsPanel
+              autoSnapshotsEnabled={data.settings.autoSnapshotsEnabled}
               errorMessage={error}
               locale={locale}
               onRefreshSessions={refreshSessions}
+              onToggleAutoSnapshots={() =>
+                void saveSettings({ autoSnapshotsEnabled: !data.settings.autoSnapshotsEnabled })
+              }
               openUrls={data.overview?.tabs.map((tab) => tab.url) ?? []}
               sessions={data.sessions}
               t={t}

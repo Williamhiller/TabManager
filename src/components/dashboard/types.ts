@@ -12,7 +12,7 @@ import type {
 } from '../../lib/contracts';
 import type { Messages, ResolvedLocale } from '../../lib/i18n';
 
-export type DashboardViewId = 'tabs' | 'snapshots' | 'bookmarks' | 'automation' | 'deduplication' | 'autoclose' | 'settings';
+export type DashboardViewId = 'tabs' | 'snapshots' | 'bookmarks' | 'automation' | 'deduplication' | 'autoclose' | 'settings' | 'shortcuts';
 
 export type DashboardNavItem = {
   id: DashboardViewId;
@@ -93,9 +93,11 @@ export type DashboardDeduplicationPanelProps = {
 };
 
 export type DashboardSnapshotsPanelProps = {
+  autoSnapshotsEnabled: boolean;
   errorMessage: string | null;
   locale: ResolvedLocale;
   onRefreshSessions: () => Promise<void>;
+  onToggleAutoSnapshots: () => void;
   openUrls: string[];
   sessions: SessionsSnapshot | null;
   t: Messages;

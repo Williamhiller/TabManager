@@ -1,8 +1,8 @@
-# TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions
+# TabFriday - Auto Group Tabs with Custom Rules
 
-TabFriday is a smart tab manager and organizer for auto-grouping tabs, removing duplicate tabs, cleaning inactive tabs, searching tabs, and restoring sessions.
+Too many tabs? Auto-group them by site, topic, or rules. Remove duplicates, mute, sleep, and auto-close idle tabs. Free forever.
 
-The main product promise is simple: tabs should organize themselves. The extension can auto group Chrome tabs by website, topic, domain, custom website lists, and user-defined rules, while still keeping manual search, cleanup, batch actions, and tab history close at hand.
+The main product promise is simple: tabs should organize themselves. The extension can auto group Chrome tabs by website, topic, domain, custom website lists, and user-defined rules, then remove duplicates, mute noisy pages, sleep idle tabs, and auto-close tabs that are no longer needed.
 
 The stack is intentionally simple:
 
@@ -23,6 +23,7 @@ For app store publishing, use:
 
 The current version focuses on:
 
+- **Tab Switcher** — press `Cmd/Ctrl+Shift+K` on any page to open a fast tab switcher with search, favicon preview, and keyboard navigation
 - automatic tab grouping by website, topic, and domain
 - custom auto groups with name, color, enabled state, website lists, rules, and priority
 - one-click smart grouping by domain or website type

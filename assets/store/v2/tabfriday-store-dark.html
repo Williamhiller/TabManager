@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabFriday Store Art v5 — Dark</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #f0ebe3;
+        --muted: #a09688;
+        --amber: #e8922e;
+        --brown: #c47030;
+        --teal: #2eb88a;
+        --blue: #6882d4;
+        --green: #4ea86e;
+        --red: #e05555;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: #1a1612;
+      }
+
+      /* ════════════════════════════════════════════
+         SMALL 440×280 — Dark
+         ════════════════════════════════════════════ */
+      .sA {
+        position: absolute; left: 0; top: 0;
+        width: 440px; height: 280px; overflow: hidden;
+        border-radius: 12px;
+        background: linear-gradient(150deg, #221c16 0%, #1e2a24 50%, #1a2420 100%);
+        color: var(--ink);
+      }
+      .sA::before {
+        content: ""; position: absolute; inset: 0;
+        background:
+          radial-gradient(circle at 100% 0%, rgba(232,146,46,0.14), transparent 50%),
+          radial-gradient(circle at 0% 100%, rgba(46,184,138,0.10), transparent 50%);
+      }
+      .sA::after {
+        content: ""; position: absolute; inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(255,255,255,0.022) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.022) 1px, transparent 1px);
+        background-size: 22px 22px;
+      }
+
+      .sA-inner {
+        position: relative; z-index: 1;
+        display: grid; grid-template-columns: 1fr 170px;
+        height: 100%;
+      }
+
+      .sA-left {
+        display: flex; flex-direction: column;
+        padding: 24px 16px 20px 28px;
+      }
+
+      .sA-brand {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 20px; font-weight: 800;
+      }
+      .sA-brand img { width: 40px; height: 40px; border-radius: 10px; }
+
+      .sA-h {
+        margin-top: 14px;
+        font-size: 28px; line-height: 1.06; font-weight: 900;
+        letter-spacing: -0.5px;
+      }
+      .sA-h em { font-style: normal; color: var(--amber); }
+
+      .sA-p {
+        margin-top: 8px;
+        font-size: 13px; line-height: 1.35; font-weight: 620;
+        color: var(--muted); max-width: 220px;
+      }
+
+      .sA-feats {
+        display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto;
+      }
+      .sA-feat {
+        display: inline-flex; align-items: center; gap: 5px;
+        height: 24px; padding: 0 10px;
+        border-radius: 999px;
+        font-size: 11px; font-weight: 700;
+      }
+      .sA-feat::before {
+        content: ""; width: 5px; height: 5px; border-radius: 50%;
+      }
+      .sA-feat.f1 { background: rgba(232,146,46,0.12); color: var(--amber); }
+      .sA-feat.f1::before { background: var(--amber); }
+      .sA-feat.f2 { background: rgba(46,184,138,0.12); color: var(--teal); }
+      .sA-feat.f2::before { background: var(--teal); }
+      .sA-feat.f3 { background: rgba(104,130,212,0.12); color: var(--blue); }
+      .sA-feat.f3::before { background: var(--blue); }
+
+      .sA-right { position: relative; }
+
+      .sA-mock {
+        position: absolute; top: auto; bottom: 14px; left: 10px; right: -4px;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.035);
+        border: 1px solid rgba(255,255,255,0.06);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+        backdrop-filter: blur(12px);
+      }
+      .sA-mock-head {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 9px;
+        font-size: 11px; font-weight: 750; color: var(--muted);
+      }
+      .sA-mock-status {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 10px; font-weight: 700; color: var(--teal);
+      }
+      .sA-mock-status::before {
+        content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--teal);
+      }
+      .sA-mock-search {
+        height: 26px; padding: 0 10px;
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px; background: rgba(255,255,255,0.025);
+        display: flex; align-items: center;
+        font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.2);
+        margin-bottom: 9px;
+      }
+      .sA-mock-tabs {
+        display: grid; grid-template-columns: 1fr 1fr 1fr;
+        gap: 0; padding: 2px;
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 8px; background: rgba(255,255,255,0.02);
+        margin-bottom: 10px;
+      }
+      .sA-mock-tab {
+        height: 22px; display: flex; align-items: center; justify-content: center;
+        border-radius: 6px;
+        font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.25);
+      }
+      .sA-mock-tab.active {
+        background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      }
+      .sA-mock-rows { display: grid; gap: 5px; }
+      .sA-mock-row {
+        display: flex; align-items: center; gap: 7px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.03);
+      }
+      .sA-mr-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+      .sA-mr-dot.d1 { background: var(--amber); }
+      .sA-mr-dot.d2 { background: var(--teal); }
+      .sA-mr-dot.d3 { background: var(--blue); }
+      .sA-mr-lines { flex: 1; }
+      .sA-mr-line { height: 4px; border-radius: 99px; background: rgba(255,255,255,0.08); }
+      .sA-mr-line.short { width: 55%; margin-top: 3px; }
+      .sA-mr-num { font-size: 11px; font-weight: 800; color: var(--muted); }
+
+      /* ════════════════════════════════════════════
+         MARQUEE 1400×560 — Dark, rich
+         ════════════════════════════════════════════ */
+      .mA {
+        position: absolute; left: 460px; top: 0;
+        width: 1400px; height: 560px; overflow: hidden;
+        border-radius: 14px;
+        background: linear-gradient(150deg, #221c16 0%, #1e2a24 45%, #1a2420 100%);
+        color: var(--ink);
+      }
+      .mA::before {
+        content: ""; position: absolute; inset: 0;
+        background:
+          radial-gradient(circle at 92% 8%, rgba(232,146,46,0.12), transparent 34%),
+          radial-gradient(circle at 8% 92%, rgba(46,184,138,0.08), transparent 34%),
+          radial-gradient(circle at 50% 50%, rgba(104,130,212,0.03), transparent 50%);
+      }
+      .mA::after {
+        content: ""; position: absolute; inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(255,255,255,0.018) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.018) 1px, transparent 1px);
+        background-size: 30px 30px;
+      }
+
+      .ring { position: absolute; border-radius: 999px; pointer-events: none; }
+      .ring-1 { width: 380px; height: 380px; right: -50px; top: -90px; border: 11px solid rgba(232,146,46,0.07); }
+      .ring-2 { width: 240px; height: 240px; left: 44%; bottom: -60px; border: 8px solid rgba(46,184,138,0.05); }
+
+      .mA-inner {
+        position: relative; z-index: 1;
+        display: grid;
+        grid-template-columns: 520px 1fr;
+        height: 100%;
+      }
+
+      /* ── Left: Copy ── */
+      .mA-left {
+        display: flex; flex-direction: column;
+        justify-content: center;
+        padding: 48px 36px 44px 72px;
+        border-right: 1px solid rgba(255,255,255,0.04);
+      }
+
+      .mA-brand {
+        display: flex; align-items: center; gap: 14px;
+        font-size: 24px; font-weight: 800;
+      }
+      .mA-brand img { width: 48px; height: 48px; border-radius: 12px; }
+
+      .mA-pill {
+        display: inline-flex; align-items: center;
+        width: fit-content; min-height: 28px;
+        margin-top: 20px; padding: 5px 14px;
+        border: 1px solid rgba(232,146,46,0.30);
+        border-radius: 999px;
+        background: rgba(232,146,46,0.08);
+        color: var(--amber); font-size: 12px; font-weight: 720;
+      }
+
+      .mA-h {
+        margin-top: 22px;
+        font-size: 46px; line-height: 1.0; font-weight: 900;
+        letter-spacing: -0.8px;
+      }
+      .mA-h em { font-style: normal; color: var(--amber); }
+
+      .mA-p {
+        margin-top: 16px;
+        font-size: 16px; line-height: 1.45; font-weight: 620;
+        color: var(--muted);
+      }
+
+      .mA-pills {
+        display: flex; flex-wrap: wrap; gap: 7px; margin-top: 22px;
+      }
+      .mA-pill-item {
+        display: inline-flex; align-items: center; gap: 6px;
+        height: 28px; padding: 4px 12px;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.035);
+        font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.6);
+      }
+      .mA-pill-item::before {
+        content: ""; width: 5px; height: 5px; border-radius: 50%;
+      }
+      .mA-pill-item:nth-child(1)::before { background: var(--amber); }
+      .mA-pill-item:nth-child(2)::before { background: var(--red); }
+      .mA-pill-item:nth-child(3)::before { background: var(--teal); }
+      .mA-pill-item:nth-child(4)::before { background: var(--blue); }
+      .mA-pill-item:nth-child(5)::before { background: var(--green); }
+
+      .mA-free {
+        display: inline-flex; align-items: center;
+        margin-top: 18px;
+        font-size: 13px; font-weight: 750; color: var(--teal);
+      }
+      .mA-free::before {
+        content: "✓"; margin-right: 6px;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: rgba(46,184,138,0.15);
+        font-size: 11px;
+      }
+
+      /* ── Right: 2×2 feature cards ── */
+      .mA-right {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 14px;
+        padding: 36px 48px 32px 24px;
+      }
+
+      .mA-card {
+        padding: 24px 26px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.05);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+        backdrop-filter: blur(12px);
+        display: flex; flex-direction: column;
+      }
+
+      .mA-card-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 44px; height: 44px; border-radius: 13px;
+        font-size: 20px; color: #fff; font-weight: 800;
+        margin-bottom: 16px;
+      }
+      .mA-card-icon.i-amber { background: var(--amber); }
+      .mA-card-icon.i-teal { background: var(--teal); }
+      .mA-card-icon.i-blue { background: var(--blue); }
+      .mA-card-icon.i-green { background: var(--green); }
+
+      .mA-card-title {
+        font-size: 20px; font-weight: 800; line-height: 1.15;
+      }
+      .mA-card-desc {
+        margin-top: 10px;
+        font-size: 14px; font-weight: 600; color: var(--muted);
+        line-height: 1.45;
+        flex: 1;
+      }
+
+      /* Kbd styling */
+      .mA-kbd {
+        display: inline-flex; align-items: center; gap: 5px;
+        margin-top: 12px;
+      }
+      .mA-kbd-key {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 34px; height: 32px; padding: 0 9px;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.04);
+        font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.8);
+        font-family: inherit;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      }
+      .mA-kbd-plus { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+      /* Mini tags inside cards */
+      .mA-mini-list {
+        display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px;
+      }
+      .mA-mini-tag {
+        display: inline-flex; align-items: center;
+        height: 26px; padding: 0 11px;
+        border-radius: 999px;
+        font-size: 12px; font-weight: 700;
+      }
+      .mA-mini-tag:nth-child(1) { background: rgba(232,146,46,0.10); color: var(--amber); }
+      .mA-mini-tag:nth-child(2) { background: rgba(46,184,138,0.10); color: var(--teal); }
+      .mA-mini-tag:nth-child(3) { background: rgba(104,130,212,0.10); color: var(--blue); }
+
+      /* Glow accents */
+      .mA-glow {
+        position: absolute;
+        width: 200px; height: 200px;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .mA-glow-1 {
+        top: -40px; right: 60px;
+        background: radial-gradient(circle, rgba(232,146,46,0.06), transparent 70%);
+      }
+      .mA-glow-2 {
+        bottom: -30px; left: 40px;
+        background: radial-gradient(circle, rgba(46,184,138,0.05), transparent 70%);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ════ SMALL 440×280 Dark ════ -->
+    <div class="sA">
+      <div class="sA-inner">
+        <div class="sA-left">
+          <div class="sA-brand">
+            <img src="../../../src/assets/icons/icon-128.png" alt="" />
+            <span>TabFriday</span>
+          </div>
+          <div class="sA-h">Too many tabs?<br/><em>We fix that.</em></div>
+          <div class="sA-p">Auto-group, dedupe & restore. Free forever.</div>
+          <div class="sA-feats">
+            <span class="sA-feat f1">Auto Group</span>
+            <span class="sA-feat f2">Dedup</span>
+            <span class="sA-feat f3">⌘K Switch</span>
+          </div>
+        </div>
+        <div class="sA-right">
+          <div class="sA-mock">
+            <div class="sA-mock-head">
+              <span>Workspace</span>
+              <span class="sA-mock-status">Ready</span>
+            </div>
+            <div class="sA-mock-search">Search tabs, history...</div>
+            <div class="sA-mock-tabs">
+              <div class="sA-mock-tab active">Tabs 7</div>
+              <div class="sA-mock-tab">Snap 10</div>
+              <div class="sA-mock-tab">Bkmk 38</div>
+            </div>
+            <div class="sA-mock-rows">
+              <div class="sA-mock-row">
+                <span class="sA-mr-dot d1"></span>
+                <div class="sA-mr-lines"><div class="sA-mr-line"></div><div class="sA-mr-line short"></div></div>
+                <span class="sA-mr-num">8</span>
+              </div>
+              <div class="sA-mock-row">
+                <span class="sA-mr-dot d2"></span>
+                <div class="sA-mr-lines"><div class="sA-mr-line"></div><div class="sA-mr-line short"></div></div>
+                <span class="sA-mr-num">3</span>
+              </div>
+              <div class="sA-mock-row">
+                <span class="sA-mr-dot d3"></span>
+                <div class="sA-mr-lines"><div class="sA-mr-line"></div><div class="sA-mr-line short"></div></div>
+                <span class="sA-mr-num">7</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ MARQUEE 1400×560 Dark ════ -->
+    <div class="mA">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+      <div class="mA-inner">
+        <!-- Left copy -->
+        <div class="mA-left">
+          <div class="mA-brand">
+            <img src="../../../src/assets/icons/icon-128.png" alt="" />
+            <span>TabFriday</span>
+          </div>
+          <div class="mA-pill">Tab Manager · Chrome Extension</div>
+          <div class="mA-h">Auto-group tabs.<br/><em>Zero clutter.</em></div>
+          <div class="mA-p">Sort by rules, kill duplicates, mute & sleep idle tabs, save sessions — all automatic.</div>
+          <div class="mA-pills">
+            <span class="mA-pill-item">Auto Group</span>
+            <span class="mA-pill-item">Dedup</span>
+            <span class="mA-pill-item">Mute & Sleep</span>
+            <span class="mA-pill-item">Snapshots</span>
+            <span class="mA-pill-item">⌘K Switcher</span>
+          </div>
+          <div class="mA-free">Free forever · No signup required</div>
+        </div>
+
+        <!-- Right: 2×2 feature cards -->
+        <div class="mA-right">
+          <div class="mA-glow mA-glow-1"></div>
+          <div class="mA-glow mA-glow-2"></div>
+
+          <!-- Card 1: Auto Group -->
+          <div class="mA-card">
+            <div class="mA-card-icon i-amber">G</div>
+            <div class="mA-card-title">Auto Group by Rules</div>
+            <div class="mA-card-desc">Route tabs by site, topic, domain, or custom rules. Set once, runs forever.</div>
+            <div class="mA-mini-list">
+              <span class="mA-mini-tag">By site</span>
+              <span class="mA-mini-tag">By topic</span>
+              <span class="mA-mini-tag">Custom rules</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Cleanup -->
+          <div class="mA-card">
+            <div class="mA-card-icon i-teal">C</div>
+            <div class="mA-card-title">Dedup · Mute · Sleep</div>
+            <div class="mA-card-desc">Remove duplicates, mute noisy pages, sleep idle tabs. Chrome stays light.</div>
+            <div class="mA-mini-list">
+              <span class="mA-mini-tag">Auto dedup</span>
+              <span class="mA-mini-tag">Mute pages</span>
+              <span class="mA-mini-tag">Close idle</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Tab Switcher -->
+          <div class="mA-card">
+            <div class="mA-card-icon i-blue">K</div>
+            <div class="mA-card-title">Tab Switcher</div>
+            <div class="mA-card-desc">Jump to any tab instantly. Search tabs, history, bookmarks & snapshots.</div>
+            <div class="mA-kbd">
+              <span class="mA-kbd-key">⌘</span>
+              <span class="mA-kbd-plus">+</span>
+              <span class="mA-kbd-key">⇧</span>
+              <span class="mA-kbd-plus">+</span>
+              <span class="mA-kbd-key">K</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Sessions + Bookmarks -->
+          <div class="mA-card">
+            <div class="mA-card-icon i-green">S</div>
+            <div class="mA-card-title">Snapshots & Bookmarks</div>
+            <div class="mA-card-desc">Save sessions, restore anytime. Manage bookmarks without leaving TabFriday.</div>
+            <div class="mA-mini-list">
+              <span class="mA-mini-tag">Save sessions</span>
+              <span class="mA-mini-tag">Bookmark mgmt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

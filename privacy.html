@@ -104,10 +104,14 @@
         <li><code>storage</code>: required to persist settings and local history.</li>
         <li><code>system.memory</code>: required to show memory snapshot information.</li>
         <li><code>favicon</code>: required to display tab favicons.</li>
+        <li>
+          optional host access for <code>http://*/*</code> and <code>https://*/*</code>: required to inject
+          the in-page tab switcher overlay that allows users to quickly search and switch tabs via keyboard
+          shortcut on any web page.
+        </li>
         <li><code>webNavigation</code>: optional, used only when the user enables Redirect trace.</li>
         <li>
-          <code>webRequest</code> and optional host access for <code>http://*/*</code> and
-          <code>https://*/*</code>: optional, used only after the user enables Redirect trace and grants
+          <code>webRequest</code>: optional, used only after the user enables Redirect trace and grants
           permission, so the extension can record main-frame redirect chains locally.
         </li>
       </ul>

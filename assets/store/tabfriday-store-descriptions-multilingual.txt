@@ -1,226 +1,349 @@
 English
 =======
 
-TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions
+TabFriday - Auto Group Tabs with Custom Rules
 
-Bring tab chaos under control with a smarter Chrome workspace.
+Too many tabs open at once? TabFriday automatically turns messy Chrome windows into clean, organized tab groups.
 
-TabFriday helps you auto-group tabs, remove duplicate tabs, clean inactive tabs, save snapshots, restore workspaces, search open tabs, track local tab activity, and manage bookmarks from one place.
+Too many tabs? Auto-group them by site, topic, or rules. Remove duplicates, mute, sleep, and auto-close idle tabs. Free forever.
 
 Why install TabFriday?
 
-1. ⚡ AutoGroup tabs by rules
-Automatically group tabs by website type, topic, domain, title, URL, website lists, or custom rules. Built-in presets include Shopping, Social, Media, Office, AI, Development, News, Finance, Travel, and Learning.
+1. Auto-group tabs by rules
+Group tabs by website, topic, domain, or your own custom rules. Set up rules once, and TabFriday keeps sorting new tabs for you.
 
-2. 🧹 Remove duplicate tabs
-Automatically clean duplicate tabs with flexible modes: run globally, exclude selected sites, or only deduplicate listed sites.
+2. Remove duplicate tabs automatically
+Clean repeated pages without hunting through every window.
 
-3. 🌙 AutoClear inactive tabs
-Collapse inactive groups, sleep inactive tabs, close inactive tabs, and protect important sites with cleanup whitelists.
+3. Keep Chrome lighter
+Mute noisy pages, sleep idle tabs, auto-close tabs you no longer need, and collapse inactive tab groups for a cleaner tab bar.
 
-4. 📸 Save and restore snapshots
-Save the current window or all windows as snapshots, then restore your workspace later in a new window or the current window.
+4. Customize your workflow
+Create custom groups with names, colors, website lists, matching rules, and priorities.
 
-5. 🔍 Search everything fast
-Find open tabs, history tabs, snapshots, and bookmarks quickly with search, smart views, and tab detail history.
+5. Search and recover quickly
+Search open tabs, history, bookmarks, and saved snapshots when you need to find something again. Press Cmd/Ctrl+Shift+K to open the Tab Switcher, preview results, and jump to any tab instantly.
 
-6. 🔖 Manage bookmarks in the same workspace
+6. Manage bookmarks in the same workspace
 Search bookmarks, create folders, save the active tab, edit bookmarks, move bookmarks, and delete bookmarks without leaving TabFriday.
 
-7. 🧭 Track local URL activity
-Keep a local timeline of tab events such as created, closed, navigated, redirected, retitled, activated, pinned, muted, discarded, grouped, and ungrouped. Redirect tracking is optional and only runs after permission is granted.
+7. Use it anywhere
+Work from the popup, side panel, or full dashboard depending on how you manage tabs.
 
-8. 🖥️ Work from the popup, side panel, or dashboard
-Use a quick popup, a focused side panel, or a full dashboard depending on how you manage tabs.
+TabFriday is built for people who keep many tabs open while working, researching, learning, comparing tools, shopping, or switching between projects.
 
-TabFriday is built for people who open many tabs while researching, working, learning, shopping, comparing tools, or switching between projects. Install TabFriday to auto-group tabs, remove duplicates, clean clutter, restore snapshots, and keep your browser workspace organized.
+Less dragging. Less cleanup. Less tab chaos.
+
+Install TabFriday and let your Chrome tabs organize themselves. Free forever.
 
 
 简体中文
 ========
 
-TabFriday - 标签页管理：分组、重复标签清理与会话恢复
+TabFriday - 自动分组标签页，支持自定义规则
 
-让混乱的 Chrome 标签页重新变得可控。
+标签页一多，Chrome 很快就会变得混乱、占内存、难查找。TabFriday 会自动把杂乱标签整理成清晰分组。
 
-TabFriday 可以帮助你自动分组标签页、移除重复标签、清理不活跃标签、保存快照、恢复工作区、搜索标签、记录本地标签活动，并在同一个工作区管理书签。
+标签页太多？按网站、主题或规则自动分组，自动去重、静音、休眠并关闭闲置标签。永久免费。
 
 为什么安装 TabFriday？
 
-1. ⚡ 按规则自动分组标签页
-可按网站类型、主题、域名、标题、URL、网站列表或自定义规则自动分组。内置预设包括购物、社交、媒体、办公、AI、开发、新闻、金融、出行和学习。
+1. 按规则自动分组标签页
+你可以按网站、主题、域名或自己的自定义规则自动分组。规则设置一次，后续新打开的标签也会自动归类。
 
-2. 🧹 移除重复标签
-支持自动清理重复标签，可选择全局去重、排除指定网站，或只对指定网站去重。
+2. 自动清理重复标签
+不用逐个窗口翻找重复页面，TabFriday 可以自动帮你清理。
 
-3. 🌙 自动清理不活跃标签
-支持自动折叠不活跃分组、休眠不活跃标签、关闭不活跃标签，并可用白名单保护重要网站。
+3. 让 Chrome 保持更轻
+自动静音吵闹页面、休眠闲置标签、关闭不再需要的标签，并折叠不活跃分组，让标签栏更清爽。
 
-4. 📸 保存和恢复快照
-可将当前窗口或所有窗口保存为快照，稍后恢复到新窗口或当前窗口。
+4. 按你的工作方式定制
+创建自定义分组，设置名称、颜色、网站列表、匹配规则和优先级。
 
-5. 🔍 快速搜索所有内容
-可快速查找打开的标签、历史标签、快照和书签，并结合智能视图与标签详情历史定位内容。
+5. 快速搜索和找回
+搜索打开的标签、历史、书签和保存的快照，需要时快速找回内容。按 Cmd/Ctrl+Shift+K 打开 Tab Switcher，预览结果并快速跳转到任意标签。
 
-6. 🔖 在同一工作区管理书签
-支持搜索书签、创建文件夹、保存当前标签、编辑书签、移动书签和删除书签。
+6. 在同一个工作区管理书签
+搜索书签、创建文件夹、保存当前标签、编辑书签、移动书签和删除书签，不用离开 TabFriday。
 
-7. 🧭 本地记录 URL 活动
-本地记录标签事件时间线，包括创建、关闭、跳转、重定向、改标题、激活、固定、静音、休眠、分组和取消分组。重定向追踪为可选功能，仅在用户授权后启用。
+7. 多入口使用
+支持弹窗、侧边栏和完整 Dashboard，根据你的管理习惯选择入口。
 
-8. 🖥️ 支持弹窗、侧边栏和 Dashboard
-你可以使用快速弹窗、专注的侧边栏，或完整的 Dashboard 来管理标签页。
+TabFriday 适合经常打开大量标签进行工作、研究、学习、工具对比、购物或多项目切换的用户。
 
-TabFriday 适合经常打开大量标签页进行研究、工作、学习、购物、工具对比或多项目切换的用户。安装 TabFriday，自动分组标签页、移除重复标签、清理杂乱内容、恢复快照，并保持浏览器工作区井然有序。
+少一点手动拖拽，少一点反复清理，少一点标签混乱。
+
+安装 TabFriday，让 Chrome 标签页自动整理自己。永久免费。
 
 
 日本語
 ======
 
-TabFriday - タブ管理：グループ化、重複削除、セッション復元
+TabFriday - カスタムルールでタブを自動グループ化
 
-Chrome のタブ混乱を、すばやく整理されたワークスペースに変えます。
+一度に多くのタブを開くと、Chrome はすぐに散らかり、重くなり、探しにくくなります。TabFriday は、散らかったタブを自動で見やすいグループに整理します。
 
-TabFriday は、タブの自動グループ化、重複タブの削除、非アクティブタブの整理、スナップショットの保存と復元、タブ検索、ローカルのタブアクティビティ記録、ブックマーク管理を 1 つの場所で行えるツールです。
+タブが多すぎる？サイト、トピック、ルールで自動グループ化。重複削除、ミュート、休眠、アイドルタブの自動クローズ。永久無料。
 
 TabFriday を使う理由
 
-1. ⚡ ルールでタブを自動グループ化
-サイト種別、トピック、ドメイン、タイトル、URL、サイトリスト、カスタムルールに基づいてタブを自動グループ化できます。Shopping、Social、Media、Office、AI、Development、News、Finance、Travel、Learning などのプリセットも用意されています。
+1. ルールでタブを自動グループ化
+サイト、トピック、ドメイン、または独自のカスタムルールでタブをグループ化できます。一度ルールを設定すれば、新しいタブも自動で整理されます。
 
-2. 🧹 重複タブを削除
-重複タブを自動で整理できます。全体に適用、特定サイトを除外、または指定サイトだけに適用するモードを選べます。
+2. 重複タブを自動削除
+複数のウィンドウを探し回らなくても、重複ページを整理できます。
 
-3. 🌙 非アクティブタブを AutoClear
-非アクティブなグループの折りたたみ、非アクティブタブのスリープ、非アクティブタブのクローズに対応し、重要なサイトはホワイトリストで保護できます。
+3. Chrome を軽く保つ
+音の出るページのミュート、アイドルタブの休眠、不要なタブの自動クローズ、非アクティブなグループの折りたたみに対応します。
 
-4. 📸 スナップショットを保存・復元
-現在のウィンドウまたはすべてのウィンドウをスナップショットとして保存し、あとから新しいウィンドウまたは現在のウィンドウに復元できます。
+4. 自分の作業に合わせてカスタマイズ
+名前、色、サイトリスト、マッチングルール、優先度を持つカスタムグループを作成できます。
 
-5. 🔍 すばやく検索
-開いているタブ、履歴タブ、スナップショット、ブックマークを検索し、スマートビューやタブ詳細履歴で目的の内容を見つけられます。
+5. すばやく検索して戻る
+開いているタブ、履歴、ブックマーク、保存済みスナップショットを検索できます。Cmd/Ctrl+Shift+K で Tab Switcher を開き、結果をプレビューして任意のタブへすばやく移動できます。
 
-6. 🔖 同じワークスペースでブックマーク管理
-ブックマーク検索、フォルダ作成、現在のタブの保存、ブックマーク編集、移動、削除ができます。
+6. 同じワークスペースでブックマーク管理
+ブックマーク検索、フォルダ作成、現在のタブの保存、編集、移動、削除ができます。
 
-7. 🧭 URL アクティビティをローカルに記録
-作成、クローズ、ナビゲーション、リダイレクト、タイトル変更、アクティブ化、固定、ミュート、破棄、グループ化、グループ解除などのタブイベントをローカルで記録します。リダイレクト追跡は任意で、許可された場合のみ有効になります。
+7. 好きな入口で利用
+ポップアップ、サイドパネル、またはフル Dashboard から作業できます。
 
-8. 🖥️ ポップアップ、サイドパネル、Dashboard に対応
-軽量なポップアップ、集中しやすいサイドパネル、またはフル機能の Dashboard から作業できます。
+TabFriday は、仕事、調査、学習、ツール比較、買い物、複数プロジェクトの切り替えで多くのタブを開く人向けです。
 
-TabFriday は、調査、仕事、学習、買い物、ツール比較、複数プロジェクトの切り替えで多くのタブを開く人に向いています。TabFriday でタブを自動グループ化し、重複を削除し、不要なタブを整理し、スナップショットを復元して、ブラウザの作業環境を保ちましょう。
+手動ドラッグを減らし、片付けを減らし、タブの混乱を減らします。
+
+TabFriday をインストールして、Chrome のタブを自動で整理しましょう。永久無料。
 
 
 Français
 ========
 
-TabFriday - Gestion d'onglets : groupes, doublons et sessions
+TabFriday - Groupes d'onglets avec règles personnalisées
 
-Reprenez le contrôle de vos onglets Chrome.
+Quand trop d'onglets s'accumulent, Chrome devient vite désordonné, lourd et difficile à parcourir. TabFriday transforme automatiquement les fenêtres Chrome en groupes d'onglets clairs.
 
-TabFriday vous aide à regrouper automatiquement les onglets, supprimer les doublons, nettoyer les onglets inactifs, enregistrer des instantanés, restaurer des espaces de travail, rechercher vos onglets, suivre l'activité locale des URL et gérer vos favoris depuis un seul espace.
+Trop d'onglets ? Groupes auto par site, sujet ou règles. Doublons supprimés, onglets muets, en veille ou fermés. Gratuit.
 
 Pourquoi installer TabFriday ?
 
-1. ⚡ Regroupement automatique par règles
-Regroupez les onglets par type de site, sujet, domaine, titre, URL, listes de sites ou règles personnalisées. Des préréglages sont inclus pour Shopping, Social, Media, Office, AI, Development, News, Finance, Travel et Learning.
+1. Regroupement automatique par règles
+Regroupez les onglets par site, sujet, domaine ou règles personnalisées. Configurez les règles une fois, puis TabFriday trie les nouveaux onglets pour vous.
 
-2. 🧹 Suppression des onglets en double
-Nettoyez automatiquement les onglets dupliqués avec plusieurs modes : global, avec sites exclus, ou uniquement pour les sites listés.
+2. Suppression automatique des doublons
+Nettoyez les pages répétées sans inspecter chaque fenêtre.
 
-3. 🌙 AutoClear des onglets inactifs
-Réduisez les groupes inactifs, mettez en veille les onglets inactifs, fermez les onglets inactifs et protégez les sites importants avec une liste blanche.
+3. Garder Chrome plus léger
+Mettez en sourdine les pages bruyantes, mettez en veille les onglets inactifs, fermez automatiquement ceux qui ne servent plus et réduisez les groupes inactifs.
 
-4. 📸 Enregistrement et restauration d'instantanés
-Enregistrez la fenêtre actuelle ou toutes les fenêtres sous forme d'instantanés, puis restaurez votre espace de travail dans une nouvelle fenêtre ou la fenêtre actuelle.
+4. Adapter l'organisation à votre travail
+Créez des groupes personnalisés avec noms, couleurs, listes de sites, règles de correspondance et priorités.
 
-5. 🔍 Recherche rapide
-Recherchez les onglets ouverts, les onglets historiques, les instantanés et les favoris avec des vues intelligentes et l'historique détaillé des onglets.
+5. Retrouver rapidement le bon contenu
+Recherchez les onglets ouverts, l'historique, les favoris et les instantanés enregistrés. Appuyez sur Cmd/Ctrl+Shift+K pour ouvrir le Tab Switcher, prévisualiser les résultats et aller directement à n'importe quel onglet.
 
-6. 🔖 Gestion des favoris dans le même espace
-Recherchez les favoris, créez des dossiers, enregistrez l'onglet actif, modifiez, déplacez et supprimez les favoris.
+6. Gérer les favoris dans le même espace
+Recherchez, créez des dossiers, enregistrez l'onglet actif, modifiez, déplacez et supprimez les favoris sans quitter TabFriday.
 
-7. 🧭 Historique local de l'activité URL
-Conservez localement une chronologie des événements d'onglets : création, fermeture, navigation, redirection, changement de titre, activation, épinglage, mise en sourdine, suppression de la mémoire, groupement et dégroupement. Le suivi des redirections est optionnel et ne fonctionne qu'après autorisation.
+7. Travailler depuis l'entrée qui vous convient
+Utilisez le popup, le panneau latéral ou le Dashboard complet selon votre façon de gérer les onglets.
 
-8. 🖥️ Popup, panneau latéral ou Dashboard
-Travaillez depuis un popup rapide, un panneau latéral concentré ou un Dashboard complet.
+TabFriday est conçu pour les personnes qui gardent de nombreux onglets ouverts pour travailler, chercher, apprendre, comparer des outils, acheter ou passer d'un projet à l'autre.
 
-TabFriday est conçu pour les utilisateurs qui ouvrent de nombreux onglets pour la recherche, le travail, l'apprentissage, les achats, la comparaison d'outils ou le passage d'un projet à l'autre. Installez TabFriday pour regrouper, dédupliquer, nettoyer, restaurer et organiser votre navigateur.
+Moins de glisser-déposer. Moins de nettoyage. Moins de chaos.
+
+Installez TabFriday et laissez vos onglets Chrome s'organiser seuls. Gratuit.
 
 
 Español
 =======
 
-TabFriday - Gestor de pestañas: grupos, duplicados y sesiones
+TabFriday - Agrupa pestañas con reglas personalizadas
 
-Controla el caos de pestañas en Chrome.
+Cuando se acumulan demasiadas pestañas, Chrome se vuelve desordenado, pesado y difícil de revisar. TabFriday convierte automáticamente las ventanas desordenadas en grupos claros.
 
-TabFriday te ayuda a agrupar pestañas automáticamente, eliminar pestañas duplicadas, limpiar pestañas inactivas, guardar snapshots, restaurar espacios de trabajo, buscar pestañas, registrar actividad local de URL y gestionar marcadores desde un solo lugar.
+¿Muchas pestañas? Agrupa por sitio, tema o reglas. Elimina duplicados, silencia, suspende y cierra inactivas. Gratis para siempre.
 
 Por qué instalar TabFriday
 
-1. ⚡ Agrupación automática por reglas
-Agrupa pestañas por tipo de sitio, tema, dominio, título, URL, listas de sitios o reglas personalizadas. Incluye presets para Shopping, Social, Media, Office, AI, Development, News, Finance, Travel y Learning.
+1. Agrupación automática por reglas
+Agrupa pestañas por sitio web, tema, dominio o tus propias reglas personalizadas. Configura las reglas una vez y TabFriday sigue ordenando las pestañas nuevas.
 
-2. 🧹 Eliminación de pestañas duplicadas
-Limpia automáticamente pestañas duplicadas con modos flexibles: global, con sitios excluidos o solo para sitios incluidos.
+2. Elimina duplicados automáticamente
+Limpia páginas repetidas sin revisar cada ventana.
 
-3. 🌙 AutoClear de pestañas inactivas
-Contrae grupos inactivos, suspende pestañas inactivas, cierra pestañas inactivas y protege sitios importantes con listas blancas.
+3. Mantén Chrome más ligero
+Silencia páginas ruidosas, suspende pestañas inactivas, cierra automáticamente las que ya no necesitas y contrae grupos inactivos.
 
-4. 📸 Guardar y restaurar snapshots
-Guarda la ventana actual o todas las ventanas como snapshots y restaura tu espacio de trabajo más tarde en una ventana nueva o en la ventana actual.
+4. Personaliza tu flujo de trabajo
+Crea grupos personalizados con nombres, colores, listas de sitios, reglas de coincidencia y prioridades.
 
-5. 🔍 Búsqueda rápida
-Encuentra pestañas abiertas, pestañas históricas, snapshots y marcadores con búsqueda, vistas inteligentes e historial detallado de pestañas.
+5. Busca y recupera rápido
+Busca pestañas abiertas, historial, marcadores y snapshots guardados cuando necesites volver a encontrar algo. Pulsa Cmd/Ctrl+Shift+K para abrir el Tab Switcher, previsualizar resultados y saltar a cualquier pestaña al instante.
 
-6. 🔖 Gestión de marcadores en el mismo espacio
-Busca marcadores, crea carpetas, guarda la pestaña activa, edita, mueve y elimina marcadores.
+6. Gestiona marcadores en el mismo espacio
+Busca marcadores, crea carpetas, guarda la pestaña activa, edita, mueve y elimina marcadores sin salir de TabFriday.
 
-7. 🧭 Actividad local de URL
-Mantén una cronología local de eventos de pestañas: creadas, cerradas, navegadas, redirigidas, renombradas, activadas, fijadas, silenciadas, descartadas, agrupadas y desagrupadas. El seguimiento de redirecciones es opcional y solo funciona con permiso.
+7. Úsalo desde donde prefieras
+Trabaja desde el popup, el panel lateral o el Dashboard completo según cómo organices tus pestañas.
 
-8. 🖥️ Popup, panel lateral o Dashboard
-Usa un popup rápido, un panel lateral enfocado o un Dashboard completo según tu forma de trabajar.
+TabFriday está pensado para quienes mantienen muchas pestañas abiertas al trabajar, investigar, estudiar, comparar herramientas, comprar o cambiar entre proyectos.
 
-TabFriday está pensado para quienes abren muchas pestañas al investigar, trabajar, estudiar, comprar, comparar herramientas o cambiar entre proyectos. Instala TabFriday para agrupar, eliminar duplicados, limpiar, restaurar snapshots y mantener organizado tu navegador.
+Menos arrastrar. Menos limpieza. Menos caos de pestañas.
+
+Instala TabFriday y deja que tus pestañas de Chrome se organicen solas. Gratis para siempre.
 
 
 العربية
 =======
 
-TabFriday - مدير علامات التبويب: مجموعات وتكرارات وجلسات
+TabFriday - تجميع علامات التبويب بقواعد مخصصة
 
-سيطر على فوضى علامات التبويب في Chrome.
+عندما تكثر علامات التبويب، يصبح Chrome فوضويًا وأثقل وأصعب في البحث. يحوّل TabFriday النوافذ المزدحمة تلقائيًا إلى مجموعات واضحة ومنظمة.
 
-يساعدك TabFriday على تجميع علامات التبويب تلقائيًا، وإزالة علامات التبويب المكررة، وتنظيف علامات التبويب غير النشطة، وحفظ اللقطات، واستعادة مساحات العمل، والبحث في علامات التبويب، وتتبع نشاط URL محليًا، وإدارة الإشارات المرجعية من مكان واحد.
+علامات تبويب كثيرة؟ جمّعها حسب الموقع أو الموضوع أو القواعد. أزل التكرارات، اكتم الصوت، أسبت وأغلق الخاملة. مجاني للأبد.
 
 لماذا تثبت TabFriday؟
 
-1. ⚡ تجميع تلقائي بالقواعد
-يمكنك تجميع علامات التبويب حسب نوع الموقع، أو الموضوع، أو النطاق، أو العنوان، أو URL، أو قوائم المواقع، أو القواعد المخصصة. تتضمن الإعدادات الجاهزة Shopping و Social و Media و Office و AI و Development و News و Finance و Travel و Learning.
+1. تجميع تلقائي بالقواعد
+يمكنك تجميع علامات التبويب حسب الموقع أو الموضوع أو النطاق أو قواعدك المخصصة. اضبط القواعد مرة واحدة، وسيواصل TabFriday ترتيب علامات التبويب الجديدة.
 
-2. 🧹 إزالة علامات التبويب المكررة
-ينظف علامات التبويب المكررة تلقائيًا مع أوضاع مرنة: على مستوى المتصفح، أو مع استثناء مواقع محددة، أو فقط للمواقع المدرجة.
+2. إزالة التكرارات تلقائيًا
+نظّف الصفحات المكررة دون البحث في كل نافذة.
 
-3. 🌙 AutoClear لعلامات التبويب غير النشطة
-يمكنه طي المجموعات غير النشطة، وإسبات علامات التبويب غير النشطة، وإغلاق علامات التبويب غير النشطة، مع حماية المواقع المهمة عبر قائمة بيضاء.
+3. إبقاء Chrome أخف
+اكتم الصفحات المزعجة، أسبت علامات التبويب الخاملة، أغلق تلقائيًا ما لم تعد تحتاجه، واطوِ المجموعات غير النشطة.
 
-4. 📸 حفظ اللقطات واستعادتها
-احفظ النافذة الحالية أو جميع النوافذ كلقطات، ثم استعد مساحة العمل لاحقًا في نافذة جديدة أو في النافذة الحالية.
+4. خصّص أسلوب عملك
+أنشئ مجموعات مخصصة بأسماء وألوان وقوائم مواقع وقواعد مطابقة وأولويات.
 
-5. 🔍 بحث سريع
-اعثر بسرعة على علامات التبويب المفتوحة، وسجل علامات التبويب، واللقطات، والإشارات المرجعية باستخدام البحث والعروض الذكية وتفاصيل سجل علامة التبويب.
+5. ابحث واسترجع بسرعة
+ابحث في علامات التبويب المفتوحة، والسجل، والإشارات المرجعية، واللقطات المحفوظة عندما تحتاج للعودة إلى شيء ما. اضغط Cmd/Ctrl+Shift+K لفتح Tab Switcher، ومعاينة النتائج، والانتقال فورًا إلى أي علامة تبويب.
 
-6. 🔖 إدارة الإشارات المرجعية في نفس مساحة العمل
-ابحث في الإشارات المرجعية، وأنشئ مجلدات، واحفظ علامة التبويب النشطة، وعدل الإشارات، وانقلها، واحذفها.
+6. إدارة الإشارات المرجعية في نفس المساحة
+ابحث في الإشارات المرجعية، وأنشئ مجلدات، واحفظ علامة التبويب النشطة، وعدّل وانقل واحذف الإشارات دون مغادرة TabFriday.
 
-7. 🧭 سجل محلي لنشاط URL
-احتفظ محليًا بسجل لأحداث علامات التبويب مثل الإنشاء، والإغلاق، والتنقل، وإعادة التوجيه، وتغيير العنوان، والتنشيط، والتثبيت، والكتم، والتفريغ، والتجميع، وإلغاء التجميع. تتبع إعادة التوجيه اختياري ولا يعمل إلا بعد منح الإذن.
+7. استخدمه من أي واجهة
+اعمل من النافذة المنبثقة أو اللوحة الجانبية أو Dashboard كامل بحسب طريقة إدارتك لعلامات التبويب.
 
-8. 🖥️ نافذة منبثقة أو لوحة جانبية أو Dashboard
-استخدم نافذة منبثقة سريعة، أو لوحة جانبية مركزة، أو Dashboard كامل لإدارة علامات التبويب بالطريقة التي تناسبك.
+TabFriday مناسب لمن يفتحون الكثير من علامات التبويب أثناء العمل أو البحث أو التعلم أو مقارنة الأدوات أو التسوق أو التنقل بين المشاريع.
 
-TabFriday مناسب لمن يفتحون الكثير من علامات التبويب أثناء البحث أو العمل أو التعلم أو التسوق أو مقارنة الأدوات أو التنقل بين المشاريع. ثبت TabFriday لتجميع علامات التبويب، وإزالة التكرارات، وتنظيف الفوضى، واستعادة اللقطات، والحفاظ على مساحة عمل المتصفح منظمة.
+سحب أقل. تنظيف أقل. فوضى أقل.
+
+ثبّت TabFriday ودع علامات تبويب Chrome تنظّم نفسها. مجاني للأبد.
+
+
+한국어
+======
+
+TabFriday - 맞춤 규칙으로 탭 자동 그룹화
+
+탭이 많아지면 Chrome은 금방 복잡해지고, 무거워지고, 찾기 어려워집니다. TabFriday는 어지러운 Chrome 창을 자동으로 깔끔한 탭 그룹으로 정리합니다.
+
+탭이 너무 많나요? 사이트, 주제, 규칙별로 자동 그룹화하고 중복 제거, 음소거, 절전, 유휴 탭 자동 닫기. 영원히 무료.
+
+TabFriday를 설치해야 하는 이유
+
+1. 규칙으로 탭 자동 그룹화
+웹사이트, 주제, 도메인 또는 직접 만든 맞춤 규칙으로 탭을 그룹화하세요. 규칙을 한 번 설정하면 새 탭도 TabFriday가 계속 정리합니다.
+
+2. 중복 탭 자동 정리
+모든 창을 뒤지지 않아도 반복된 페이지를 정리할 수 있습니다.
+
+3. Chrome을 더 가볍게 유지
+소리 나는 페이지를 음소거하고, 유휴 탭을 절전 상태로 만들고, 더 이상 필요 없는 탭을 자동으로 닫고, 비활성 그룹을 접습니다.
+
+4. 작업 방식에 맞게 맞춤 설정
+이름, 색상, 사이트 목록, 매칭 규칙, 우선순위가 있는 맞춤 그룹을 만들 수 있습니다.
+
+5. 빠르게 검색하고 다시 찾기
+열린 탭, 기록, 북마크, 저장된 스냅샷을 검색해 필요한 내용을 빠르게 찾을 수 있습니다. Cmd/Ctrl+Shift+K로 Tab Switcher를 열어 결과를 미리 보고 원하는 탭으로 바로 이동하세요.
+
+6. 같은 작업 공간에서 북마크 관리
+TabFriday 안에서 북마크 검색, 폴더 생성, 현재 탭 저장, 편집, 이동, 삭제를 할 수 있습니다.
+
+7. 원하는 화면에서 사용
+팝업, 사이드 패널, 전체 Dashboard 중 탭을 관리하기 편한 화면을 선택하세요.
+
+TabFriday는 작업, 조사, 학습, 도구 비교, 쇼핑, 여러 프로젝트 전환 중 많은 탭을 열어 두는 사람을 위해 만들어졌습니다.
+
+드래그는 줄이고, 정리는 줄이고, 탭 혼란도 줄입니다.
+
+TabFriday를 설치하고 Chrome 탭이 스스로 정리되게 하세요. 영원히 무료.
+
+
+Русский
+=======
+
+TabFriday - Автогруппы вкладок по правилам
+
+Когда вкладок слишком много, Chrome быстро становится хаотичным, тяжелым и неудобным для поиска. TabFriday автоматически превращает беспорядочные окна в понятные группы вкладок.
+
+Много вкладок? Автогруппы по сайтам, темам и правилам. Дубликаты, звук, сон и автозакрытие лишнего. Бесплатно.
+
+Зачем устанавливать TabFriday?
+
+1. Автогруппировка по правилам
+Группируйте вкладки по сайту, теме, домену или своим правилам. Настройте правила один раз, и TabFriday будет сортировать новые вкладки за вас.
+
+2. Автоматическое удаление дубликатов
+Очищайте повторяющиеся страницы без ручного поиска по всем окнам.
+
+3. Более легкий Chrome
+Отключайте звук на шумных страницах, усыпляйте неактивные вкладки, автоматически закрывайте ненужные вкладки и сворачивайте неактивные группы.
+
+4. Настройка под ваш процесс
+Создавайте группы с именами, цветами, списками сайтов, правилами совпадения и приоритетами.
+
+5. Быстрый поиск и возврат
+Ищите открытые вкладки, историю, закладки и сохраненные снимки, когда нужно быстро вернуться к нужному. Нажмите Cmd/Ctrl+Shift+K, чтобы открыть Tab Switcher, просмотреть результаты и сразу перейти к любой вкладке.
+
+6. Закладки в том же рабочем пространстве
+Ищите закладки, создавайте папки, сохраняйте активную вкладку, редактируйте, перемещайте и удаляйте закладки, не покидая TabFriday.
+
+7. Используйте удобный формат
+Работайте из popup, боковой панели или полного Dashboard в зависимости от того, как вы управляете вкладками.
+
+TabFriday создан для тех, кто держит много вкладок открытыми во время работы, исследований, обучения, сравнения инструментов, покупок или переключения между проектами.
+
+Меньше перетаскивания. Меньше уборки. Меньше хаоса вкладок.
+
+Установите TabFriday и позвольте вкладкам Chrome организовываться самим. Бесплатно.
+
+
+Ελληνικά
+========
+
+TabFriday - Αυτόματες ομάδες καρτελών με κανόνες
+
+Όταν οι καρτέλες γίνονται πολλές, το Chrome γίνεται γρήγορα χαοτικό, βαρύ και δύσκολο στην αναζήτηση. Το TabFriday μετατρέπει αυτόματα τα ακατάστατα παράθυρα σε καθαρές ομάδες καρτελών.
+
+Πολλές καρτέλες; Ομάδες ανά site, θέμα ή κανόνα. Διπλότυπα, σίγαση, αναστολή και κλείσιμο αδρανών. Δωρεάν.
+
+Γιατί να εγκαταστήσετε το TabFriday;
+
+1. Αυτόματη ομαδοποίηση με κανόνες
+Ομαδοποιήστε καρτέλες ανά site, θέμα, domain ή δικούς σας κανόνες. Ρυθμίστε τους κανόνες μία φορά και το TabFriday ταξινομεί τις νέες καρτέλες για εσάς.
+
+2. Αυτόματη αφαίρεση διπλότυπων
+Καθαρίστε επαναλαμβανόμενες σελίδες χωρίς να ψάχνετε κάθε παράθυρο.
+
+3. Κρατήστε το Chrome πιο ελαφρύ
+Κάντε σίγαση θορυβωδών σελίδων, αναστείλετε αδρανείς καρτέλες, κλείστε αυτόματα όσες δεν χρειάζεστε και συμπτύξτε ανενεργές ομάδες.
+
+4. Προσαρμογή στη ροή εργασίας σας
+Δημιουργήστε προσαρμοσμένες ομάδες με ονόματα, χρώματα, λίστες site, κανόνες αντιστοίχισης και προτεραιότητες.
+
+5. Γρήγορη αναζήτηση και ανάκτηση
+Αναζητήστε ανοιχτές καρτέλες, ιστορικό, σελιδοδείκτες και αποθηκευμένα snapshots όταν χρειάζεται να ξαναβρείτε κάτι. Πατήστε Cmd/Ctrl+Shift+K για να ανοίξετε το Tab Switcher, να δείτε προεπισκόπηση αποτελεσμάτων και να μεταβείτε άμεσα σε οποιαδήποτε καρτέλα.
+
+6. Διαχείριση σελιδοδεικτών στον ίδιο χώρο
+Αναζητήστε σελιδοδείκτες, δημιουργήστε φακέλους, αποθηκεύστε την ενεργή καρτέλα, επεξεργαστείτε, μετακινήστε και διαγράψτε σελιδοδείκτες χωρίς να φύγετε από το TabFriday.
+
+7. Χρήση από όπου σας βολεύει
+Εργαστείτε από το popup, το πλαϊνό panel ή το πλήρες Dashboard ανάλογα με το πώς διαχειρίζεστε καρτέλες.
+
+Το TabFriday είναι για όσους κρατούν πολλές καρτέλες ανοιχτές ενώ εργάζονται, κάνουν έρευνα, μαθαίνουν, συγκρίνουν εργαλεία, ψωνίζουν ή αλλάζουν έργα.
+
+Λιγότερο σύρσιμο. Λιγότερο καθάρισμα. Λιγότερο χάος.
+
+Εγκαταστήστε το TabFriday και αφήστε τις καρτέλες του Chrome να οργανώνονται μόνες τους. Δωρεάν.

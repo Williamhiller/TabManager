@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions"
+    "message": "TabFriday - Auto Group Tabs with Custom Rules"
   },
   "extDescription": {
-    "message": "Smart tab manager to auto-group tabs, remove duplicate tabs, clean inactive tabs, search tabs, and restore sessions."
+    "message": "Too many tabs? Auto-group them by site, topic, or rules. Remove duplicates, mute, sleep, and auto-close idle tabs. Free forever."
   },
   "extActionTitle": {
-    "message": "TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions"
+    "message": "TabFriday - Auto Group Tabs with Custom Rules"
   }
 }

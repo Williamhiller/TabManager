@@ -24,6 +24,10 @@ import type {
   TabGroupUpdatePatch,
   TabMutationResult
 } from './contracts';
+import type {
+  KeyboardShortcutsConfig,
+  ShortcutConfig
+} from './keyboard-shortcuts/types';
 
 const RUNTIME_REQUEST_TIMEOUT_MS = 20_000;
 const RUNTIME_MUTATION_TIMEOUT_MS = 60_000;
@@ -135,6 +139,22 @@ export function subscribeToSessionsUpdates(
   return () => chrome.runtime.onMessage.removeListener(handleMessage);
 }
 
+export function subscribeToCommandPaletteToggle(listener: () => void): () => void {
+  const handleMessage = (
+    message: unknown,
+    _sender: chrome.runtime.MessageSender,
+    sendResponse: (response: ExtensionResult<null>) => void
+  ) => {
+    const payload = message as Partial<ExtensionRequest> | null;
+    if (!payload || payload.type !== 'tab-manager/toggle-command-palette') return;
+    listener();
+    sendResponse({ ok: true, data: null });
+  };
+
+  chrome.runtime.onMessage.addListener(handleMessage);
+  return () => chrome.runtime.onMessage.removeListener(handleMessage);
+}
+
 export async function getTabDetail(tabId: number): Promise<TabDetailSnapshot> {
   const response = await sendRequest<TabDetailSnapshot>({
     type: 'tab-manager/get-tab-detail',
@@ -175,6 +195,41 @@ export async function getRedirectTrackingPermissionState(): Promise<RedirectTrac
 export async function refreshRedirectTracking(): Promise<RedirectTrackingPermissionState> {
   const response = await sendRequest<RedirectTrackingPermissionState>({
     type: 'tab-manager/refresh-redirect-tracking'
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+export async function getKeyboardShortcutConfig(): Promise<KeyboardShortcutsConfig> {
+  const response = await sendRequest<KeyboardShortcutsConfig>({
+    type: 'tab-manager/get-shortcut-config'
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+export async function saveKeyboardShortcutConfig(
+  config: KeyboardShortcutsConfig
+): Promise<KeyboardShortcutsConfig> {
+  const response = await sendRequest<KeyboardShortcutsConfig>({
+    type: 'tab-manager/update-shortcut-config',
+    patch: config
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
+export async function updateKeyboardShortcut(
+  shortcutId: string,
+  patch: Partial<ShortcutConfig>
+): Promise<KeyboardShortcutsConfig> {
+  const response = await sendRequest<KeyboardShortcutsConfig>({
+    type: 'tab-manager/update-single-shortcut',
+    shortcutId,
+    patch
   });
 
   if (!response.ok) throw new Error(response.error);

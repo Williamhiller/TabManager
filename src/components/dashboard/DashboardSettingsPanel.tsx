@@ -1,17 +1,12 @@
 import {
-  RiBookmarkLine,
-  RiCameraLine,
   RiDashboardLine,
   RiFolderReduceLine,
   RiGlobalLine,
-  RiHistoryLine,
   RiLayoutRightLine,
   RiMoonLine,
+  RiSidebarUnfoldLine,
   RiWindowLine,
   RiRadarLine,
-  RiSave3Line,
-  RiSidebarUnfoldLine,
-  RiShining2Line,
 } from '@remixicon/react';
 
 import type {
@@ -34,13 +29,8 @@ type DashboardSettingsPanelProps = {
   onAutoSleepChange: (minutes: AutoSleepInactiveTabsMinutes) => void;
   onLocaleChange: (locale: LocaleMode) => void;
   onRedirectTrackingToggle: () => void;
-  onToggleShowHistory: () => void;
-  onToggleAutoSnapshots: () => void;
-  onToggleAutoGroup: () => void;
   onToggleBlockChromeAutoGroup: () => void;
   onToggleLaunchSurface: (surface: ManagerSettings['launchSurface']) => void;
-  onToggleSidepanelShowSnapshots: () => void;
-  onToggleSidepanelShowBookmarks: () => void;
   redirectTrackingBusy: boolean;
   redirectTrackingPermission: RedirectTrackingPermissionState | null;
   settings: ManagerSettings;
@@ -66,13 +56,8 @@ export function DashboardSettingsPanel({
   onAutoSleepChange,
   onLocaleChange,
   onRedirectTrackingToggle,
-  onToggleShowHistory,
-  onToggleAutoSnapshots,
-  onToggleAutoGroup,
   onToggleBlockChromeAutoGroup,
   onToggleLaunchSurface,
-  onToggleSidepanelShowSnapshots,
-  onToggleSidepanelShowBookmarks,
   redirectTrackingBusy,
   redirectTrackingPermission,
   settings,
@@ -115,64 +100,6 @@ export function DashboardSettingsPanel({
                 ]}
                 value={settings.launchSurface}
               />
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiHistoryLine size={14} />
-              </span>
-              <div>
-                <strong>{t.showHistory}</strong>
-                <p>{t.showHistorySub}</p>
-              </div>
-            </div>
-            <div className="tm-dashboard-setting-control">
-              <button
-                aria-pressed={settings.showHistory}
-                className="tm-dashboard-switch"
-                data-active={settings.showHistory}
-                disabled={busy}
-                onClick={onToggleShowHistory}
-                type="button"
-              >
-                <span className="tm-dashboard-switch-track">
-                  <span className="tm-dashboard-switch-thumb" />
-                </span>
-                <span className="tm-dashboard-switch-label">
-                  {settings.showHistory ? t.enabled : t.disabled}
-                </span>
-              </button>
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiShining2Line size={14} />
-              </span>
-              <div>
-                <strong>{t.autoGroup}</strong>
-                <p>{settings.autoGroupEnabled ? t.autoGroupEnabledHint : t.autoGroupDisabledHint}</p>
-              </div>
-            </div>
-            <div className="tm-dashboard-setting-control">
-              <button
-                aria-pressed={settings.autoGroupEnabled}
-                className="tm-dashboard-switch"
-                data-active={settings.autoGroupEnabled}
-                disabled={busy}
-                onClick={onToggleAutoGroup}
-                type="button"
-              >
-                <span className="tm-dashboard-switch-track">
-                  <span className="tm-dashboard-switch-thumb" />
-                </span>
-                <span className="tm-dashboard-switch-label">
-                  {settings.autoGroupEnabled ? t.enabled : t.disabled}
-                </span>
-              </button>
             </div>
           </section>
 
@@ -229,105 +156,6 @@ export function DashboardSettingsPanel({
                 </span>
                 <span className="tm-dashboard-switch-label">
                   {settings.redirectTrackingEnabled ? t.enabled : t.disabled}
-                </span>
-              </button>
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiSave3Line size={14} />
-              </span>
-              <div>
-                <strong>{t.autoSnapshots}</strong>
-                <p>{t.autoSnapshotsSub}</p>
-              </div>
-            </div>
-            <div className="tm-dashboard-setting-control">
-              <button
-                aria-pressed={settings.autoSnapshotsEnabled}
-                className="tm-dashboard-switch"
-                data-active={settings.autoSnapshotsEnabled}
-                disabled={busy}
-                onClick={onToggleAutoSnapshots}
-                type="button"
-              >
-                <span className="tm-dashboard-switch-track">
-                  <span className="tm-dashboard-switch-thumb" />
-                </span>
-                <span className="tm-dashboard-switch-label">
-                  {settings.autoSnapshotsEnabled ? t.enabled : t.disabled}
-                </span>
-              </button>
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiSidebarUnfoldLine size={14} />
-              </span>
-              <div>
-                <strong>{t.sidepanelViews}</strong>
-                <p>{t.sidepanelViewsSub}</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row tm-dashboard-setting-row-nested">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiCameraLine size={14} />
-              </span>
-              <div>
-                <strong>{t.sidepanelShowSnapshots}</strong>
-                <p>{t.sidepanelShowSnapshotsSub}</p>
-              </div>
-            </div>
-            <div className="tm-dashboard-setting-control">
-              <button
-                aria-pressed={settings.sidepanelShowSnapshots}
-                className="tm-dashboard-switch"
-                data-active={settings.sidepanelShowSnapshots}
-                disabled={busy}
-                onClick={onToggleSidepanelShowSnapshots}
-                type="button"
-              >
-                <span className="tm-dashboard-switch-track">
-                  <span className="tm-dashboard-switch-thumb" />
-                </span>
-                <span className="tm-dashboard-switch-label">
-                  {settings.sidepanelShowSnapshots ? t.enabled : t.disabled}
-                </span>
-              </button>
-            </div>
-          </section>
-
-          <section className="tm-dashboard-setting-row tm-dashboard-setting-row-nested">
-            <div className="tm-dashboard-setting-copy">
-              <span className="tm-dashboard-setting-icon">
-                <RiBookmarkLine size={14} />
-              </span>
-              <div>
-                <strong>{t.sidepanelShowBookmarks}</strong>
-                <p>{t.sidepanelShowBookmarksSub}</p>
-              </div>
-            </div>
-            <div className="tm-dashboard-setting-control">
-              <button
-                aria-pressed={settings.sidepanelShowBookmarks}
-                className="tm-dashboard-switch"
-                data-active={settings.sidepanelShowBookmarks}
-                disabled={busy}
-                onClick={onToggleSidepanelShowBookmarks}
-                type="button"
-              >
-                <span className="tm-dashboard-switch-track">
-                  <span className="tm-dashboard-switch-thumb" />
-                </span>
-                <span className="tm-dashboard-switch-label">
-                  {settings.sidepanelShowBookmarks ? t.enabled : t.disabled}
                 </span>
               </button>
             </div>

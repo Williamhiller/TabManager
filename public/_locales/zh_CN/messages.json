@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "TabFriday - 标签页管理：分组、重复标签清理与会话恢复"
+    "message": "TabFriday - 自动分组标签页，支持自定义规则"
   },
   "extDescription": {
-    "message": "智能标签页管理器：自动分组、移除重复标签、清理不活跃标签、搜索标签并恢复会话。"
+    "message": "标签页太多？按网站、主题或规则自动分组，自动去重、静音、休眠并关闭闲置标签。永久免费。"
   },
   "extActionTitle": {
-    "message": "TabFriday - 标签页管理：分组、重复标签清理与会话恢复"
+    "message": "TabFriday - 自动分组标签页，支持自定义规则"
   }
 }

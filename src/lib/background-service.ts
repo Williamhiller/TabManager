@@ -48,6 +48,15 @@ import { updateAutoGroupConfigTitleFromGroup } from './auto-group-config-sync';
 import { openOrRefreshDashboardTab } from './dashboard-tabs';
 import { resolveFavIconUrl } from './favicon';
 import { getErrorMessage } from './format';
+import {
+  getShortcutConfig,
+  updateShortcutConfig,
+  updateSingleShortcut
+} from './keyboard-shortcuts/config';
+import type {
+  KeyboardShortcutsConfig,
+  ShortcutConfig
+} from './keyboard-shortcuts/types';
 import { getSettings, SETTINGS_KEY, updateSettings } from './settings';
 import { filterSameWindowTabs, findSameWindowGroup } from './window-scope';
 import { normalizeHostname, normalizeWebsitePattern, allGroupColors, redirectTrackingPermissions } from './shared-utils';
@@ -3614,6 +3623,8 @@ export function installBackgroundService(): void {
           | SessionsSnapshot
           | SessionRecord
           | TabMutationResult
+          | KeyboardShortcutsConfig
+          | ShortcutConfig
           | null
         >;
 
@@ -3688,6 +3699,49 @@ export function installBackgroundService(): void {
             await refreshRedirectTrackingEnabled();
             response = { ok: true, data: await getRedirectTrackingPermissionState() };
             break;
+          case 'tab-manager/get-shortcut-config':
+            response = { ok: true, data: await getShortcutConfig() };
+            break;
+          case 'tab-manager/update-shortcut-config':
+            response = { ok: true, data: await updateShortcutConfig(request.patch) };
+            break;
+          case 'tab-manager/update-single-shortcut':
+            response = {
+              ok: true,
+              data: await updateSingleShortcut(request.shortcutId, request.patch)
+            };
+            break;
+          case 'tab-manager/execute-action': {
+            const { executeAction } = await import('../lib/keyboard-shortcuts/actions');
+            await executeAction(request.action);
+            response = { ok: true, data: null };
+            break;
+          }
+          case 'tab-manager/get-tabs': {
+            const tabs = await chrome.tabs.query({ currentWindow: true });
+            response = {
+              ok: true,
+              data: tabs.map((t) => ({
+                id: t.id,
+                title: t.title,
+                url: t.url,
+                favIconUrl: t.favIconUrl,
+                active: t.active,
+                pinned: t.pinned,
+                index: t.index,
+              })) as any
+            };
+            break;
+          }
+          case 'tab-manager/focus-tab': {
+            await chrome.tabs.update(request.tabId, { active: true });
+            const tab = await chrome.tabs.get(request.tabId);
+            if (tab.windowId != null) {
+              await chrome.windows.update(tab.windowId, { focused: true });
+            }
+            response = { ok: true, data: null };
+            break;
+          }
           case 'tab-manager/open-dashboard':
             await openDashboardTab();
             response = { ok: true, data: null };

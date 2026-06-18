@@ -6,6 +6,9 @@ type DashboardSidebarProps = {
   onViewSelect: (viewId: DashboardViewId) => void;
 };
 
+const IS_MAC = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+const MOD_KEY = IS_MAC ? 'Cmd' : 'Ctrl';
+
 export function DashboardSidebar({ activeView, items, onViewSelect }: DashboardSidebarProps) {
   return (
     <aside className="tm-dashboard-sidebar">
@@ -31,6 +34,10 @@ export function DashboardSidebar({ activeView, items, onViewSelect }: DashboardS
           );
         })}
       </nav>
+      <div className="tm-dashboard-sidebar-shortcut">
+        <span className="tm-dashboard-sidebar-shortcut-key">{MOD_KEY} + Shift + K</span>
+        <span className="tm-dashboard-sidebar-shortcut-desc">Tab Switcher</span>
+      </div>
     </aside>
   );
 }

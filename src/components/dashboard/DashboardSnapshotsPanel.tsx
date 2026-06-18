@@ -37,9 +37,11 @@ const dashboardSnapshotCopy = {
 } as const;
 
 export function DashboardSnapshotsPanel({
+  autoSnapshotsEnabled,
   errorMessage,
   locale,
   onRefreshSessions,
+  onToggleAutoSnapshots,
   openUrls,
   sessions,
   t
@@ -62,6 +64,30 @@ export function DashboardSnapshotsPanel({
   return (
     <main className="tm-dashboard-main tm-dashboard-main-snapshots">
       <section className="tm-dashboard-snapshots tm-dashboard-snapshots-compact">
+        <header className="tm-dashboard-settings-header tm-dashboard-settings-header-inline-switch tm-dashboard-snapshot-header">
+          <div>
+            <div className="tm-dashboard-settings-title-with-switch">
+              <h1>{t.navSnapshots}</h1>
+              <button
+                aria-label={t.autoSnapshots}
+                aria-pressed={autoSnapshotsEnabled}
+                className="tm-dashboard-switch tm-dashboard-snapshot-auto-switch"
+                data-active={autoSnapshotsEnabled}
+                onClick={onToggleAutoSnapshots}
+                type="button"
+              >
+                <span className="tm-dashboard-switch-track">
+                  <span className="tm-dashboard-switch-thumb" />
+                </span>
+                <span className="tm-dashboard-switch-label">
+                  {t.autoSnapshots} · {autoSnapshotsEnabled ? t.enabled : t.disabled}
+                </span>
+              </button>
+            </div>
+            <p>{t.autoSnapshotsSub}</p>
+          </div>
+        </header>
+
         <div className="tm-dashboard-snapshot-toolbar">
           <label className="tm-dashboard-snapshot-search">
             <RiSearchLine size={14} />

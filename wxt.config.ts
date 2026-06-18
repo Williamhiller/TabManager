@@ -23,6 +23,14 @@ export default defineConfig({
       'tabGroups',
       'tabs'
     ],
+    commands: {
+      'toggle-command-palette': {
+        suggested_key: {
+          default: 'Ctrl+Shift+K'
+        },
+        description: 'Open command palette'
+      }
+    },
     optional_permissions: ['webNavigation', 'webRequest'],
     optional_host_permissions: ['http://*/*', 'https://*/*'],
     icons: {

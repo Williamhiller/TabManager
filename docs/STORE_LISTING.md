@@ -2,107 +2,112 @@
 
 ## 1) Basic Info
 
-- Product name (recommended): `TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions`
-- Alternative names:
-  - `TabFriday Smart Tab Manager`
-  - `Tab Manager & Tab Organizer`
-  - `Smart Tab Manager for Chrome`
+- Product name (recommended): `TabFriday - Auto Group Tabs with Custom Rules`
 - Category (recommended): `Productivity`
-- Language support: `English`, `简体中文`
+- Language support: `English`, `简体中文`, `日本語`, `Français`, `Español`, `العربية`, `한국어`, `Русский`, `Ελληνικά`
 - Minimum Chrome version: `114`
 
 Primary keyword focus:
 
 - `auto group tabs`
 - `auto tab groups`
+- `custom tab rules`
 - `tab groups`
 - `tab manager`
 - `tab organizer`
 - `duplicate tabs`
+- `sleep tabs`
+- `auto close tabs`
+- `mute tabs`
 - `organize tabs`
-- `smart tab grouping`
-- `restore tabs`
+- `save memory`
 
 Recommended Chrome Web Store field updates:
 
-- Name: `TabFriday - Tab Manager: Groups, Duplicate Tabs & Sessions`
-- Short description: `Smart tab manager to auto-group tabs, remove duplicate tabs, clean inactive tabs, search tabs, and restore sessions.`
+- Name: `TabFriday - Auto Group Tabs with Custom Rules`
+- Short description: `Too many tabs? Auto-group them by site, topic, or rules. Remove duplicates, mute, sleep, and auto-close idle tabs. Free forever.`
 - First screenshot headline: `Auto-group messy Chrome tabs instantly`
 - Second screenshot headline: `Customize groups, websites, and rules`
+- Third screenshot headline: `Remove duplicates and clean idle tabs`
 - Small promo tile message: `Auto-group Chrome tabs by website, topic, and custom rules`
+- Marquee promo tile message: `Let Chrome tabs organize themselves`
 
 ## 2) Short Description
 
 Use this in the Chrome Web Store short description field (132 chars max).
 
-### Chinese
-智能标签页管理器：自动分组、移除重复标签、清理不活跃标签、搜索标签并恢复会话。
-
 ### English
-Smart tab manager to auto-group tabs, remove duplicate tabs, clean inactive tabs, search tabs, and restore sessions.
+Too many tabs? Auto-group them by site, topic, or rules. Remove duplicates, mute, sleep, and auto-close idle tabs. Free forever.
+
+### Chinese
+标签页太多？按网站、主题或规则自动分组，自动去重、静音、休眠并关闭闲置标签。永久免费。
 
 ## 3) Detailed Description
 
-### Chinese
-标签页太多、重复页面太乱、旧标签舍不得关？TabFriday 可以帮你自动分组、移除重复标签、清理不活跃标签，并在需要时恢复会话。
-
-它可以按网站类型、主题、域名、自定义网站列表和规则自动分组，让工作、购物、社交、AI、开发、学习等标签自动归类。你也可以创建自己的分组，配置每个分组的网站列表、匹配规则和优先级，让标签页按照你的工作方式整理。
-
-核心功能：
-
-- 自动分组：按网站类型和主题自动归类，例如 Shopping、Social、Media、Office、AI、Development、News、Finance、Travel、Learning
-- 自定义分组：创建自己的 group，设置名称、颜色、启用状态和匹配优先级
-- 网站列表：把 `github.com`、`openai.com`、`notion.so` 等网站直接加入指定分组
-- 自定义规则：按域名、URL 或标题匹配，支持 contains / equals 条件
-- 重复标签清理：自动移除重复标签，并支持全局模式、排除网站或仅指定网站
-- 自动清理：自动折叠不活跃分组、休眠不活跃标签、关闭不活跃标签，并支持白名单
-- 会话恢复：保存当前窗口或全部窗口，稍后恢复工作现场
-- 手动整理：支持按域名或网站类型一键智能分组
-- 全局搜索：按标题、网址、域名、分组名快速检索
-- 智能视图：快速筛选未分组、已分组、休眠、有声音、固定、长期未访问标签
-- 批量操作：一键关闭、固定、静音、休眠、分组、取消分组
-- 拖拽编排：支持标签排序、跨分组移动、分组内外重排
-- 标签详情与历史：查看活跃时长、最近活动、历史轨迹，并支持重开历史标签
-- 多入口工作区：支持侧边栏、弹窗和独立 dashboard
-
-适合以下场景：
-
-- 日常并行处理多个任务
-- 同时打开很多 AI、开发、资料、购物、社交网站
-- 研究/学习中频繁切换资料
-- 希望标签页自动归类，而不是手动拖来拖去
-- 需要定期搜索、清理和批量管理杂乱标签
-- 想保留标签历史并快速恢复
-
 ### English
-Too many Chrome tabs, duplicate pages, and stale workspaces? TabFriday helps auto-group tabs, remove duplicate tabs, clean inactive tabs, and restore sessions when you need them again.
+Too many tabs open at once? TabFriday automatically turns messy Chrome windows into clean, organized tab groups.
 
-It automatically groups tabs by website, topic, domain, custom website lists, and matching rules, so work, shopping, social, AI, development, learning, and research tabs stay separated. You can also create custom groups, edit each group's websites and rules, and set match priority for your own workflow.
+Group tabs by website, topic, domain, or your own custom rules. Set up rules once, and TabFriday keeps sorting new tabs for you.
 
-Key features:
+It also helps Chrome stay lighter by removing duplicate tabs, muting noisy pages, sleeping idle tabs, and auto-closing tabs you no longer need.
 
-- Auto grouping by common website types and topics, including Shopping, Social, Media, Office, AI, Development, News, Finance, Travel, and Learning
-- Custom groups with name, color, enabled state, and priority
-- Website lists for routing domains like `github.com`, `openai.com`, or `notion.so` into a specific group
-- Custom rules that match by domain, URL, or title with contains / equals conditions
-- Duplicate tab cleanup with global mode, excluded sites, or listed-only sites
-- Automation for collapsing inactive groups, sleeping inactive tabs, closing inactive tabs, and keeping cleanup whitelists
-- Session snapshots for saving the current window or all windows and restoring them later
-- One-click smart grouping by domain or site type
-- Fast search across title, URL, hostname, and group title
-- Smart views for ungrouped, grouped, sleeping, audible, pinned, and stale tabs
-- Batch actions for close, pin, mute, sleep, group, and ungroup
-- Drag-and-drop ordering across and within groups
-- Tab detail and history with activity timeline and reopen support
-- Side panel, popup, and standalone dashboard workspaces
+What TabFriday can do:
 
-Built for users who want tabs to organize themselves, while still keeping fast search, cleanup, batch actions, and history close at hand.
+- Auto-group tabs by website, topic, domain, and custom rules
+- Create custom groups with names, colors, website lists, and priorities
+- Remove duplicate tabs automatically
+- Mute noisy tabs and keep distractions under control
+- Sleep idle tabs to reduce memory usage
+- Auto-close idle tabs you no longer need
+- Collapse inactive tab groups for a cleaner tab bar
+- Search open tabs, history, bookmarks, and saved snapshots
+- Press Cmd/Ctrl+Shift+K to open the Tab Switcher: search, preview, and jump to any tab instantly
+- Manage bookmarks without leaving your tab workspace
+- Save snapshots and restore a previous workspace when needed
+- Use it from the popup, side panel, or full dashboard
+
+TabFriday is built for people who keep many tabs open while working, researching, learning, comparing tools, shopping, or switching between projects.
+
+Less dragging. Less cleanup. Less tab chaos.
+
+Install TabFriday and let your Chrome tabs organize themselves. Free forever.
+
+### Chinese
+标签页一多，Chrome 很快就会变得混乱、占内存、难查找。TabFriday 会自动把杂乱标签整理成清晰分组。
+
+你可以按网站、主题、域名或自己的自定义规则自动分组。规则设置一次，后续新打开的标签也会自动归类。
+
+TabFriday 还可以自动清理浏览器负担：移除重复标签、静音吵闹页面、休眠闲置标签，并自动关闭不再需要的标签，让 Chrome 保持更轻。
+
+TabFriday 可以帮你：
+
+- 按网站、主题、域名和自定义规则自动分组标签
+- 创建自定义分组，设置名称、颜色、网站列表和优先级
+- 自动清理重复标签
+- 自动静音吵闹标签，减少干扰
+- 休眠闲置标签，降低内存占用
+- 自动关闭不再需要的闲置标签
+- 折叠不活跃分组，让标签栏更清爽
+- 搜索打开的标签、历史、书签和保存的快照
+- 按 Cmd/Ctrl+Shift+K 打开 Tab Switcher，搜索、预览并快速跳转任意标签
+- 在同一个工作区管理书签
+- 保存快照，并在需要时恢复之前的工作现场
+- 支持弹窗、侧边栏和完整 Dashboard
+
+TabFriday 适合经常打开大量标签进行工作、研究、学习、工具对比、购物或多项目切换的用户。
+
+少一点手动拖拽，少一点反复清理，少一点标签混乱。
+
+安装 TabFriday，让 Chrome 标签页自动整理自己。永久免费。
 
 ## 4) Permission Justification
 
 - `tabs`: Read, focus, reorder, group, sleep, and close tabs.
 - `tabGroups`: Read and update Chrome tab groups.
+- `bookmarks`: Search, create, edit, move, and delete bookmarks inside the tab workspace.
+- `alarms`: Run local scheduled cleanup checks for idle tabs and auto-group maintenance.
 - `sidePanel`: Open and control the side panel workspace.
+- `sessions`: Restore recently closed tabs and support session-oriented recovery flows.
 - `storage`: Save settings, custom auto-group configurations, website lists, rules, theme, language, launch mode, refresh rate, and local tab history.
 - `system.memory`: Show memory snapshot info inside the workspace.
 - `favicon`: Display each tab's favicon for faster visual recognition.
@@ -111,19 +116,19 @@ Built for users who want tabs to organize themselves, while still keeping fast s
 
 ## 5) Single Purpose Statement
 
-### Chinese
-TabFriday 的唯一目的，是帮助用户在 Chrome 中自动分组、搜索、去重、清理、保存与恢复标签页，降低多标签工作场景下的切换成本和管理负担。
-
 ### English
-TabFriday has one purpose: helping users automatically group, search, deduplicate, clean up, save, and restore browser tabs in Chrome.
+TabFriday has one purpose: helping users automatically group, rule-sort, clean up, search, and recover browser tabs in Chrome.
+
+### Chinese
+TabFriday 的唯一目的，是帮助用户在 Chrome 中自动分组、按规则整理、清理、搜索和找回标签页，降低多标签工作场景下的管理负担。
 
 ## 6) Privacy Statement (For Listing Form)
 
-### Chinese
-TabFriday 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签、分组、自定义网站列表和规则信息。只有当用户主动开启 Redirect trace 并授权后，插件才会在本地记录导航/重定向历史。配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
-
 ### English
-TabFriday does not send your tab data to external servers. Tab data, group data, custom website lists, and rules are processed locally. Navigation/redirect history is recorded locally only after the user enables Redirect trace and grants permission. Settings/history are stored in browser storage (`chrome.storage`) to provide core features.
+TabFriday does not send your tab data to external servers. Tab data, group data, bookmarks, custom website lists, and rules are processed locally. Navigation/redirect history is recorded locally only after the user enables Redirect trace and grants permission. Settings/history are stored in browser storage (`chrome.storage`) to provide core features.
+
+### Chinese
+TabFriday 不会将你的标签数据上传到外部服务器。插件仅在本地处理标签、分组、书签、自定义网站列表和规则信息。只有当用户主动开启 Redirect trace 并授权后，插件才会在本地记录导航/重定向历史。配置与历史数据存储在浏览器本地存储空间（`chrome.storage`）中，用于提供核心功能。
 
 ## 7) Privacy Policy URL (GitHub Pages)
 
@@ -137,32 +142,32 @@ If your repository name is different, replace `TabManager` with your actual repo
 
 - Icon: `128x128` (already available)
 - Screenshots (recommended 5):
-  - Auto-group messy tabs instantly
+  - Auto-group messy Chrome tabs instantly
   - Customize groups, websites, and rules
-  - Add websites to any group
-  - Search and clean up grouped tabs
-  - Track tab history and reopen work
+  - Remove duplicates and clean idle tabs
+  - Search tabs, history, bookmarks, and snapshots
+  - Work from popup, side panel, or dashboard
 - Small promo tile: `440x280`
   - Message: `Auto-group Chrome tabs by website, topic, and custom rules`
-- Marquee promo tile (optional): `1400x560`
-  - Message: `Tabs organize themselves`
+- Marquee promo tile: `1400x560`
+  - Message: `Let Chrome tabs organize themselves`
 
 ## 9) One-Line Promo Variants
 
-### Chinese
-- 让 Chrome 标签页自动归类。
-- 不再手动拖标签，规则会帮你分组。
-- 自动分组、快速搜索、批量清理，一站完成。
-
 ### English
 - Let Chrome tabs organize themselves.
-- Stop dragging tabs manually. Let rules group them.
-- Auto group, search, and clean up tabs in one workspace.
-
-## 10) Release Notes Template (v0.1.0)
+- Auto-group tabs by site, topic, and custom rules.
+- Remove duplicates, mute noise, sleep idle tabs, and keep Chrome lighter.
 
 ### Chinese
-首个可用版本上线：支持按网站、主题、域名、自定义网站列表和规则自动分组，并提供标签搜索与筛选、批量操作、拖拽排序、历史标签回溯，以及侧边栏/弹窗/独立页三种工作区入口。
+- 让 Chrome 标签页自动整理自己。
+- 按网站、主题和自定义规则自动分组。
+- 自动去重、静音、休眠和关闭闲置标签，让 Chrome 更轻。
+
+## 10) Release Notes Template (v1.1.0)
 
 ### English
-First public release: includes auto grouping by website, topic, domain, custom website lists, and rules, plus tab search and filtering, batch actions, drag-and-drop ordering, tab history, and three work surfaces (popup, side panel, dashboard).
+Updated Chrome Web Store listing: TabFriday now presents auto grouping, custom rules, duplicate cleanup, auto-mute, idle tab sleep, and auto-close as the core product promise, with bookmarks and snapshots positioned as supporting workspace features.
+
+### Chinese
+更新 Chrome Web Store 上架文案：TabFriday 现在以自动分组、自定义规则、重复标签清理、自动静音、闲置标签休眠和自动关闭作为核心卖点，书签和快照作为辅助工作区能力呈现。

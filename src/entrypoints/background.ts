@@ -3,6 +3,8 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { installBackgroundService } from '../lib/background-service';
 import type { LaunchSurface, ManagerSettings } from '../lib/contracts';
 import { openOrRefreshDashboardTab } from '../lib/dashboard-tabs';
+import { executeAction } from '../lib/keyboard-shortcuts/actions';
+import type { ShortcutAction } from '../lib/keyboard-shortcuts/types';
 import { getSettings, SETTINGS_KEY, updateSettings } from '../lib/settings';
 import { withTimeout } from '../lib/shared-utils';
 
@@ -123,9 +125,57 @@ async function handleInstalled(details: chrome.runtime.InstalledDetails): Promis
   await syncActionBehavior('sidepanel');
 }
 
+function handleCommand(command: string): void {
+  if (command === 'toggle-command-palette') {
+    void (async () => {
+      // If a dashboard tab already exists, focus it and toggle the switcher there
+      const allTabs = await chrome.tabs.query({});
+      const dashboardTab = allTabs.find(
+        (t) =>
+          t.url?.startsWith(chrome.runtime.getURL('/dashboard.html')) ||
+          t.pendingUrl?.startsWith(chrome.runtime.getURL('/dashboard.html')),
+      );
+
+      if (dashboardTab?.id != null) {
+        await chrome.tabs.update(dashboardTab.id, { active: true });
+        if (dashboardTab.windowId != null) {
+          await chrome.windows.update(dashboardTab.windowId, { focused: true });
+        }
+        await chrome.storage.session.set({ tmToggleTabSwitcher: Date.now() });
+        return;
+      }
+
+      // No dashboard tab open — try to toggle in-page palette via content script
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.id) {
+        const delivered = await chrome.tabs
+          .sendMessage(activeTab.id, { type: 'tab-manager/toggle-page-palette' })
+          .then(() => true)
+          .catch(() => false);
+
+        if (delivered) return;
+      }
+
+      // No content script available — open a new dashboard with command palette
+      await openOrRefreshDashboardTab('/dashboard.html?commandPalette=1');
+    })().catch((error) => {
+      console.warn('Failed to toggle command palette.', error);
+    });
+    return;
+  }
+
+  void executeAction(command as ShortcutAction).catch((error) => {
+    console.warn(`Failed to execute keyboard shortcut action: ${command}`, error);
+  });
+}
+
 export default defineBackground(() => {
   installBackgroundService();
   bindPreferredLaunchSurface();
+
+  chrome.commands.onCommand.addListener((command) => {
+    handleCommand(command);
+  });
 
   chrome.runtime.onInstalled.addListener((details) => {
     void handleInstalled(details).catch((error) => {

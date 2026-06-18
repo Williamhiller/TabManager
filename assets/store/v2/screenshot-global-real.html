@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabFriday Global Screenshots 1280×800</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1210;
+        --muted: #6f635b;
+        --amber: #d77a1f;
+        --teal: #1a8a6e;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: #e8e0d4;
+      }
+
+      .canvas {
+        position: relative;
+        width: 1280px; height: 800px;
+        overflow: hidden;
+        color: var(--ink);
+        background: linear-gradient(160deg, #fff7ea 0%, #f2ede3 45%, #e9f3ee 100%);
+        display: flex; flex-direction: column;
+      }
+      .canvas::before {
+        content: ""; position: absolute; inset: 0;
+        background:
+          radial-gradient(circle at 87% 8%, rgba(215,122,31,0.10), transparent 34%),
+          radial-gradient(circle at 8% 95%, rgba(26,138,110,0.08), transparent 36%);
+      }
+      .canvas::after {
+        content: ""; position: absolute; inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(76,97,84,0.035) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(76,97,84,0.035) 1px, transparent 1px);
+        background-size: 28px 28px;
+      }
+
+      .ring { position: absolute; border-radius: 999px; pointer-events: none; z-index: 0; }
+      .ring-1 { width: 360px; height: 360px; right: -80px; top: -90px; border: 10px solid rgba(215,122,31,0.08); }
+      .ring-2 { width: 240px; height: 240px; left: 42%; bottom: 20px; border: 8px solid rgba(26,138,110,0.06); }
+
+      .top {
+        position: relative; z-index: 2;
+        display: flex; align-items: center; gap: 16px;
+        padding: 28px 56px 0;
+      }
+      .brand {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 18px; font-weight: 850;
+      }
+      .brand img { width: 32px; height: 32px; border-radius: 8px; }
+      .pill {
+        display: inline-flex; align-items: center;
+        height: 28px; padding: 0 13px;
+        border: 1px solid rgba(194,94,27,0.28);
+        border-radius: 999px;
+        background: rgba(255,250,241,0.72);
+        color: #b55a17;
+        font-size: 12px; font-weight: 720;
+      }
+
+      .headline {
+        position: relative; z-index: 1;
+        padding: 18px 56px 0;
+      }
+      .headline h1 {
+        font-size: 46px; line-height: 1.0; font-weight: 920;
+        letter-spacing: -1px;
+      }
+      .headline h1 em { color: var(--amber); font-style: normal; }
+      .headline p {
+        margin-top: 6px;
+        font-size: 14px; line-height: 1.45; font-weight: 620;
+        color: var(--muted); max-width: 680px;
+      }
+
+      .shortcuts {
+        display: none;
+        align-items: center; gap: 20px;
+        margin-top: 8px;
+      }
+      .shortcuts.show { display: flex; }
+      .shortcut-group {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 13px; font-weight: 700; color: var(--ink);
+      }
+      .shortcut-group .label { font-weight: 800; }
+      .kbd {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 28px; height: 26px; padding: 0 7px;
+        border: 1.5px solid rgba(76,97,84,0.18);
+        border-radius: 6px;
+        background: #f8f5ef;
+        font-size: 13px; font-weight: 800; color: var(--ink);
+        font-family: inherit;
+        box-shadow: 0 1px 2px rgba(60,40,20,0.06);
+      }
+      .kbd-plus { font-size: 12px; color: var(--muted); font-weight: 700; }
+
+      .frame-wrap {
+        position: relative; z-index: 1;
+        flex: 1;
+        padding: 16px 56px 0;
+        min-height: 0;
+      }
+      .browser-frame {
+        width: 100%; height: 100%;
+        overflow: hidden;
+        border-radius: 14px;
+        box-shadow:
+          0 20px 60px rgba(60,40,20,0.14),
+          0 2px 8px rgba(60,40,20,0.06);
+      }
+      .hero-shot {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        object-position: left top;
+        display: block;
+      }
+
+      .foot {
+        position: relative; z-index: 2;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 56px 16px;
+        font-size: 11px; font-weight: 720; color: var(--muted);
+      }
+      .foot-free {
+        display: inline-flex; align-items: center; gap: 6px;
+        color: var(--teal);
+      }
+      .foot-free::before {
+        content: "✓";
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 15px; height: 15px; border-radius: 50%;
+        background: rgba(26,138,110,0.12);
+        font-size: 9px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="canvas" id="canvas">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+
+      <div class="top">
+        <div class="brand">
+          <img src="../../../src/assets/icons/icon-128.png" alt="" />
+          <span>TabFriday</span>
+        </div>
+        <div class="pill" id="pill">Chrome workspace</div>
+      </div>
+
+      <div class="headline">
+        <h1 id="title">Manage tabs from <em>one dashboard.</em></h1>
+        <p id="desc">Search, group, dedupe, and restore sessions without losing context.</p>
+        <div class="shortcuts" id="shortcuts"></div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="browser-frame">
+          <img class="hero-shot" id="hero-shot" src="../screenshots/tabs.png" alt="" />
+        </div>
+      </div>
+
+      <div class="foot">
+        <span class="foot-free">Free forever · No signup required</span>
+        <span id="foot-label">Dashboard</span>
+      </div>
+    </main>
+
+    <script>
+      const shots = {
+        tabs: {
+          pill: 'Chrome workspace',
+          title: 'Manage tabs from <em>one dashboard.</em>',
+          desc: 'Search, group, dedupe, and restore sessions without losing context.',
+          foot: 'Dashboard',
+          src: '../screenshots/tabs.png',
+        },
+        autogroup: {
+          pill: 'Automation rules',
+          title: 'AutoGroup tabs <em>by rules.</em>',
+          desc: 'Route tabs by site type, domain, URL, title, presets, and custom rules.',
+          foot: 'AutoGroup rules',
+          src: '../screenshots/autoGroup.png',
+        },
+        dedup: {
+          pill: 'Automatic cleanup',
+          title: 'Remove duplicates <em>automatically.</em>',
+          desc: 'Clean duplicate tabs and control where deduplication should apply.',
+          foot: 'Duplicate cleanup',
+          src: '../screenshots/deduplicate.png',
+        },
+        sidepanel: {
+          pill: 'Beside your browser',
+          title: 'Manage tabs <em>while you work.</em>',
+          desc: 'Keep TabFriday in reach with a focused side panel workspace.',
+          foot: 'Side panel',
+          src: '../screenshots/sidepanel.png',
+        },
+        switcher: {
+          pill: 'Keyboard workflow',
+          title: 'Find any tab <em>instantly.</em>',
+          desc: 'Search tabs and jump back to work without leaving the keyboard.',
+          foot: 'Tab switcher',
+          src: '../screenshots/tab-switcher.png',
+        },
+      };
+
+      const heroShot = document.getElementById('hero-shot');
+      const shortcutsEl = document.getElementById('shortcuts');
+      const params = new URLSearchParams(window.location.search);
+      const key = params.get('shot');
+      const shot = shots[key] ?? shots.tabs;
+
+      const isSwitcher = key === 'switcher';
+      if (isSwitcher) {
+        shortcutsEl.innerHTML = `
+          <div class="shortcut-group">
+            <span class="label">Mac</span>
+            <span class="kbd">\u2318</span><span class="kbd-plus">+</span><span class="kbd">\u21E7</span><span class="kbd-plus">+</span><span class="kbd">K</span>
+          </div>
+          <div class="shortcut-group">
+            <span class="label">Windows</span>
+            <span class="kbd">Ctrl</span><span class="kbd-plus">+</span><span class="kbd">\u21E7</span><span class="kbd-plus">+</span><span class="kbd">K</span>
+          </div>`;
+      }
+      shortcutsEl.classList.toggle('show', isSwitcher);
+
+      document.getElementById('pill').textContent = shot.pill;
+      document.getElementById('title').innerHTML = shot.title;
+      document.getElementById('desc').textContent = shot.desc;
+      document.getElementById('foot-label').textContent = shot.foot;
+      heroShot.src = shot.src;
+    </script>
+  </body>
+</html>
