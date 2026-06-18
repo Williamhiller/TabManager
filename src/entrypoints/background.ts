@@ -145,18 +145,22 @@ function handleCommand(command: string): void {
         return;
       }
 
-      // No dashboard tab open — try to toggle in-page palette via content script
+      // No dashboard tab open — inject content script and toggle in-page palette
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (activeTab?.id) {
-        const delivered = await chrome.tabs
-          .sendMessage(activeTab.id, { type: 'tab-manager/toggle-page-palette' })
-          .then(() => true)
-          .catch(() => false);
-
-        if (delivered) return;
+      if (activeTab?.id && activeTab.url?.startsWith('http')) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ['content-scripts/content.js'],
+          });
+          await chrome.tabs.sendMessage(activeTab.id, { type: 'tab-manager/toggle-page-palette' });
+          return;
+        } catch {
+          // Injection failed (e.g. chrome:// page) — fall through
+        }
       }
 
-      // No content script available — open a new dashboard with command palette
+      // Fallback — open a new dashboard with command palette
       await openOrRefreshDashboardTab('/dashboard.html?commandPalette=1');
     })().catch((error) => {
       console.warn('Failed to toggle command palette.', error);

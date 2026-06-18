@@ -14,6 +14,8 @@ export default defineConfig({
     description: '__MSG_extDescription__',
     minimum_chrome_version: '114',
     permissions: [
+      'activeTab',
+      'scripting',
       'bookmarks',
       'alarms',
       'favicon',
@@ -63,6 +65,8 @@ export default defineConfig({
         page: 'dashboard.html',
         open_in_tab: true
       };
+
+      delete manifest.content_scripts;
     }
   },
   vite: () => ({

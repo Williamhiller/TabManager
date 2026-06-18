@@ -91,7 +91,7 @@
       <h2>Permissions and Why They Are Needed</h2>
       <ul>
         <li><code>tabs</code>: required to list and manage tabs.</li>
-        <li><code>tabGroups</code>: required to read and manage tab groups.</li>
+        <li><code>tabGroups</code>: required to read and manage tab groupings.</li>
         <li>
           <code>bookmarks</code>: required to read, search, create, edit, move, and delete bookmarks and
           bookmark folders inside the bookmark workspace.
@@ -104,6 +104,14 @@
         <li><code>storage</code>: required to persist settings and local history.</li>
         <li><code>system.memory</code>: required to show memory snapshot information.</li>
         <li><code>favicon</code>: required to display tab favicons.</li>
+        <li>
+          <code>activeTab</code>: required to inject the in-page tab switcher overlay on the current tab when
+          the user presses the keyboard shortcut.
+        </li>
+        <li>
+          <code>scripting</code>: required to dynamically inject the tab switcher content script into the
+          active tab on demand.
+        </li>
         <li><code>webNavigation</code>: optional, used only when the user enables Redirect trace.</li>
         <li>
           <code>webRequest</code>: optional, used only after the user enables Redirect trace and grants
