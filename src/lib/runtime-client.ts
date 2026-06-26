@@ -1,8 +1,9 @@
 import { openOrRefreshDashboardTab } from './dashboard-tabs';
 import { getSettings } from './settings';
-import { withTimeout, redirectTrackingPermissions } from './shared-utils';
+import { withTimeout } from './shared-utils';
 import type {
   BookmarkNodeSnapshot,
+  BrowserCommandShortcutState,
   BookmarksInvalidatedMessage,
   ExtensionRequest,
   ExtensionResult,
@@ -210,6 +211,15 @@ export async function getKeyboardShortcutConfig(): Promise<KeyboardShortcutsConf
   return response.data;
 }
 
+export async function getBrowserCommandShortcutState(): Promise<BrowserCommandShortcutState> {
+  const response = await sendRequest<BrowserCommandShortcutState>({
+    type: 'tab-manager/get-browser-command-shortcut'
+  });
+
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
+}
+
 export async function saveKeyboardShortcutConfig(
   config: KeyboardShortcutsConfig
 ): Promise<KeyboardShortcutsConfig> {
@@ -237,11 +247,19 @@ export async function updateKeyboardShortcut(
 }
 
 export async function requestRedirectTrackingPermission(): Promise<boolean> {
-  return chrome.permissions.request(redirectTrackingPermissions);
+  const response = await sendRequest<boolean>({
+    type: 'tab-manager/request-redirect-tracking-permission'
+  });
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
 }
 
 export async function removeRedirectTrackingPermission(): Promise<boolean> {
-  return chrome.permissions.remove(redirectTrackingPermissions);
+  const response = await sendRequest<boolean>({
+    type: 'tab-manager/remove-redirect-tracking-permission'
+  });
+  if (!response.ok) throw new Error(response.error);
+  return response.data;
 }
 
 export async function requestOpenDashboard(): Promise<void> {

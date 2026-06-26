@@ -6,6 +6,7 @@ import type {
   BookmarksInvalidatedMessage,
   BookmarkTreeSnapshot,
   BookmarkUpdatePatch,
+  BrowserCommandShortcutState,
   ExtensionRequest,
   ExtensionResult,
   GroupTabsOptions,
@@ -16,6 +17,7 @@ import type {
   OverviewSnapshot,
   RedirectTrackingPermissionState,
   RuntimeTabTelemetry,
+  RuntimeTabListItem,
   SessionRecord,
   SessionRestoreMode,
   SessionRestoreResult,
@@ -171,6 +173,7 @@ const observedGroupTitles = new Map<number, string>();
 const autoGroupExemptionRecords = new Map<number, AutoGroupExemptionRecord>();
 const sessionRecords = new Map<string, SessionRecord>();
 const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
+const COMMAND_PALETTE_COMMAND_NAME = 'toggle-command-palette';
 const TAB_HISTORY_STORAGE_KEY = 'tab-manager/tab-history';
 const GROUP_METADATA_STORAGE_KEY = 'tab-manager/group-metadata';
 const AUTO_GROUP_EXEMPTIONS_STORAGE_KEY = 'tab-manager/auto-group-exemptions';
@@ -1734,6 +1737,19 @@ function getRuntimeMessageTimeoutMs(request: ExtensionRequest): number {
     default:
       return RUNTIME_MUTATION_MESSAGE_TIMEOUT_MS;
   }
+}
+
+async function getBrowserCommandShortcutState(): Promise<BrowserCommandShortcutState> {
+  const commands = await chrome.commands.getAll();
+  const command = commands.find((item) => item.name === COMMAND_PALETTE_COMMAND_NAME);
+  const shortcut = command?.shortcut?.trim() || null;
+
+  return {
+    commandName: COMMAND_PALETTE_COMMAND_NAME,
+    description: command?.description ?? 'Open command palette',
+    shortcut,
+    active: shortcut != null
+  };
 }
 
 function wasRecentlyAudible(tab: chrome.tabs.Tab, windowMs = 30 * 60_000): boolean {
@@ -3623,8 +3639,11 @@ export function installBackgroundService(): void {
           | SessionsSnapshot
           | SessionRecord
           | TabMutationResult
+          | RuntimeTabListItem[]
+          | BrowserCommandShortcutState
           | KeyboardShortcutsConfig
           | ShortcutConfig
+          | boolean
           | null
         >;
 
@@ -3695,12 +3714,21 @@ export function installBackgroundService(): void {
           case 'tab-manager/get-redirect-tracking-permission':
             response = { ok: true, data: await getRedirectTrackingPermissionState() };
             break;
+          case 'tab-manager/request-redirect-tracking-permission':
+            response = { ok: true, data: await chrome.permissions.request(redirectTrackingPermissions) };
+            break;
+          case 'tab-manager/remove-redirect-tracking-permission':
+            response = { ok: true, data: await chrome.permissions.remove(redirectTrackingPermissions) };
+            break;
           case 'tab-manager/refresh-redirect-tracking':
             await refreshRedirectTrackingEnabled();
             response = { ok: true, data: await getRedirectTrackingPermissionState() };
             break;
           case 'tab-manager/get-shortcut-config':
             response = { ok: true, data: await getShortcutConfig() };
+            break;
+          case 'tab-manager/get-browser-command-shortcut':
+            response = { ok: true, data: await getBrowserCommandShortcutState() };
             break;
           case 'tab-manager/update-shortcut-config':
             response = { ok: true, data: await updateShortcutConfig(request.patch) };
@@ -3721,15 +3749,17 @@ export function installBackgroundService(): void {
             const tabs = await chrome.tabs.query({ currentWindow: true });
             response = {
               ok: true,
-              data: tabs.map((t) => ({
-                id: t.id,
-                title: t.title,
-                url: t.url,
-                favIconUrl: t.favIconUrl,
-                active: t.active,
-                pinned: t.pinned,
-                index: t.index,
-              })) as any
+              data: tabs
+                .filter((t): t is chrome.tabs.Tab & { id: number } => t.id != null)
+                .map((t) => ({
+                  id: t.id,
+                  title: t.title ?? '',
+                  url: t.url ?? '',
+                  favIconUrl: t.favIconUrl ?? '',
+                  active: t.active,
+                  pinned: t.pinned,
+                  index: t.index,
+                }))
             };
             break;
           }

@@ -28,12 +28,14 @@ export default defineConfig({
     commands: {
       'toggle-command-palette': {
         suggested_key: {
-          default: 'Ctrl+Shift+K'
+          default: 'Ctrl+Shift+K',
+          mac: 'Command+Shift+K'
         },
         description: 'Open command palette'
       }
     },
     optional_permissions: ['webNavigation', 'webRequest'],
+    optional_host_permissions: ['http://*/*', 'https://*/*'],
     icons: {
       '16': 'icons/icon-16.png',
       '32': 'icons/icon-32.png',

@@ -105,6 +105,23 @@ export interface RuntimeTabTelemetry {
   totalActiveMs: number;
 }
 
+export interface RuntimeTabListItem {
+  id: number;
+  title: string;
+  url: string;
+  favIconUrl: string;
+  active: boolean;
+  pinned: boolean;
+  index: number;
+}
+
+export interface BrowserCommandShortcutState {
+  commandName: string;
+  description: string;
+  shortcut: string | null;
+  active: boolean;
+}
+
 export type TabHistoryEventKind =
   | 'observed'
   | 'created'
@@ -329,6 +346,8 @@ export type ExtensionRequest =
   | { type: 'tab-manager/delete-bookmark'; bookmarkId: string }
   | { type: 'tab-manager/move-bookmark'; bookmarkId: string; parentId: string; index?: number }
   | { type: 'tab-manager/get-redirect-tracking-permission' }
+  | { type: 'tab-manager/request-redirect-tracking-permission' }
+  | { type: 'tab-manager/remove-redirect-tracking-permission' }
   | { type: 'tab-manager/refresh-redirect-tracking' }
   | { type: 'tab-manager/open-dashboard' }
   | { type: 'tab-manager/close-tabs'; tabIds: number[] }
@@ -350,6 +369,7 @@ export type ExtensionRequest =
   | { type: 'tab-manager/update-group'; groupId: number; patch: TabGroupUpdatePatch }
   | { type: 'tab-manager/smart-group-tabs'; tabIds: number[]; strategy: SmartGroupStrategy }
   | { type: 'tab-manager/get-shortcut-config' }
+  | { type: 'tab-manager/get-browser-command-shortcut' }
   | { type: 'tab-manager/update-shortcut-config'; patch: Partial<KeyboardShortcutsConfig> }
   | { type: 'tab-manager/update-single-shortcut'; shortcutId: string; patch: Partial<ShortcutConfig> }
   | { type: 'tab-manager/execute-action'; action: ShortcutAction }
