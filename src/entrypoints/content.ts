@@ -1,15 +1,6 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
+import type { ExtensionResult, RuntimeTabListItem } from '../lib/contracts';
 import { eventToBinding } from '../lib/keyboard-shortcuts/shared-utils';
-
-interface TabInfo {
-  id: number;
-  title: string;
-  url: string;
-  favIconUrl: string;
-  active: boolean;
-  pinned: boolean;
-  index: number;
-}
 
 export default defineContentScript({
   matches: ['http://*/*', 'https://*/*'],
@@ -34,8 +25,8 @@ export default defineContentScript({
     let overlayRoot: ShadowRoot | null = null;
     let hostEl: HTMLDivElement | null = null;
     let isOpen = false;
-    let tabs: TabInfo[] = [];
-    let filtered: TabInfo[] = [];
+    let tabs: RuntimeTabListItem[] = [];
+    let filtered: RuntimeTabListItem[] = [];
     let selectedIndex = 0;
 
     function esc(s: string): string {
@@ -64,9 +55,9 @@ export default defineContentScript({
     }
 
     function loadTabs() {
-      chrome.runtime.sendMessage({ type: 'tab-manager/get-tabs' }).then((response: any) => {
+      chrome.runtime.sendMessage({ type: 'tab-manager/get-tabs' }).then((response: ExtensionResult<RuntimeTabListItem[]> | undefined) => {
         if (!response?.ok) return;
-        tabs = response.data || [];
+        tabs = response.data;
         selectedIndex = tabs.findIndex((t) => t.active);
         if (selectedIndex === -1) selectedIndex = 0;
         renderTabs();
@@ -152,12 +143,12 @@ export default defineContentScript({
       `;
     }
 
-    function focusTab(tab: TabInfo) {
+    function focusTab(tab: RuntimeTabListItem) {
       chrome.runtime.sendMessage({ type: 'tab-manager/focus-tab', tabId: tab.id }).catch(() => {});
       closeSwitcher();
     }
 
-    function closeTab(tab: TabInfo) {
+    function closeTab(tab: RuntimeTabListItem) {
       chrome.runtime.sendMessage({ type: 'tab-manager/close-tabs', tabIds: [tab.id] }).catch(() => {});
       tabs = tabs.filter((t) => t.id !== tab.id);
       selectedIndex = Math.min(selectedIndex, tabs.length - 1);

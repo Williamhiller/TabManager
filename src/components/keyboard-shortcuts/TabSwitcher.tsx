@@ -1,14 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-interface TabInfo {
-  id: number;
-  title: string;
-  url: string;
-  favIconUrl: string;
-  active: boolean;
-  pinned: boolean;
-  index: number;
-}
+import type { ExtensionResult, RuntimeTabListItem } from '../../lib/contracts';
 
 interface TabSwitcherProps {
   open: boolean;
@@ -34,8 +26,8 @@ function TabIcon({ favIconUrl, title }: { favIconUrl: string; title: string }) {
 }
 
 export function TabSwitcher({ open, onClose }: TabSwitcherProps) {
-  const [tabs, setTabs] = useState<TabInfo[]>([]);
-  const [filtered, setFiltered] = useState<TabInfo[]>([]);
+  const [tabs, setTabs] = useState<RuntimeTabListItem[]>([]);
+  const [filtered, setFiltered] = useState<RuntimeTabListItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [query, setQuery] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -45,9 +37,9 @@ export function TabSwitcher({ open, onClose }: TabSwitcherProps) {
     if (!open) return;
     setQuery('');
     setSelectedIndex(0);
-    chrome.runtime.sendMessage({ type: 'tab-manager/get-tabs' }).then((response: any) => {
+    chrome.runtime.sendMessage({ type: 'tab-manager/get-tabs' }).then((response: ExtensionResult<RuntimeTabListItem[]> | undefined) => {
       if (!response?.ok) return;
-      const allTabs: TabInfo[] = response.data || [];
+      const allTabs = response.data;
       setTabs(allTabs);
       const activeIdx = allTabs.findIndex((t) => t.active);
       setSelectedIndex(activeIdx >= 0 ? activeIdx : 0);
@@ -95,12 +87,12 @@ export function TabSwitcher({ open, onClose }: TabSwitcherProps) {
     return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [open, filtered, selectedIndex, onClose]);
 
-  function focusTab(tab: TabInfo) {
+  function focusTab(tab: RuntimeTabListItem) {
     chrome.runtime.sendMessage({ type: 'tab-manager/focus-tab', tabId: tab.id }).catch(() => {});
     onClose();
   }
 
-  function closeTab(tab: TabInfo) {
+  function closeTab(tab: RuntimeTabListItem) {
     chrome.runtime.sendMessage({ type: 'tab-manager/close-tabs', tabIds: [tab.id] }).catch(() => {});
     setTabs((prev) => prev.filter((t) => t.id !== tab.id));
   }

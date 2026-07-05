@@ -12,7 +12,7 @@ import type {
 } from '../../lib/contracts';
 import type { Messages, ResolvedLocale } from '../../lib/i18n';
 
-export type DashboardViewId = 'tabs' | 'snapshots' | 'bookmarks' | 'automation' | 'deduplication' | 'autoclose' | 'settings' | 'shortcuts';
+export type DashboardViewId = 'tabs' | 'snapshots' | 'bookmarks' | 'automation' | 'deduplication' | 'autoclose' | 'settings';
 
 export type DashboardNavItem = {
   id: DashboardViewId;

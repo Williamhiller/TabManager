@@ -47,6 +47,10 @@ import {
 } from './auto-group-defaults';
 import { planAutoDeduplication } from './auto-deduplicate';
 import { updateAutoGroupConfigTitleFromGroup } from './auto-group-config-sync';
+import {
+  collectCreateableAutoGroupTabIds,
+  shouldCleanupSingleTabAutoGroup
+} from './auto-group-tab-policy';
 import { openOrRefreshDashboardTab } from './dashboard-tabs';
 import { resolveFavIconUrl } from './favicon';
 import { getErrorMessage } from './format';
@@ -117,6 +121,7 @@ interface PersistedTabHistoryState {
 }
 
 interface GroupMetadataRecord {
+  autoGroupCreated?: boolean;
   autoGroupEnabled: boolean;
   autoGroupConfigId?: string | null;
   autoGroupPresetIds: string[];
@@ -171,6 +176,7 @@ const groupMetadataRecords = new Map<number, GroupMetadataRecord>();
 const groupInteractionRecords = new Map<number, number>();
 const observedGroupTitles = new Map<number, string>();
 const autoGroupExemptionRecords = new Map<number, AutoGroupExemptionRecord>();
+const programmaticAutoGroupUngroupTabIds = new Set<number>();
 const sessionRecords = new Map<string, SessionRecord>();
 const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
 const COMMAND_PALETTE_COMMAND_NAME = 'toggle-command-palette';
@@ -422,6 +428,7 @@ function hydrateGroupMetadataRecords(
     const numericGroupId = Number(groupId);
     if (!Number.isInteger(numericGroupId) || !record) continue;
     groupMetadataRecords.set(numericGroupId, {
+      autoGroupCreated: record.autoGroupCreated === true,
       autoGroupEnabled: record.autoGroupEnabled ?? true,
       autoGroupConfigId: typeof record.autoGroupConfigId === 'string' ? record.autoGroupConfigId : null,
       autoGroupPresetIds: Array.isArray(record.autoGroupPresetIds) ? record.autoGroupPresetIds : [],
@@ -732,6 +739,7 @@ function scheduleSessionsInvalidation(): void {
 
 function getGroupMetadata(groupId: number): GroupMetadataRecord {
   return groupMetadataRecords.get(groupId) ?? {
+    autoGroupCreated: false,
     autoGroupEnabled: true,
     autoGroupConfigId: null,
     autoGroupPresetIds: [],
@@ -1017,6 +1025,65 @@ async function cleanupRestoredAutoGroups(): Promise<void> {
   scheduleAutoSessionSnapshot();
 }
 
+async function cleanupSingleTabAutoGroups(): Promise<void> {
+  await ensureGroupMetadataLoaded();
+
+  const settings = await getSettings();
+  if (!settings.autoGroupEnabled) return;
+
+  const [groups, tabs] = await Promise.all([chrome.tabGroups.query({}), chrome.tabs.query({})]);
+  const tabsByGroup = new Map<number, chrome.tabs.Tab[]>();
+
+  for (const tab of tabs) {
+    const groupId = tab.groupId ?? -1;
+    if (groupId < 0) continue;
+
+    const list = tabsByGroup.get(groupId) ?? [];
+    list.push(tab);
+    tabsByGroup.set(groupId, list);
+  }
+
+  const tabsToUngroup: number[] = [];
+  const groupsToCleanup: number[] = [];
+
+  for (const group of groups) {
+    const groupTabs = tabsByGroup.get(group.id) ?? [];
+    if (!shouldCleanupSingleTabAutoGroup(groupTabs.length)) continue;
+    const metadata = getGroupMetadata(group.id);
+    if (!metadata.autoGroupCreated) continue;
+    if (!getBoundAutoGroupConfigId(group.id, settings)) continue;
+
+    const tabId = groupTabs[0]?.id;
+    if (tabId == null) continue;
+
+    tabsToUngroup.push(tabId);
+    groupsToCleanup.push(group.id);
+  }
+
+  const nonEmptyTabIds = asNonEmptyTabIds(uniqueTabIds(tabsToUngroup));
+  if (!nonEmptyTabIds) return;
+
+  for (const tabId of nonEmptyTabIds) {
+    programmaticAutoGroupUngroupTabIds.add(tabId);
+  }
+
+  try {
+    await chrome.tabs.ungroup(nonEmptyTabIds);
+  } finally {
+    setTimeout(() => {
+      for (const tabId of nonEmptyTabIds) {
+        programmaticAutoGroupUngroupTabIds.delete(tabId);
+      }
+    }, 5_000);
+  }
+
+  for (const groupId of groupsToCleanup) {
+    deleteGroupMetadata(groupId);
+  }
+  scheduleOverviewInvalidation('updated');
+  scheduleAutoSessionSnapshot();
+}
+
 function matchesGroupAutoGrouping(
   tab: chrome.tabs.Tab,
   metadata: GroupMetadataRecord
@@ -1117,10 +1184,23 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
 
   await Promise.all([ensureGroupMetadataLoaded(), ensureAutoGroupExemptionsLoaded()]);
 
-  const [candidateTabs, initialGroups] = await Promise.all([
-    tabIds ? loadTabsById(uniqueTabIds(tabIds)) : chrome.tabs.query({}),
+  const requestedTabIds = tabIds ? uniqueTabIds(tabIds) : null;
+  const [allOpenTabs, loadedCandidateTabs, initialGroups] = await Promise.all([
+    chrome.tabs.query({}),
+    requestedTabIds ? loadTabsById(requestedTabIds) : Promise.resolve(null),
     chrome.tabGroups.query({})
   ]);
+  const candidateTabs = loadedCandidateTabs ?? allOpenTabs;
+  const allTabsById = new Map<number, chrome.tabs.Tab>();
+
+  for (const tab of allOpenTabs) {
+    if (tab.id != null) allTabsById.set(tab.id, tab);
+  }
+  for (const tab of candidateTabs) {
+    if (tab.id != null) allTabsById.set(tab.id, tab);
+  }
+
+  const allTabs = Array.from(allTabsById.values());
   const groups = [...initialGroups];
   const effectiveConfigs = getEffectiveAutoGroupConfigs(settings);
   const effectiveGroups = getEffectiveAutoGroupGroups(groups);
@@ -1128,9 +1208,11 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
   if (effectiveGroups.length === 0 && effectiveConfigs.length === 0) return;
 
   let groupedAny = false;
+  const processedTabIds = new Set<number>();
 
   for (const tab of candidateTabs) {
     if (tab.id == null) continue;
+    if (processedTabIds.has(tab.id)) continue;
     if (tab.pinned) continue;
     if ((tab.groupId ?? -1) >= 0) continue;
 
@@ -1144,12 +1226,22 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
     if (!target) continue;
     if (isTabAutoGroupExempt(tab.id, target.targetKey)) continue;
 
+    const targetTabIds =
+      target.kind === 'config' && !target.existingConfiguredGroup
+        ? collectCreateableAutoGroupTabIds(tab, allTabs, {
+            isTabExempt: (candidateTab) =>
+              candidateTab.id != null && isTabAutoGroupExempt(candidateTab.id, target.targetKey),
+            matchesTab: (candidateTab) => matchesAutoGroupConfig(candidateTab, target.config)
+          })
+        : [tab.id];
+    if (targetTabIds.length === 0) continue;
+
     const result =
       target.kind === 'group'
-        ? await createGroups([tab.id], { groupId: target.group.id })
+        ? await createGroups(targetTabIds, { groupId: target.group.id })
         : target.existingConfiguredGroup
-          ? await createGroups([tab.id], { groupId: target.existingConfiguredGroup.id })
-          : await createGroups([tab.id], {
+          ? await createGroups(targetTabIds, { groupId: target.existingConfiguredGroup.id })
+          : await createGroups(targetTabIds, {
               title: target.configTitle,
               color: target.config.color,
               autoGroupConfigId: target.config.id
@@ -1157,7 +1249,10 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
 
     if (result.affectedCount > 0) {
       groupedAny = true;
-      deleteAutoGroupExemption(tab.id);
+      for (const tabId of result.affectedTabIds) {
+        processedTabIds.add(tabId);
+        deleteAutoGroupExemption(tabId);
+      }
 
       if (target.kind === 'config' && target.existingConfiguredGroup) {
         setGroupMetadata(target.existingConfiguredGroup.id, {
@@ -2940,6 +3035,7 @@ async function createGroups(
       observedGroupTitles.set(groupId, options.title ?? '');
       if (options.autoGroupConfigId) {
         setGroupMetadata(groupId, {
+          autoGroupCreated: true,
           autoGroupConfigId: options.autoGroupConfigId
         });
       }
@@ -3404,9 +3500,13 @@ export function installBackgroundService(): void {
         if ((tab.groupId ?? -1) >= 0) {
           await ensureAutoGroupExemptionsLoaded();
           deleteAutoGroupExemption(tab.id!);
+        } else if (programmaticAutoGroupUngroupTabIds.delete(tab.id!)) {
+          await ensureAutoGroupExemptionsLoaded();
+          deleteAutoGroupExemption(tab.id!);
         } else {
           await rememberManualAutoGroupExit(tab);
         }
+        await cleanupSingleTabAutoGroups();
       }
 
       await trackTabHistory(tab, 'updated');
@@ -3470,6 +3570,9 @@ export function installBackgroundService(): void {
     scheduleActionDuplicateBadgeUpdate();
     scheduleAutoSessionSnapshot();
     scheduleAutoCollapseInactiveGroupsCheck();
+    void cleanupSingleTabAutoGroups().catch((error) => {
+      console.warn('Failed to cleanup single-tab auto group after tab removal.', error);
+    });
   });
 
   chrome.tabGroups.onUpdated.addListener((group) => {

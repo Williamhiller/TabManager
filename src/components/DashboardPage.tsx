@@ -19,11 +19,19 @@ import {
 } from './dashboard';
 import { createAutoGroupRule } from './tab-tree-helpers';
 import type { DashboardData, DashboardViewId } from './dashboard';
-import type { AutoGroupConfig, AutoGroupRule, AutoCloseInactiveTabsMinutes, ManagerSettings, ThemeMode } from '../lib/contracts';
+import type {
+  AutoGroupConfig,
+  AutoGroupRule,
+  AutoCloseInactiveTabsMinutes,
+  BrowserCommandShortcutState,
+  ManagerSettings,
+  ThemeMode
+} from '../lib/contracts';
 import { createAutoGroupConfig } from '../lib/auto-group-config';
 import { getErrorMessage } from '../lib/format';
 import { getMessages, resolveLocale } from '../lib/i18n';
 import {
+  getBrowserCommandShortcutState,
   getBookmarks,
   getOverview,
   getRedirectTrackingPermissionState,
@@ -58,8 +66,16 @@ function getInitialAutoGroupConfigId(): string | null {
   return new URLSearchParams(window.location.search).get('autoGroupConfig');
 }
 
+function shouldHighlightShortcutSetup(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  return new URLSearchParams(window.location.search).get('shortcutSetup') === '1';
+}
+
 export function DashboardPage() {
   const [activeView, setActiveView] = useState<DashboardViewId>(() => getInitialDashboardView());
+  const [highlightShortcutSetup] = useState(() => shouldHighlightShortcutSetup());
+  const [browserShortcutState, setBrowserShortcutState] = useState<BrowserCommandShortcutState | null>(null);
   const [data, setData] = useState<DashboardData>({
     bookmarks: null,
     overview: null,
@@ -155,6 +171,16 @@ export function DashboardPage() {
       }
     };
 
+    const loadBrowserShortcutState = async () => {
+      try {
+        const shortcutState = await getBrowserCommandShortcutState();
+        if (!mounted) return;
+        setBrowserShortcutState(shortcutState);
+      } catch (nextError) {
+        if (mounted) setError(getErrorMessage(nextError));
+      }
+    };
+
     const load = async () => {
       try {
         const settings = await getSettings();
@@ -170,6 +196,7 @@ export function DashboardPage() {
       void loadBookmarks();
       void loadSessions();
       void loadRedirectPermission();
+      void loadBrowserShortcutState();
     };
 
     const refreshOverview = async () => {
@@ -495,6 +522,8 @@ export function DashboardPage() {
             })
           }
           onOpenStore={handleOpenStore}
+          browserShortcutState={browserShortcutState}
+          highlightBrowserShortcutSetup={highlightShortcutSetup}
           shareCta={t.shareCta}
           shareCopyLabel={t.copyStoreLink}
           shareCopyTextLabel={t.copyShareText}
@@ -517,7 +546,6 @@ export function DashboardPage() {
             activeView === 'automation' ||
             activeView === 'deduplication' ||
             activeView === 'autoclose' ||
-            activeView === 'shortcuts' ||
             activeView === 'bookmarks' ||
             activeView === 'snapshots'
               ? 'tm-dashboard-frame tm-dashboard-frame-settings'

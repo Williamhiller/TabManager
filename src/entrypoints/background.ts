@@ -11,6 +11,8 @@ import { withTimeout } from '../lib/shared-utils';
 let preferredLaunchSurface: LaunchSurface = 'sidepanel';
 const LAUNCH_SURFACE_OPEN_TIMEOUT_MS = 4_000;
 const ACTION_POPUP_PATH = 'popup.html';
+const COMMAND_PALETTE_COMMAND_NAME = 'toggle-command-palette';
+const SHORTCUT_SETUP_PROMPTED_VERSION_KEY = 'tmShortcutSetupPromptedVersion';
 
 function isLaunchSurface(value: unknown): value is LaunchSurface {
   return value === 'sidepanel' || value === 'popup' || value === 'dashboard';
@@ -102,6 +104,26 @@ async function openConfiguredLaunchSurface(tab?: chrome.tabs.Tab): Promise<void>
   await openOrRefreshDashboardTab();
 }
 
+async function isCommandPaletteShortcutActive(): Promise<boolean> {
+  const commands = await chrome.commands.getAll();
+  const command = commands.find((item) => item.name === COMMAND_PALETTE_COMMAND_NAME);
+  return Boolean(command?.shortcut?.trim());
+}
+
+async function maybePromptShortcutSetup(details: chrome.runtime.InstalledDetails): Promise<void> {
+  if (details.reason !== 'update') return;
+
+  const version = chrome.runtime.getManifest().version;
+  const prompted = await chrome.storage.local.get(SHORTCUT_SETUP_PROMPTED_VERSION_KEY);
+  if (prompted[SHORTCUT_SETUP_PROMPTED_VERSION_KEY] === version) return;
+
+  const active = await isCommandPaletteShortcutActive();
+  if (active) return;
+
+  await chrome.storage.local.set({ [SHORTCUT_SETUP_PROMPTED_VERSION_KEY]: version });
+  await openOrRefreshDashboardTab('/dashboard.html?shortcutSetup=1');
+}
+
 async function handleInstalled(details: chrome.runtime.InstalledDetails): Promise<void> {
   if (details.reason === 'install') {
     await updateSettings({ launchSurface: 'dashboard' });
@@ -117,12 +139,14 @@ async function handleInstalled(details: chrome.runtime.InstalledDetails): Promis
   if (storedLaunchSurface != null) {
     preferredLaunchSurface = storedLaunchSurface;
     await syncActionBehavior(storedLaunchSurface);
+    await maybePromptShortcutSetup(details);
     return;
   }
 
   await updateSettings({ launchSurface: 'sidepanel' });
   preferredLaunchSurface = 'sidepanel';
   await syncActionBehavior('sidepanel');
+  await maybePromptShortcutSetup(details);
 }
 
 function handleCommand(command: string): void {

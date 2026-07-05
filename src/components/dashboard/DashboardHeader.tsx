@@ -1,14 +1,16 @@
 import { FloatingArrow, FloatingPortal, arrow, autoUpdate, flip, offset, shift, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react';
-import { RiDashboardLine, RiExternalLinkLine, RiFeedbackLine, RiFileCopyLine, RiLayoutRightLine, RiMailLine, RiMoonLine, RiShareForwardLine, RiSunLine, RiTextSnippet, RiTwitterXLine, RiWindowLine } from '@remixicon/react';
+import { RiDashboardLine, RiExternalLinkLine, RiFeedbackLine, RiFileCopyLine, RiKeyboardLine, RiLayoutRightLine, RiMailLine, RiMoonLine, RiShareForwardLine, RiSunLine, RiTextSnippet, RiTwitterXLine, RiWindowLine } from '@remixicon/react';
 import { useRef, useState } from 'react';
 
-import type { ManagerSettings } from '../../lib/contracts';
+import type { BrowserCommandShortcutState, ManagerSettings } from '../../lib/contracts';
 import { Tooltip } from '../Tooltip';
 
 import dashboardLogo from '../../assets/icons/icon-128.png';
 
 type DashboardHeaderProps = {
+  browserShortcutState: BrowserCommandShortcutState | null;
   feedbackLabel: string;
+  highlightBrowserShortcutSetup: boolean;
   launchSurface: ManagerSettings['launchSurface'];
   shareCta: string;
   shareFeedback: string | null;
@@ -34,8 +36,12 @@ type DashboardHeaderProps = {
   title: string;
 };
 
+const CHROME_SHORTCUTS_URL = 'chrome://extensions/shortcuts';
+
 export function DashboardHeader({
+  browserShortcutState,
   feedbackLabel,
+  highlightBrowserShortcutSetup,
   launchSurface,
   shareCta,
   shareFeedback,
@@ -89,6 +95,12 @@ export function DashboardHeader({
     action();
   };
 
+  const handleOpenChromeShortcuts = () => {
+    chrome.tabs.create({ url: CHROME_SHORTCUTS_URL }).catch((error) => {
+      console.warn('Failed to open Chrome shortcuts page.', error);
+    });
+  };
+
   return (
     <header className="tm-dashboard-header">
       <div className="tm-dashboard-header-brand">
@@ -100,6 +112,21 @@ export function DashboardHeader({
       </div>
 
       <div className="tm-dashboard-header-actions">
+        {browserShortcutState && !browserShortcutState.active ? (
+          <Tooltip content="Set Chrome shortcut">
+            <button
+              aria-label="Set Chrome shortcut"
+              className="tm-dashboard-shortcut-warning"
+              data-highlight={highlightBrowserShortcutSetup}
+              onClick={handleOpenChromeShortcuts}
+              title="Set Chrome shortcut"
+              type="button"
+            >
+              <RiKeyboardLine size={16} />
+              <span>Set shortcut</span>
+            </button>
+          </Tooltip>
+        ) : null}
         <Tooltip content={feedbackLabel}>
           <button
             aria-label={feedbackLabel}
