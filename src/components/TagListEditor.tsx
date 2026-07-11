@@ -1,10 +1,12 @@
-import { RiCloseLine } from '@remixicon/react';
+import { RiAddLine, RiCloseLine } from '@remixicon/react';
 import type { KeyboardEvent } from 'react';
 import { useState } from 'react';
 
 type TagListEditorProps = {
+  addLabel?: string;
   ariaLabel: string;
   disabled?: boolean;
+  layout?: 'inline' | 'separated';
   onChange: (entries: string[]) => void;
   placeholder: string;
   removeLabel: string;
@@ -37,8 +39,10 @@ function mergeTagEntries(current: string[], draft: string): string[] {
 }
 
 export function TagListEditor({
+  addLabel,
   ariaLabel,
   disabled = false,
+  layout = 'inline',
   onChange,
   placeholder,
   removeLabel,
@@ -60,7 +64,7 @@ export function TagListEditor({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter' && event.key !== ',' && event.key !== '|' && event.key !== ' ') return;
+    if (event.key !== 'Enter' && event.key !== ',' && event.key !== '|' && (layout === 'separated' || event.key !== ' ')) return;
     event.preventDefault();
     commitDraft();
   };
@@ -69,6 +73,49 @@ export function TagListEditor({
     if (disabled) return;
     onChange(value.filter((item) => item !== entry));
   };
+
+  if (layout === 'separated') {
+    return (
+      <div className="tm-tag-editor tm-tag-editor-separated" data-disabled={disabled}>
+        <div className="tm-tag-add-row">
+          <input
+            aria-label={ariaLabel}
+            className="tm-tag-add-input"
+            disabled={disabled}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            value={draft}
+          />
+          <button
+            className="tm-tag-add-button"
+            disabled={disabled || !draft.trim()}
+            onClick={commitDraft}
+            type="button"
+          >
+            <RiAddLine size={14} />
+            <span>{addLabel ?? ariaLabel}</span>
+          </button>
+        </div>
+        <div className="tm-tag-list tm-tag-list-separated" data-empty={value.length === 0 ? 'true' : 'false'}>
+          {value.map((entry) => (
+            <span className="tm-tag-chip" key={entry}>
+              <span>{entry}</span>
+              <button
+                aria-label={`${removeLabel}: ${entry}`}
+                className="tm-tag-remove"
+                disabled={disabled}
+                onClick={() => removeEntry(entry)}
+                type="button"
+              >
+                <RiCloseLine size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="tm-tag-editor" data-disabled={disabled}>

@@ -133,8 +133,10 @@ export function DashboardAutoClosePanel({
 
                     <div className="tm-dashboard-dedup-card-body">
                       <TagListEditor
+                        addLabel={t.addCondition}
                         ariaLabel={t.autoCleanupWhitelist}
                         disabled={busy}
+                        layout="separated"
                         onChange={onAutoCleanupWhitelistChange}
                         placeholder={t.autoCleanupWhitelistPlaceholder}
                         removeLabel={t.removeCondition}

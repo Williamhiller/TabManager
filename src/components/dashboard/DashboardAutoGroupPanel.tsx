@@ -19,6 +19,7 @@ import {
   getDefaultAutoGroupPresetTitle,
   isDefaultAutoGroupPresetTitle
 } from '../../lib/auto-group-defaults';
+import { normalizeWebsitePattern } from '../../lib/shared-utils';
 import { allGroupColors, groupColorTokens } from '../../lib/theme';
 import { getPresetPatternLabels } from '../tab-tree-helpers';
 import type { DashboardAutoGroupPanelProps } from './types';
@@ -193,7 +194,7 @@ export function DashboardAutoGroupPanel({
 
     const nextEntries = websiteDraft
       .split(/[\s,|]+/g)
-      .map((item) => item.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
+      .map(normalizeWebsitePattern)
       .filter(Boolean);
 
     if (nextEntries.length === 0) return;
@@ -211,7 +212,7 @@ export function DashboardAutoGroupPanel({
   };
 
   const handleWebsiteDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter' && event.key !== ',' && event.key !== '|' && event.key !== ' ') return;
+    if (event.key !== 'Enter' && event.key !== ',' && event.key !== '|') return;
     event.preventDefault();
     commitWebsiteDraft();
   };
@@ -393,29 +394,39 @@ export function DashboardAutoGroupPanel({
                       <strong>{`${t.ruleDomain}·${t.ruleContains}`}</strong>
                       <p>{t.domainContainsSub}</p>
                     </div>
-                    <div className="tm-dashboard-automation-tag-editor">
-                      <div className="tm-dashboard-automation-tag-list">
-                        {selectedDomainTags.map((website) => (
-                          <span className="tm-dashboard-automation-tag" key={website}>
-                            <span>{website}</span>
-                            <button
-                              aria-label={t.removeCondition}
-                              className="tm-dashboard-automation-tag-remove"
-                              onClick={() => removeWebsiteTag(website)}
-                              type="button"
-                            >
-                              <RiCloseLine size={12} />
-                            </button>
-                          </span>
-                        ))}
+                    <div className="tm-dashboard-automation-domain-editor">
+                      <div className="tm-dashboard-automation-domain-add-row">
                         <input
-                          className="tm-dashboard-automation-tag-input"
-                          onBlur={commitWebsiteDraft}
+                          className="tm-dashboard-automation-input tm-dashboard-automation-domain-input"
                           onChange={(event) => setWebsiteDraft(event.target.value)}
                           onKeyDown={handleWebsiteDraftKeyDown}
                           placeholder={t.ruleValuePlaceholder}
                           value={websiteDraft}
                         />
+                        <button
+                          className="tm-dashboard-automation-inline-button tm-dashboard-automation-domain-add"
+                          disabled={!websiteDraft.trim()}
+                          onClick={commitWebsiteDraft}
+                          type="button"
+                        >
+                          <RiAddLine size={14} />
+                          {t.addCondition}
+                        </button>
+                      </div>
+                      <div className="tm-dashboard-automation-domain-list" data-empty={selectedDomainTags.length === 0 ? 'true' : 'false'}>
+                        {selectedDomainTags.map((website) => (
+                          <div className="tm-dashboard-automation-domain-item" key={website}>
+                            <span>{website}</span>
+                            <button
+                              aria-label={t.removeCondition}
+                              className="tm-dashboard-automation-domain-remove"
+                              onClick={() => removeWebsiteTag(website)}
+                              type="button"
+                            >
+                              <RiCloseLine size={12} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

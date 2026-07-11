@@ -139,7 +139,7 @@ const validGroupColors: readonly TabGroupColor[] = [
 export const defaultSettings: ManagerSettings = {
   launchSurface: 'sidepanel',
   autoRefreshSeconds: 15,
-  autoCollapseInactiveGroupsMinutes: 30,
+  autoCollapseInactiveGroupsMinutes: 60,
   autoSleepInactiveTabsMinutes: 0,
   autoCloseInactiveTabsMinutes: 0,
   autoCloseDomainMode: 'exclude',
@@ -174,7 +174,7 @@ const SETTINGS_MIGRATIONS_KEY = 'manager-settings-migrations';
 let settingsUpdateQueue: Promise<ManagerSettings> = Promise.resolve(defaultSettings);
 
 interface SettingsMigrationState {
-  autoCollapseDefault30?: boolean;
+  autoCollapseDefault60?: boolean;
 }
 
 interface SettingsMigrationResult {
@@ -189,7 +189,7 @@ function normalizeSettingsMigrationState(value: unknown): SettingsMigrationState
 
   const state = value as Partial<SettingsMigrationState>;
   return {
-    autoCollapseDefault30: state.autoCollapseDefault30 === true
+    autoCollapseDefault60: state.autoCollapseDefault60 === true
   };
 }
 
@@ -202,14 +202,14 @@ function migrateStoredSettings(
   let migrationsChanged = false;
   let settingsChanged = false;
 
-  if (!nextMigrations.autoCollapseDefault30) {
-    nextMigrations.autoCollapseDefault30 = true;
+  if (!nextMigrations.autoCollapseDefault60) {
+    nextMigrations.autoCollapseDefault60 = true;
     migrationsChanged = true;
 
     if (raw?.autoCollapseInactiveGroupsMinutes === 10) {
       nextRaw = {
         ...raw,
-        autoCollapseInactiveGroupsMinutes: 30
+        autoCollapseInactiveGroupsMinutes: 60
       };
       settingsChanged = true;
     }

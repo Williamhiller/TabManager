@@ -154,8 +154,10 @@ export function DashboardDeduplicationPanel({
 
                 <div className="tm-dashboard-dedup-card-body">
                   <TagListEditor
+                    addLabel={t.addCondition}
                     ariaLabel={siteListTitle}
                     disabled={!settings.autoDeduplicateTabs}
+                    layout="separated"
                     onChange={onDeduplicationSitesChange}
                     placeholder={siteListPlaceholder}
                     removeLabel={t.removeCondition}

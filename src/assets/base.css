@@ -3797,14 +3797,73 @@ button:disabled {
     opacity: 0.62;
   }
 
+  .tm-tag-editor-separated {
+    border: 0;
+    background: transparent;
+    @apply flex min-h-0 flex-col gap-3 rounded-none p-0;
+  }
+
+  .tm-tag-add-row {
+    @apply grid gap-2;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .tm-tag-add-input {
+    background: transparent;
+    border: 1px solid var(--tm-border);
+    color: var(--tm-text);
+    @apply h-[42px] min-w-0 rounded-[12px] px-3 text-[13px] outline-none;
+  }
+
+  .tm-tag-add-input::placeholder {
+    color: var(--tm-text-faint);
+  }
+
+  .tm-tag-add-input:focus {
+    border-color: color-mix(in srgb, var(--tm-primary) 58%, var(--tm-border-strong));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tm-primary) 14%, transparent);
+  }
+
+  .tm-tag-add-button {
+    background: color-mix(in srgb, var(--tm-primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tm-primary) 30%, var(--tm-border));
+    color: color-mix(in srgb, var(--tm-primary) 82%, var(--tm-text));
+    @apply inline-flex h-[42px] items-center justify-center gap-1.5 rounded-[12px] px-4 text-[12px] font-semibold whitespace-nowrap;
+  }
+
+  .tm-tag-add-button:hover:not(:disabled),
+  .tm-tag-add-button:focus-visible:not(:disabled) {
+    background: color-mix(in srgb, var(--tm-primary) 16%, transparent);
+    border-color: color-mix(in srgb, var(--tm-primary) 48%, var(--tm-border));
+    outline: none;
+  }
+
+  .tm-tag-add-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
+
   .tm-tag-list {
     @apply flex flex-wrap items-center gap-2;
+  }
+
+  .tm-tag-list-separated {
+    max-height: 156px;
+    overflow: auto;
+    @apply p-px;
+  }
+
+  .tm-tag-list-separated[data-empty='true'] {
+    border: 1px dashed var(--tm-border);
+    background: color-mix(in srgb, var(--tm-surface-muted) 42%, transparent);
+    @apply min-h-9 rounded-[12px];
   }
 
   .tm-tag-chip {
     background: var(--tm-surface-muted);
     color: var(--tm-text);
-    @apply inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full px-2.5 text-xs leading-none;
+    border: 1px solid color-mix(in srgb, var(--tm-border) 70%, transparent);
+    @apply inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full py-0 pl-2.5 pr-1 text-xs font-semibold leading-none;
   }
 
   .tm-tag-chip span {
@@ -3814,7 +3873,7 @@ button:disabled {
 
   .tm-tag-remove {
     color: var(--tm-text-faint);
-    @apply inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-0 bg-transparent;
+    @apply inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-0 bg-transparent;
   }
 
   .tm-tag-remove:hover:not(:disabled),
@@ -4428,6 +4487,14 @@ button:disabled {
   @media (max-width: 640px) {
     .tm-settings-hero {
       @apply px-4 py-4;
+    }
+
+    .tm-tag-add-row {
+      grid-template-columns: 1fr;
+    }
+
+    .tm-tag-add-button {
+      @apply w-full;
     }
 
     .tm-settings-hero-title {
