@@ -6,6 +6,7 @@ import type {
   AutoCollapseInactiveGroupsMinutes,
   AutoDeduplicationKeep,
   AutoDeduplicationScope,
+  AutoGroupLearningSensitivity,
   AutoSleepInactiveTabsMinutes,
   AutoGroupConfig,
   AutoGroupRule,
@@ -120,6 +121,7 @@ const validAutoDeduplicationScopes: readonly AutoDeduplicationScope[] = [
   'listed-only'
 ];
 const validAutoDeduplicationKeep: readonly AutoDeduplicationKeep[] = ['newest', 'existing'];
+const validAutoGroupLearningSensitivity: readonly AutoGroupLearningSensitivity[] = ['off', 'high'];
 const validThemes: readonly ThemeMode[] = ['light', 'dark', 'system'];
 const validLocales: readonly LocaleMode[] = ['system', 'en', 'zh-CN', 'ja', 'fr', 'es', 'ar', 'ru', 'el', 'ko'];
 const validRuleFields: readonly AutoGroupRuleField[] = ['hostname', 'url', 'title'];
@@ -150,6 +152,7 @@ export const defaultSettings: ManagerSettings = {
   autoDeduplicationSites: [],
   blockChromeAutoGroup: true,
   autoGroupEnabled: true,
+  autoGroupLearningSensitivity: 'high',
   autoSnapshotsEnabled: true,
   showHistory: true,
   redirectTrackingEnabled: false,
@@ -318,6 +321,12 @@ function normalizeAutoGroupEnabled(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.autoGroupEnabled;
 }
 
+function normalizeAutoGroupLearningSensitivity(value: unknown): AutoGroupLearningSensitivity {
+  return validAutoGroupLearningSensitivity.includes(value as AutoGroupLearningSensitivity)
+    ? (value as AutoGroupLearningSensitivity)
+    : defaultSettings.autoGroupLearningSensitivity;
+}
+
 function normalizeAutoSnapshotsEnabled(value: unknown): boolean {
   return typeof value === 'boolean' ? value : defaultSettings.autoSnapshotsEnabled;
 }
@@ -470,6 +479,7 @@ function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {
     autoDeduplicationSites: normalizeAutoDeduplicationSites(raw?.autoDeduplicationSites),
     blockChromeAutoGroup: normalizeBlockChromeAutoGroup(raw?.blockChromeAutoGroup),
     autoGroupEnabled: normalizeAutoGroupEnabled(raw?.autoGroupEnabled),
+    autoGroupLearningSensitivity: normalizeAutoGroupLearningSensitivity(raw?.autoGroupLearningSensitivity),
     autoSnapshotsEnabled: normalizeAutoSnapshotsEnabled(raw?.autoSnapshotsEnabled),
     showHistory: normalizeShowHistory(raw?.showHistory),
     redirectTrackingEnabled: normalizeRedirectTrackingEnabled(raw?.redirectTrackingEnabled),

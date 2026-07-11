@@ -45,6 +45,7 @@ import {
   matchesDefaultAutoGroupPresetById,
   matchDefaultAutoGroupPreset
 } from './auto-group-defaults';
+import { createAutoGroupConfig } from './auto-group-config';
 import { planAutoDeduplication } from './auto-deduplicate';
 import { updateAutoGroupConfigTitleFromGroup } from './auto-group-config-sync';
 import {
@@ -176,6 +177,7 @@ const groupMetadataRecords = new Map<number, GroupMetadataRecord>();
 const groupInteractionRecords = new Map<number, number>();
 const observedGroupTitles = new Map<number, string>();
 const autoGroupExemptionRecords = new Map<number, AutoGroupExemptionRecord>();
+const programmaticAutoGroupTabIds = new Set<number>();
 const programmaticAutoGroupUngroupTabIds = new Set<number>();
 const sessionRecords = new Map<string, SessionRecord>();
 const pendingRedirectEvents = new Map<number, PendingRedirectEvent[]>();
@@ -1049,8 +1051,6 @@ async function cleanupSingleTabAutoGroups(): Promise<void> {
   for (const group of groups) {
     const groupTabs = tabsByGroup.get(group.id) ?? [];
     if (!shouldCleanupSingleTabAutoGroup(groupTabs.length)) continue;
-    const metadata = getGroupMetadata(group.id);
-    if (!metadata.autoGroupCreated) continue;
     if (!getBoundAutoGroupConfigId(group.id, settings)) continue;
 
     const tabId = groupTabs[0]?.id;
@@ -1178,6 +1178,124 @@ async function maybeAutoGroupTab(tab: chrome.tabs.Tab): Promise<void> {
   await maybeAutoGroupTabs([tab.id]);
 }
 
+function getLearnableWebsitesFromTabs(tabs: chrome.tabs.Tab[]): string[] {
+  return Array.from(
+    new Set(
+      tabs
+        .map((tab) => normalizeHostname(tab.url ?? tab.pendingUrl ?? ''))
+        .map(normalizeWebsitePattern)
+        .filter(Boolean)
+    )
+  );
+}
+
+function normalizeLearnedGroupTitle(title: string | undefined): string {
+  return (title ?? '').trim() || 'Custom group';
+}
+
+function findLearnableAutoGroupConfig(
+  configs: AutoGroupConfig[],
+  groupId: number,
+  title: string
+): AutoGroupConfig | null {
+  const boundConfigId = getGroupMetadata(groupId).autoGroupConfigId;
+  const boundConfig = boundConfigId
+    ? configs.find((config) => config.id === boundConfigId) ?? null
+    : null;
+  if (boundConfig && !boundConfig.presetId) return boundConfig;
+
+  const normalizedTitle = title.trim().toLowerCase();
+  return (
+    configs.find(
+      (config) => !config.presetId && config.title.trim().toLowerCase() === normalizedTitle
+    ) ?? null
+  );
+}
+
+async function learnAutoGroupRuleFromGroup(groupId: number): Promise<void> {
+  const settings = await getSettings();
+  if (settings.autoGroupLearningSensitivity === 'off') return;
+
+  await ensureGroupMetadataLoaded();
+
+  const [group, tabs] = await Promise.all([
+    chrome.tabGroups.get(groupId),
+    chrome.tabs.query({ groupId })
+  ]);
+  const websites = getLearnableWebsitesFromTabs(tabs);
+  if (websites.length === 0) return;
+
+  const title = normalizeLearnedGroupTitle(group.title);
+  const existingConfig = findLearnableAutoGroupConfig(settings.autoGroupConfigs, groupId, title);
+  const nextConfig = existingConfig
+    ? {
+        ...existingConfig,
+        title,
+        color: group.color as TabGroupColor,
+        enabled: true,
+        websites: Array.from(new Set([...existingConfig.websites, ...websites]))
+      }
+    : {
+        ...createAutoGroupConfig(title, { color: group.color as TabGroupColor }),
+        websites
+      };
+
+  const nextConfigs = existingConfig
+    ? settings.autoGroupConfigs.map((config) =>
+        config.id === existingConfig.id ? nextConfig : config
+      )
+    : [nextConfig, ...settings.autoGroupConfigs];
+
+  await updateSettings({
+    autoGroupEnabled: true,
+    autoGroupConfigs: nextConfigs
+  });
+  setGroupMetadata(groupId, { autoGroupConfigId: nextConfig.id });
+}
+
+async function forgetAutoGroupRuleFromManualGroupExit(tab: chrome.tabs.Tab): Promise<void> {
+  if (tab.id == null) return;
+
+  const settings = await getSettings();
+  if (settings.autoGroupLearningSensitivity === 'off') return;
+
+  await Promise.all([ensureTabHistoryLoaded(), ensureGroupMetadataLoaded()]);
+
+  const previousSnapshot = tabHistoryRecords.get(tab.id)?.snapshot;
+  const previousGroupId = previousSnapshot?.groupId ?? -1;
+  if (previousGroupId < 0) return;
+
+  const website = normalizeWebsitePattern(normalizeHostname(tab.url ?? tab.pendingUrl ?? ''));
+  if (!website) return;
+
+  const remainingGroupTabs = await chrome.tabs.query({ groupId: previousGroupId }).catch(() => []);
+  const remainingWebsites = new Set(getLearnableWebsitesFromTabs(remainingGroupTabs));
+  if (remainingWebsites.has(website)) return;
+
+  const boundConfigId = getGroupMetadata(previousGroupId).autoGroupConfigId;
+  const previousTitle = previousSnapshot?.groupTitle?.trim().toLowerCase() ?? '';
+  const boundConfig = boundConfigId
+    ? settings.autoGroupConfigs.find((entry) => entry.id === boundConfigId) ?? null
+    : null;
+  const config = boundConfig ??
+    settings.autoGroupConfigs.find(
+      (entry) => !entry.presetId && entry.title.trim().toLowerCase() === previousTitle
+    ) ??
+    null;
+  if (!config || config.presetId) return;
+
+  const nextWebsites = config.websites.filter(
+    (entry) => normalizeWebsitePattern(entry) !== website
+  );
+  if (nextWebsites.length === config.websites.length) return;
+
+  await updateSettings({
+    autoGroupConfigs: settings.autoGroupConfigs.map((entry) =>
+      entry.id === config.id ? { ...entry, websites: nextWebsites } : entry
+    )
+  });
+}
+
 async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
   const settings = await getSettings();
   if (!settings.autoGroupEnabled) return;
@@ -1238,13 +1356,14 @@ async function maybeAutoGroupTabs(tabIds?: number[]): Promise<void> {
 
     const result =
       target.kind === 'group'
-        ? await createGroups(targetTabIds, { groupId: target.group.id })
+        ? await createGroups(targetTabIds, { groupId: target.group.id, learn: false })
         : target.existingConfiguredGroup
-          ? await createGroups(targetTabIds, { groupId: target.existingConfiguredGroup.id })
+          ? await createGroups(targetTabIds, { groupId: target.existingConfiguredGroup.id, learn: false })
           : await createGroups(targetTabIds, {
               title: target.configTitle,
               color: target.config.color,
-              autoGroupConfigId: target.config.id
+              autoGroupConfigId: target.config.id,
+              learn: false
             });
 
     if (result.affectedCount > 0) {
@@ -1817,6 +1936,18 @@ function getGroupLastActivityAt(groupId: number, tabs: chrome.tabs.Tab[]): numbe
 function markGroupInteracted(groupId: number, at = Date.now()): void {
   groupInteractionRecords.set(groupId, at);
   setGroupMetadata(groupId, { lastInteractedAt: at });
+}
+
+function markProgrammaticAutoGroupedTabs(tabIds: number[]): void {
+  for (const tabId of tabIds) {
+    programmaticAutoGroupTabIds.add(tabId);
+  }
+
+  setTimeout(() => {
+    for (const tabId of tabIds) {
+      programmaticAutoGroupTabIds.delete(tabId);
+    }
+  }, 5_000);
 }
 
 function getRuntimeMessageTimeoutMs(request: ExtensionRequest): number {
@@ -2951,7 +3082,8 @@ async function discardTabs(tabIds: number[]): Promise<TabMutationResult> {
 
 async function assignTabsToGroup(
   tabIds: number[],
-  groupId: number
+  groupId: number,
+  learn = true
 ): Promise<TabMutationResult> {
   const uniqueIds = uniqueTabIds(tabIds);
   if (uniqueIds.length === 0) return collectMutationOutcome([]);
@@ -2985,6 +3117,10 @@ async function assignTabsToGroup(
   const nonEmptyTabIds = asNonEmptyTabIds(movedTabIds);
   if (!nonEmptyTabIds) return collectMutationOutcome([]);
 
+  if (!learn) {
+    markProgrammaticAutoGroupedTabs(nonEmptyTabIds);
+  }
+
   await chrome.tabs.group({
     groupId,
     tabIds: nonEmptyTabIds
@@ -2992,6 +3128,10 @@ async function assignTabsToGroup(
 
   for (const tabId of movedTabIds) {
     deleteAutoGroupExemption(tabId);
+  }
+
+  if (learn) {
+    await learnAutoGroupRuleFromGroup(groupId);
   }
 
   return collectMutationOutcome(movedTabIds);
@@ -3002,7 +3142,7 @@ async function createGroups(
   options: GroupTabsOptions
 ): Promise<TabMutationResult> {
   if (options.groupId != null) {
-    return assignTabsToGroup(tabIds, options.groupId);
+    return assignTabsToGroup(tabIds, options.groupId, options.learn !== false);
   }
 
   const tabs = await loadTabsById(uniqueTabIds(tabIds));
@@ -3022,6 +3162,10 @@ async function createGroups(
     const nonEmptyTabIds = asNonEmptyTabIds(windowTabIds);
     if (!nonEmptyTabIds) continue;
 
+    if (options.learn === false) {
+      markProgrammaticAutoGroupedTabs(nonEmptyTabIds);
+    }
+
     const groupId = await chrome.tabs.group({
       tabIds: nonEmptyTabIds,
       createProperties: { windowId }
@@ -3038,6 +3182,9 @@ async function createGroups(
           autoGroupCreated: true,
           autoGroupConfigId: options.autoGroupConfigId
         });
+      }
+      if (options.learn !== false && !options.autoGroupConfigId) {
+        await learnAutoGroupRuleFromGroup(groupId);
       }
       affected.push(...windowTabIds);
     }
@@ -3278,6 +3425,9 @@ async function updateGroup(
     if (patch.collapsed === false) {
       markGroupInteracted(groupId);
     }
+    if (patch.title !== undefined || patch.color !== undefined) {
+      await learnAutoGroupRuleFromGroup(groupId);
+    }
   }
 
   if (
@@ -3500,11 +3650,15 @@ export function installBackgroundService(): void {
         if ((tab.groupId ?? -1) >= 0) {
           await ensureAutoGroupExemptionsLoaded();
           deleteAutoGroupExemption(tab.id!);
+          if (!programmaticAutoGroupTabIds.delete(tab.id!)) {
+            await learnAutoGroupRuleFromGroup(tab.groupId!);
+          }
         } else if (programmaticAutoGroupUngroupTabIds.delete(tab.id!)) {
           await ensureAutoGroupExemptionsLoaded();
           deleteAutoGroupExemption(tab.id!);
         } else {
           await rememberManualAutoGroupExit(tab);
+          await forgetAutoGroupRuleFromManualGroupExit(tab);
         }
         await cleanupSingleTabAutoGroups();
       }
@@ -3586,6 +3740,9 @@ export function installBackgroundService(): void {
     if (titleChanged) {
       void syncAutoGroupConfigTitleFromGroup(group).catch((error) => {
         console.warn('Failed to sync auto group config title from group rename.', error);
+      });
+      void learnAutoGroupRuleFromGroup(group.id).catch((error) => {
+        console.warn('Failed to learn auto group rule from group rename.', error);
       });
     }
     scheduleOverviewInvalidation('updated');

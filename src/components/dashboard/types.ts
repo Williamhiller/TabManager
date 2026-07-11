@@ -66,6 +66,7 @@ export type DashboardViewModel = {
 
 export type DashboardAutoGroupPanelProps = {
   autoGroupEnabled: boolean;
+  autoGroupLearningSensitivity: ManagerSettings['autoGroupLearningSensitivity'];
   configs: AutoGroupConfig[];
   locale: ResolvedLocale;
   onAddConfig: () => void;
@@ -75,6 +76,7 @@ export type DashboardAutoGroupPanelProps = {
   onReorderConfigs: (activeConfigId: string, overConfigId: string) => void;
   onSelectConfig: (configId: string) => void;
   onToggleAutoGroup: () => void;
+  onToggleAutoGroupLearning: () => void;
   onToggleConfig: (configId: string) => void;
   onUpdateConfig: (configId: string, patch: Partial<AutoGroupConfig>) => void;
   onUpdateRule: (configId: string, ruleId: string, patch: Partial<AutoGroupRule>) => void;

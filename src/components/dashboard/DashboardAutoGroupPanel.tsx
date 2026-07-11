@@ -26,6 +26,7 @@ import type { DashboardAutoGroupPanelProps } from './types';
 
 export function DashboardAutoGroupPanel({
   autoGroupEnabled,
+  autoGroupLearningSensitivity,
   configs,
   locale,
   onAddConfig,
@@ -33,6 +34,7 @@ export function DashboardAutoGroupPanel({
   onReorderConfigs,
   onSelectConfig,
   onToggleAutoGroup,
+  onToggleAutoGroupLearning,
   onToggleConfig,
   onUpdateConfig,
   selectedConfigId,
@@ -254,6 +256,27 @@ export function DashboardAutoGroupPanel({
             <p>{t.manageGroupsRulesSub}</p>
           </div>
         </header>
+
+        <section className="tm-dashboard-automation-learning-card">
+          <div>
+            <strong>{t.autoGroupLearning}</strong>
+            <p>{t.autoGroupLearningSub}</p>
+          </div>
+          <button
+            aria-pressed={autoGroupLearningSensitivity !== 'off'}
+            className="tm-dashboard-switch"
+            data-active={autoGroupLearningSensitivity !== 'off'}
+            onClick={onToggleAutoGroupLearning}
+            type="button"
+          >
+            <span className="tm-dashboard-switch-track">
+              <span className="tm-dashboard-switch-thumb" />
+            </span>
+            <span className="tm-dashboard-switch-label">
+              {autoGroupLearningSensitivity !== 'off' ? t.highSensitivity : t.disabled}
+            </span>
+          </button>
+        </section>
 
         {autoGroupEnabled ? (
           <div className="tm-dashboard-automation-layout">

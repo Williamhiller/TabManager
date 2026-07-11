@@ -91,7 +91,7 @@ export function TabsWorkspaceView<TEntry>({
       {createPortal(
         dragOverlayState.activeId ? (
           <div
-            className="tm-dashboard-automation-overlay-frame"
+            className="tm-tab-drag-overlay-frame"
             style={{
               borderColor:
                 activeDragGroupId != null

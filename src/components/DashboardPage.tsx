@@ -591,6 +591,7 @@ export function DashboardPage() {
           ) : activeView === 'automation' ? (
             <DashboardAutoGroupPanel
               autoGroupEnabled={data.settings.autoGroupEnabled}
+              autoGroupLearningSensitivity={data.settings.autoGroupLearningSensitivity}
               configs={data.settings.autoGroupConfigs}
               locale={locale}
               onAddConfig={() => void addAutoGroupConfig()}
@@ -602,6 +603,12 @@ export function DashboardPage() {
               }
               onSelectConfig={setSelectedAutoGroupConfigId}
               onToggleAutoGroup={() => void saveSettings({ autoGroupEnabled: !data.settings.autoGroupEnabled })}
+              onToggleAutoGroupLearning={() =>
+                void saveSettings({
+                  autoGroupLearningSensitivity:
+                    data.settings.autoGroupLearningSensitivity === 'off' ? 'high' : 'off'
+                })
+              }
               onToggleConfig={(configId) => {
                 const config = data.settings.autoGroupConfigs.find((item) => item.id === configId);
                 if (!config) return;
