@@ -57,6 +57,7 @@ assert.equal(updateAutoGroupConfigTitleFromGroup(configs, 'preset:social', 'Soci
 assert.equal(updateAutoGroupConfigTitleFromGroup(configs, 'preset:social', '  '), null);
 
 const backgroundSource = fs.readFileSync(backgroundSourcePath, 'utf8');
+const settingsSource = fs.readFileSync(path.join(rootDir, 'src/lib/settings.ts'), 'utf8');
 assert.doesNotMatch(
   backgroundSource,
   /ensureAutoGroupConfigBindingForGroup/,
@@ -86,6 +87,36 @@ assert.match(
   backgroundSource,
   /if\s*\(titleChanged\)\s*\{[\s\S]*?syncAutoGroupConfigTitleFromGroup\(group\)/,
   'non-title tab group updates should not write group titles back into auto group configs'
+);
+assert.match(
+  backgroundSource,
+  /if\s*\(boundConfig\)\s*return\s+boundConfig/,
+  'learning from a bound default preset group should update that preset config instead of creating a duplicate custom group'
+);
+assert.match(
+  backgroundSource,
+  /isDefaultAutoGroupPresetTitle\(preset,\s*title\)/,
+  'learning from an unbound group with a default preset title should resolve to the preset config'
+);
+assert.match(
+  backgroundSource,
+  /resolveSingleDefaultPresetIdForTabs\(tabs\)/,
+  'learning from an unbound group whose tabs all match one default preset should not create a site-named custom group'
+);
+assert.match(
+  backgroundSource,
+  /tabs\.length\s*<\s*AUTO_GROUP_MIN_TAB_COUNT/,
+  'single-tab groups should not be learned into auto-group configs'
+);
+assert.match(
+  backgroundSource,
+  /shouldPreservePresetStyleFromLearnedGroup/,
+  'external site-named groups should not overwrite preset titles or colors when merged into a default preset'
+);
+assert.match(
+  settingsSource,
+  /foldDefaultTitleCustomAutoGroupConfigs\(next\)/,
+  'stored duplicate custom groups with default preset titles should be folded back into their preset configs'
 );
 
 fs.rmSync(tempDir, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 {
   "name": "tabfriday",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,7 @@
     "check:active-tab": "node scripts/check-active-tab-highlight.mjs",
     "check:auto-deduplicate": "node scripts/check-auto-deduplicate-behavior.mjs",
     "check:auto-group-title-sync": "node scripts/check-auto-group-config-title-sync.mjs",
+    "check:auto-group-matching": "node scripts/check-auto-group-matching.mjs",
     "check:single-tab-auto-groups": "node scripts/check-single-tab-auto-groups.mjs",
     "check:auto-groups": "node scripts/check-auto-group-defaults.mjs",
     "check:extension-favicon": "node scripts/check-extension-favicon.mjs",

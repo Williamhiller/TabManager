@@ -1,7 +1,6 @@
 import type {
   AutoGroupConfig,
   AutoGroupRule,
-  AutoGroupRuleField,
   BookmarkNodeSnapshot,
   BookmarksInvalidatedMessage,
   BookmarkTreeSnapshot,
@@ -46,9 +45,15 @@ import {
   matchDefaultAutoGroupPreset
 } from './auto-group-defaults';
 import { createAutoGroupConfig } from './auto-group-config';
+import {
+  matchesAutoGroupConfig,
+  matchesAutoGroupRule,
+  normalizeAutoGroupRuleValue
+} from './auto-group-matcher';
 import { planAutoDeduplication } from './auto-deduplicate';
 import { updateAutoGroupConfigTitleFromGroup } from './auto-group-config-sync';
 import {
+  AUTO_GROUP_MIN_TAB_COUNT,
   collectCreateableAutoGroupTabIds,
   shouldCleanupSingleTabAutoGroup
 } from './auto-group-tab-policy';
@@ -782,48 +787,6 @@ function isTabAutoGroupExempt(tabId: number, targetKey: string): boolean {
   return autoGroupExemptionRecords.get(tabId)?.targetKey === targetKey;
 }
 
-function normalizeAutoGroupRuleValue(field: AutoGroupRuleField, value: string): string {
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed) return '';
-
-  if (field === 'hostname') {
-    return trimmed.replace(/^www\./, '');
-  }
-
-  return trimmed;
-}
-
-function resolveAutoGroupTargetValue(tab: chrome.tabs.Tab, field: AutoGroupRuleField): string {
-  const rawUrl = `${tab.url ?? tab.pendingUrl ?? ''}`.trim();
-  if (field === 'title') return `${tab.title ?? ''}`.trim().toLowerCase();
-  if (!rawUrl) return '';
-
-  if (field === 'url') return rawUrl.toLowerCase();
-
-  try {
-    return new URL(rawUrl).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-}
-
-function matchesAutoGroupRule(
-  tab: chrome.tabs.Tab,
-  rule: AutoGroupRule
-): boolean {
-  const expected = normalizeAutoGroupRuleValue(rule.field, rule.value);
-  if (!expected) return false;
-
-  const actual = resolveAutoGroupTargetValue(tab, rule.field);
-  if (!actual) return false;
-
-  if (rule.operator === 'equals') {
-    return actual === expected;
-  }
-
-  return actual.includes(expected);
-}
-
 function matchesAnyAutoGroupRule(
   tab: chrome.tabs.Tab,
   rules: AutoGroupRule[]
@@ -840,26 +803,6 @@ function matchesSelectedAutoGroupPresets(
 ): boolean {
   if (presetIds.length === 0) return false;
   return presetIds.some((presetId) => matchesDefaultAutoGroupPresetById(tab, presetId));
-}
-
-function matchesWebsitePattern(tab: chrome.tabs.Tab, value: string): boolean {
-  const expected = normalizeWebsitePattern(value);
-  if (!expected) return false;
-
-  const hostname = resolveAutoGroupTargetValue(tab, 'hostname');
-  if (!hostname) return false;
-
-  return hostname === expected || hostname.endsWith(`.${expected}`);
-}
-
-function matchesAutoGroupConfig(tab: chrome.tabs.Tab, config: AutoGroupConfig): boolean {
-  if (!config.enabled) return false;
-
-  return (
-    Boolean(config.presetId && matchesDefaultAutoGroupPresetById(tab, config.presetId)) ||
-    config.websites.some((website) => matchesWebsitePattern(tab, website)) ||
-    matchesAnyAutoGroupRule(tab, config.rules)
-  );
 }
 
 function getEffectiveAutoGroupConfigs(settings: ManagerSettings): AutoGroupConfig[] {
@@ -1051,6 +994,8 @@ async function cleanupSingleTabAutoGroups(): Promise<void> {
   for (const group of groups) {
     const groupTabs = tabsByGroup.get(group.id) ?? [];
     if (!shouldCleanupSingleTabAutoGroup(groupTabs.length)) continue;
+    const metadata = getGroupMetadata(group.id);
+    if (!metadata.autoGroupCreated) continue;
     if (!getBoundAutoGroupConfigId(group.id, settings)) continue;
 
     const tabId = groupTabs[0]?.id;
@@ -1196,20 +1141,71 @@ function normalizeLearnedGroupTitle(title: string | undefined): string {
 function findLearnableAutoGroupConfig(
   configs: AutoGroupConfig[],
   groupId: number,
-  title: string
+  title: string,
+  tabs: chrome.tabs.Tab[]
 ): AutoGroupConfig | null {
   const boundConfigId = getGroupMetadata(groupId).autoGroupConfigId;
   const boundConfig = boundConfigId
     ? configs.find((config) => config.id === boundConfigId) ?? null
     : null;
-  if (boundConfig && !boundConfig.presetId) return boundConfig;
+  if (boundConfig) return boundConfig;
 
   const normalizedTitle = title.trim().toLowerCase();
+  const matchingPreset = defaultAutoGroupPresets.find((preset) =>
+    isDefaultAutoGroupPresetTitle(preset, title)
+  );
+  const presetConfig = matchingPreset
+    ? configs.find((config) => config.presetId === matchingPreset.id) ?? null
+    : null;
+  if (presetConfig) return presetConfig;
+
+  const matchingTabPresetId = resolveSingleDefaultPresetIdForTabs(tabs);
+  const tabPresetConfig = matchingTabPresetId
+    ? configs.find((config) => config.presetId === matchingTabPresetId) ?? null
+    : null;
+  if (tabPresetConfig) return tabPresetConfig;
+
   return (
     configs.find(
       (config) => !config.presetId && config.title.trim().toLowerCase() === normalizedTitle
     ) ?? null
   );
+}
+
+function resolveSingleDefaultPresetIdForTabs(tabs: chrome.tabs.Tab[]): string | null {
+  const presetIds = new Set<string>();
+
+  for (const tab of tabs) {
+    const presetId = matchDefaultAutoGroupPreset(tab)?.id ?? null;
+    if (!presetId) return null;
+    presetIds.add(presetId);
+    if (presetIds.size > 1) return null;
+  }
+
+  return presetIds.values().next().value ?? null;
+}
+
+function resolveLearnedConfigTitle(config: AutoGroupConfig, groupTitle: string): string {
+  if (!config.presetId) return groupTitle;
+
+  const preset = defaultAutoGroupPresets.find((entry) => entry.id === config.presetId);
+  if (!preset) return config.title;
+
+  return isDefaultAutoGroupPresetTitle(preset, groupTitle) ? groupTitle : config.title;
+}
+
+function shouldPreservePresetStyleFromLearnedGroup(
+  config: AutoGroupConfig,
+  groupId: number,
+  groupTitle: string
+): boolean {
+  if (!config.presetId) return false;
+  if (getGroupMetadata(groupId).autoGroupConfigId) return false;
+
+  const preset = defaultAutoGroupPresets.find((entry) => entry.id === config.presetId);
+  if (!preset) return false;
+
+  return !isDefaultAutoGroupPresetTitle(preset, groupTitle);
 }
 
 async function learnAutoGroupRuleFromGroup(groupId: number): Promise<void> {
@@ -1222,16 +1218,23 @@ async function learnAutoGroupRuleFromGroup(groupId: number): Promise<void> {
     chrome.tabGroups.get(groupId),
     chrome.tabs.query({ groupId })
   ]);
+  if (tabs.length < AUTO_GROUP_MIN_TAB_COUNT) return;
+
   const websites = getLearnableWebsitesFromTabs(tabs);
   if (websites.length === 0) return;
 
   const title = normalizeLearnedGroupTitle(group.title);
-  const existingConfig = findLearnableAutoGroupConfig(settings.autoGroupConfigs, groupId, title);
+  const existingConfig = findLearnableAutoGroupConfig(settings.autoGroupConfigs, groupId, title, tabs);
+  const configTitle = existingConfig ? resolveLearnedConfigTitle(existingConfig, title) : title;
+  const configColor =
+    existingConfig && shouldPreservePresetStyleFromLearnedGroup(existingConfig, groupId, title)
+      ? existingConfig.color
+      : (group.color as TabGroupColor);
   const nextConfig = existingConfig
     ? {
         ...existingConfig,
-        title,
-        color: group.color as TabGroupColor,
+        title: configTitle,
+        color: configColor,
         enabled: true,
         websites: Array.from(new Set([...existingConfig.websites, ...websites]))
       }

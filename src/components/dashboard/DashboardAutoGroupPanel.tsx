@@ -10,8 +10,15 @@ import {
   type DragStartEvent
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { RiAddLine, RiCloseLine, RiDeleteBin6Line, RiDragMove2Line } from '@remixicon/react';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  RiAddLine,
+  RiCloseLine,
+  RiDeleteBin6Line,
+  RiDragMove2Line,
+  RiShieldCheckLine,
+  RiTestTubeLine
+} from '@remixicon/react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -19,6 +26,7 @@ import {
   getDefaultAutoGroupPresetTitle,
   isDefaultAutoGroupPresetTitle
 } from '../../lib/auto-group-defaults';
+import { getAutoGroupConfigMatchStatus } from '../../lib/auto-group-matcher';
 import { normalizeWebsitePattern } from '../../lib/shared-utils';
 import { allGroupColors, groupColorTokens } from '../../lib/theme';
 import { getPresetPatternLabels } from '../tab-tree-helpers';
@@ -38,6 +46,7 @@ export function DashboardAutoGroupPanel({
   onToggleConfig,
   onUpdateConfig,
   selectedConfigId,
+  tabs,
   t
 }: DashboardAutoGroupPanelProps) {
   const getConfigDisplayTitle = (config: DashboardAutoGroupPanelProps['configs'][number]) => {
@@ -52,6 +61,9 @@ export function DashboardAutoGroupPanel({
   };
 
   const selectedConfig = configs.find((config) => config.id === selectedConfigId) ?? configs[0] ?? null;
+  const selectedConfigIndex = selectedConfig
+    ? configs.findIndex((config) => config.id === selectedConfig.id)
+    : -1;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const listRef = useRef<HTMLElement | null>(null);
   const [dragState, setDragState] = useState<{
@@ -90,12 +102,75 @@ export function DashboardAutoGroupPanel({
     : [];
   const [titleDraft, setTitleDraft] = useState('');
   const [websiteDraft, setWebsiteDraft] = useState('');
+  const [excludedWebsiteDraft, setExcludedWebsiteDraft] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+
+  const copy = locale === 'zh-CN'
+    ? {
+        excludedSites: '排除站点',
+        excludedSitesSub: '这些站点不会进入此分组，即使匹配其他条件。',
+        pinnedProtected: '固定标签受保护，不会被自动移动。',
+        preview: '预览已打开的标签',
+        previewEmpty: '还没有可预览的打开标签。',
+        previewResults: '测试结果',
+        previewSummary: (count: number) => `已检查 ${count} 个打开标签，不会移动任何标签。`,
+        matched: '会归入',
+        excluded: '已排除',
+        protected: '已保护',
+        noMatches: '没有打开的标签会进入此分组。',
+        priority: '匹配优先级',
+        priorityHint: '多个分组都匹配时，优先使用列表中更靠前的分组。'
+      }
+    : {
+        excludedSites: 'Exclude sites',
+        excludedSitesSub: 'These sites stay out of this group, even when another condition matches.',
+        pinnedProtected: 'Pinned tabs are protected and are never moved automatically.',
+        preview: 'Preview open tabs',
+        previewEmpty: 'No open tabs to preview.',
+        previewResults: 'Test results',
+        previewSummary: (count: number) => `Checked ${count} open tabs. Nothing will be moved.`,
+        matched: 'Would group',
+        excluded: 'Excluded',
+        protected: 'Protected',
+        noMatches: 'No open tabs would enter this group.',
+        priority: 'Match priority',
+        priorityHint: 'When multiple groups match, the one higher in the list wins.'
+      };
 
   const selectedConfigDisplayTitle = selectedConfig ? getConfigDisplayTitle(selectedConfig) : '';
 
   useEffect(() => {
     setTitleDraft(selectedConfigDisplayTitle);
+    setWebsiteDraft('');
+    setExcludedWebsiteDraft('');
+    setShowPreview(false);
   }, [selectedConfig?.id, selectedConfigDisplayTitle]);
+
+  const preview = useMemo(() => {
+    const counts = {
+      excluded: 0,
+      match: 0,
+      matchedTabs: [] as Array<{ hostname: string; id: number; title: string }>,
+      protected: 0
+    };
+    if (!selectedConfig) return counts;
+
+    for (const tab of tabs) {
+      const status = getAutoGroupConfigMatchStatus(tab, selectedConfig);
+      if (status === 'excluded' || status === 'match' || status === 'protected') {
+        counts[status] += 1;
+      }
+      if (status === 'match' && counts.matchedTabs.length < 3) {
+        counts.matchedTabs.push({
+          hostname: tab.hostname,
+          id: tab.id,
+          title: tab.title || tab.hostname
+        });
+      }
+    }
+
+    return counts;
+  }, [selectedConfig, tabs]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = typeof event.active.id === 'string' ? event.active.id : null;
@@ -191,36 +266,50 @@ export function DashboardAutoGroupPanel({
     onUpdateConfig(selectedConfig.id, { title: nextTitle });
   };
 
-  const commitWebsiteDraft = () => {
+  const commitWebsiteDraft = (kind: 'include' | 'exclude') => {
     if (!selectedConfig) return;
 
-    const nextEntries = websiteDraft
+    const draft = kind === 'include' ? websiteDraft : excludedWebsiteDraft;
+    const nextEntries = draft
       .split(/[\s,|]+/g)
       .map(normalizeWebsitePattern)
       .filter(Boolean);
 
     if (nextEntries.length === 0) return;
 
-    const merged = Array.from(new Set([...selectedDomainTags, ...nextEntries]));
+    const currentWebsites = kind === 'include' ? selectedDomainTags : selectedConfig.excludedWebsites;
+    const merged = Array.from(new Set([...currentWebsites, ...nextEntries]));
     onUpdateConfig(selectedConfig.id, {
-      presetId: undefined,
-      title:
-        selectedPreset && isDefaultAutoGroupPresetTitle(selectedPreset, selectedConfig.title)
-          ? getConfigDisplayTitle(selectedConfig)
-          : selectedConfig.title,
-      websites: merged
+      ...(kind === 'include'
+        ? {
+            presetId: undefined,
+            title:
+              selectedPreset && isDefaultAutoGroupPresetTitle(selectedPreset, selectedConfig.title)
+                ? getConfigDisplayTitle(selectedConfig)
+                : selectedConfig.title,
+            websites: merged
+          }
+        : { excludedWebsites: merged })
     });
-    setWebsiteDraft('');
+    if (kind === 'include') setWebsiteDraft('');
+    else setExcludedWebsiteDraft('');
   };
 
-  const handleWebsiteDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleWebsiteDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>, kind: 'include' | 'exclude') => {
     if (event.key !== 'Enter' && event.key !== ',' && event.key !== '|') return;
     event.preventDefault();
-    commitWebsiteDraft();
+    commitWebsiteDraft(kind);
   };
 
-  const removeWebsiteTag = (website: string) => {
+  const removeWebsiteTag = (website: string, kind: 'include' | 'exclude') => {
     if (!selectedConfig) return;
+    if (kind === 'exclude') {
+      onUpdateConfig(selectedConfig.id, {
+        excludedWebsites: selectedConfig.excludedWebsites.filter((item) => item !== website)
+      });
+      return;
+    }
+
     onUpdateConfig(selectedConfig.id, {
       presetId: undefined,
       title:
@@ -363,6 +452,12 @@ export function DashboardAutoGroupPanel({
                 </div>
 
                 <div className="tm-dashboard-automation-form">
+                  <section className="tm-dashboard-automation-priority-card">
+                    <span>{copy.priority}</span>
+                    <strong>#{selectedConfigIndex + 1}</strong>
+                    <p>{copy.priorityHint}</p>
+                  </section>
+
                   <label className="tm-dashboard-automation-field">
                     <div className="tm-dashboard-automation-field-head">
                       <strong>{t.groupTitle}</strong>
@@ -422,14 +517,14 @@ export function DashboardAutoGroupPanel({
                         <input
                           className="tm-dashboard-automation-input tm-dashboard-automation-domain-input"
                           onChange={(event) => setWebsiteDraft(event.target.value)}
-                          onKeyDown={handleWebsiteDraftKeyDown}
+                          onKeyDown={(event) => handleWebsiteDraftKeyDown(event, 'include')}
                           placeholder={t.ruleValuePlaceholder}
                           value={websiteDraft}
                         />
                         <button
                           className="tm-dashboard-automation-inline-button tm-dashboard-automation-domain-add"
                           disabled={!websiteDraft.trim()}
-                          onClick={commitWebsiteDraft}
+                          onClick={() => commitWebsiteDraft('include')}
                           type="button"
                         >
                           <RiAddLine size={14} />
@@ -443,7 +538,7 @@ export function DashboardAutoGroupPanel({
                             <button
                               aria-label={t.removeCondition}
                               className="tm-dashboard-automation-domain-remove"
-                              onClick={() => removeWebsiteTag(website)}
+                              onClick={() => removeWebsiteTag(website, 'include')}
                               type="button"
                             >
                               <RiCloseLine size={12} />
@@ -452,6 +547,89 @@ export function DashboardAutoGroupPanel({
                         ))}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="tm-dashboard-automation-field">
+                    <div className="tm-dashboard-automation-field-head">
+                      <strong>{copy.excludedSites}</strong>
+                      <p>{copy.excludedSitesSub}</p>
+                    </div>
+                    <div className="tm-dashboard-automation-domain-editor">
+                      <div className="tm-dashboard-automation-domain-add-row">
+                        <input
+                          className="tm-dashboard-automation-input tm-dashboard-automation-domain-input"
+                          onChange={(event) => setExcludedWebsiteDraft(event.target.value)}
+                          onKeyDown={(event) => handleWebsiteDraftKeyDown(event, 'exclude')}
+                          placeholder={t.ruleValuePlaceholder}
+                          value={excludedWebsiteDraft}
+                        />
+                        <button
+                          className="tm-dashboard-automation-inline-button tm-dashboard-automation-domain-add"
+                          disabled={!excludedWebsiteDraft.trim()}
+                          onClick={() => commitWebsiteDraft('exclude')}
+                          type="button"
+                        >
+                          <RiAddLine size={14} />
+                          {t.addCondition}
+                        </button>
+                      </div>
+                      <div className="tm-dashboard-automation-domain-list" data-empty={selectedConfig.excludedWebsites.length === 0 ? 'true' : 'false'}>
+                        {selectedConfig.excludedWebsites.map((website) => (
+                          <div className="tm-dashboard-automation-domain-item" key={website}>
+                            <span>{website}</span>
+                            <button
+                              aria-label={t.removeCondition}
+                              className="tm-dashboard-automation-domain-remove"
+                              onClick={() => removeWebsiteTag(website, 'exclude')}
+                              type="button"
+                            >
+                              <RiCloseLine size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="tm-dashboard-automation-protection-note">
+                    <RiShieldCheckLine size={16} />
+                    <span>{copy.pinnedProtected}</span>
+                  </div>
+
+                  <div className="tm-dashboard-automation-preview">
+                    <button
+                      className="tm-dashboard-automation-inline-button"
+                      onClick={() => setShowPreview((visible) => !visible)}
+                      type="button"
+                    >
+                      <RiTestTubeLine size={15} />
+                      {copy.preview}
+                    </button>
+                    {showPreview ? (
+                      tabs.length === 0 ? (
+                        <p>{copy.previewEmpty}</p>
+                      ) : (
+                        <div className="tm-dashboard-automation-preview-results">
+                          <span>{copy.previewResults}</span>
+                          <strong>{copy.matched} {preview.match}</strong>
+                          <strong>{copy.excluded} {preview.excluded}</strong>
+                          <strong>{copy.protected} {preview.protected}</strong>
+                          <p>{copy.previewSummary(tabs.length)}</p>
+                          {preview.matchedTabs.length > 0 ? (
+                            <ul className="tm-dashboard-automation-preview-tabs">
+                              {preview.matchedTabs.map((tab) => (
+                                <li key={tab.id}>
+                                  <strong title={tab.title}>{tab.title}</strong>
+                                  <span>{tab.hostname}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="tm-dashboard-automation-preview-empty">{copy.noMatches}</p>
+                          )}
+                        </div>
+                      )
+                    ) : null}
                   </div>
                 </div>
               </>

@@ -69,6 +69,7 @@ export type DashboardAutoGroupPanelProps = {
   autoGroupLearningSensitivity: ManagerSettings['autoGroupLearningSensitivity'];
   configs: AutoGroupConfig[];
   locale: ResolvedLocale;
+  tabs: OverviewSnapshot['tabs'];
   onAddConfig: () => void;
   onAddRule: (configId: string) => void;
   onDeleteConfig: (configId: string) => void;

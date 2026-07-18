@@ -41,6 +41,8 @@ export interface AutoGroupConfig {
   color: TabGroupColor;
   enabled: boolean;
   websites: string[];
+  /** Domains that should win over this group's matching rules. */
+  excludedWebsites: string[];
   rules: AutoGroupRule[];
 }
 

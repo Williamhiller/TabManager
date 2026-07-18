@@ -59,6 +59,7 @@ export function createAutoGroupConfig(
     color: options.color ?? 'blue',
     enabled: true,
     websites,
+    excludedWebsites: [],
     rules: []
   };
 }

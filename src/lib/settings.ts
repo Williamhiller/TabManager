@@ -1,4 +1,4 @@
-import { defaultAutoGroupPresets } from './auto-group-defaults';
+import { defaultAutoGroupPresets, isDefaultAutoGroupPresetTitle } from './auto-group-defaults';
 import { normalizeWebsitePattern } from './shared-utils';
 import type {
   AutoCloseDomainMode,
@@ -164,6 +164,7 @@ export const defaultSettings: ManagerSettings = {
     color: preset.color,
     enabled: true,
     websites: [],
+    excludedWebsites: [],
     rules: []
   })),
   theme: 'system',
@@ -384,10 +385,76 @@ function normalizeRule(raw: unknown): AutoGroupRule | null {
 function normalizeWebsites(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
 
-  return value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => normalizeWebsitePattern(item))
-    .filter(Boolean);
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const next = normalizeWebsitePattern(item);
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    normalized.push(next);
+  }
+
+  return normalized;
+}
+
+function mergeWebsites(left: string[], right: string[]): string[] {
+  return Array.from(new Set([...left, ...right].map(normalizeWebsitePattern).filter(Boolean)));
+}
+
+function getRuleKey(rule: AutoGroupRule): string {
+  return `${rule.field}:${rule.operator}:${rule.value.trim().toLowerCase()}`;
+}
+
+function mergeRules(left: AutoGroupRule[], right: AutoGroupRule[]): AutoGroupRule[] {
+  const seen = new Set<string>();
+  const merged: AutoGroupRule[] = [];
+
+  for (const rule of [...left, ...right]) {
+    const key = getRuleKey(rule);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(rule);
+  }
+
+  return merged;
+}
+
+function mergeAutoGroupConfigs(
+  target: AutoGroupConfig,
+  source: AutoGroupConfig
+): AutoGroupConfig {
+  return {
+    ...target,
+    enabled: target.enabled || source.enabled,
+    websites: mergeWebsites(target.websites, source.websites),
+    excludedWebsites: mergeWebsites(target.excludedWebsites, source.excludedWebsites),
+    rules: mergeRules(target.rules, source.rules)
+  };
+}
+
+function foldDefaultTitleCustomAutoGroupConfigs(configs: AutoGroupConfig[]): AutoGroupConfig[] {
+  const next = [...configs];
+
+  for (let index = 0; index < next.length; index += 1) {
+    const config = next[index];
+    if (!config || config.presetId) continue;
+
+    const preset = defaultAutoGroupPresets.find((entry) =>
+      isDefaultAutoGroupPresetTitle(entry, config.title)
+    );
+    if (!preset) continue;
+
+    const presetIndex = next.findIndex((entry) => entry.presetId === preset.id);
+    if (presetIndex < 0) continue;
+
+    next[presetIndex] = mergeAutoGroupConfigs(next[presetIndex]!, config);
+    next.splice(index, 1);
+    index -= 1;
+  }
+
+  return next;
 }
 
 function normalizeAutoGroupConfigs(
@@ -424,6 +491,7 @@ function normalizeAutoGroupConfigs(
           : preset?.color ?? 'blue',
         enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : true,
         websites: normalizeWebsites(candidate.websites),
+        excludedWebsites: normalizeWebsites(candidate.excludedWebsites),
         rules: Array.isArray(candidate.rules)
           ? candidate.rules.map(normalizeRule).filter((rule): rule is AutoGroupRule => rule !== null)
           : []
@@ -439,6 +507,7 @@ function normalizeAutoGroupConfigs(
       color: preset.color,
       enabled: selectedPresetIds.includes(preset.id),
       websites: [],
+      excludedWebsites: [],
       rules: []
     }));
   }
@@ -452,7 +521,7 @@ function normalizeAutoGroupConfigs(
     seenIds.add(item.id);
   }
 
-  return next;
+  return foldDefaultTitleCustomAutoGroupConfigs(next);
 }
 
 function normalizeSettings(raw?: Partial<ManagerSettings>): ManagerSettings {

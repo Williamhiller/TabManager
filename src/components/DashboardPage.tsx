@@ -594,6 +594,7 @@ export function DashboardPage() {
               autoGroupLearningSensitivity={data.settings.autoGroupLearningSensitivity}
               configs={data.settings.autoGroupConfigs}
               locale={locale}
+              tabs={data.overview?.tabs ?? []}
               onAddConfig={() => void addAutoGroupConfig()}
               onAddRule={(configId) => void addAutoGroupRule(configId)}
               onDeleteConfig={(configId) => void deleteAutoGroupConfig(configId)}
